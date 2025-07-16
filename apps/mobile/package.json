@@ -5,8 +5,8 @@
 	"scripts": {
 		"start": "expo start -c",
 		"reset-project": "node ./scripts/reset-project.js",
-		"android": "expo start --android",
-		"ios": "expo start --ios",
+		"android": "expo run:android",
+		"ios": "expo run:ios",
 		"web": "expo start --web",
 		"lint": "expo lint"
 	},
@@ -14,12 +14,14 @@
 		"@expo/metro-runtime": "~5.0.4",
 		"@expo/vector-icons": "^14.1.0",
 		"@gorhom/bottom-sheet": "^5.1.6",
+		"@morrowdigital/watermelondb-expo-plugin": "^2.3.3",
 		"@react-native-async-storage/async-storage": "^2.2.0",
 		"@react-navigation/bottom-tabs": "^7.4.2",
 		"@react-navigation/elements": "^2.3.8",
 		"@react-navigation/native": "^7.1.14",
 		"expo": "~53.0.17",
 		"expo-blur": "~14.1.5",
+		"expo-build-properties": "^0.14.8",
 		"expo-constants": "~17.1.7",
 		"expo-font": "~13.3.2",
 		"expo-haptics": "~14.1.4",
@@ -44,7 +46,6 @@
 		"react-native-webview": "13.13.5"
 	},
 	"devDependencies": {
-		"@babel/core": "^7.25.2",
 		"@types/react": "~19.0.10",
 		"@types/react-native-vector-icons": "^6.4.18",
 		"eslint": "^9.25.0",

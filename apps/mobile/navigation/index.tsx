@@ -7,10 +7,10 @@ import { View, TouchableOpacity } from "react-native";
 import DashboardScreen from "../screens/DashboardScreen";
 import TransactionsScreen from "../screens/TransactionsScreen";
 import AccountsScreen from "../screens/AccountsScreen";
-import AssetsScreen from '../screens/AssetsScreen';
-import LiabilitiesScreen from '../screens/LiabilitiesScreen';
-import CategoriesScreen from '../screens/CategoriesScreen';
-import { useTheme, FAB } from 'react-native-paper';
+import AssetsScreen from "../screens/AssetsScreen";
+import LiabilitiesScreen from "../screens/LiabilitiesScreen";
+import CategoriesScreen from "../screens/CategoriesScreen";
+import { useTheme, FAB } from "react-native-paper";
 import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
 import AppBottomSheet from "../components/AppBottomSheet";
 import MoreActionsContent from "../components/MoreActionsContent";
@@ -97,33 +97,21 @@ const MainTabNavigator: React.FC = () => {
 					}}
 				/>
 				<Tab.Screen
-          name="More"
-          component={View} // Dummy component, as the button handles the action
-          options={{
-            tabBarLabel: 'More',
-            tabBarIcon: ({ color, size }) => (
-              <MaterialCommunityIcons name="dots-horizontal" color={color} size={size} />
-            ),
-            tabBarButton: (props) => <MoreTabButton {...props} />,
-          }}
-        />
-        <Tab.Screen
-          name="Liabilities"
-          component={LiabilitiesScreen}
-          options={{
-            tabBarButton: () => null, // Hide from tab bar
-            tabBarLabel: () => null, // Hide label
-          }}
-        />
-        <Tab.Screen
-          name="Categories"
-          component={CategoriesScreen}
-          options={{
-            tabBarButton: () => null, // Hide from tab bar
-            tabBarLabel: () => null, // Hide label
-          }}
-        />
-      </Tab.Navigator>
+					name="More"
+					component={View} // Dummy component, as the button handles the action
+					options={{
+						tabBarLabel: "More",
+						tabBarIcon: ({ color, size }) => (
+							<MaterialCommunityIcons
+								name="dots-horizontal"
+								color={color}
+								size={size}
+							/>
+						),
+						tabBarButton: (props) => <MoreTabButton {...props} />,
+					}}
+				/>
+			</Tab.Navigator>
 			<AppBottomSheet
 				isVisible={isBottomSheetVisible}
 				onClose={closeBottomSheet}

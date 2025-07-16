@@ -1,11 +1,11 @@
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { PaperProvider } from "react-native-paper";
 import { useColorScheme } from "react-native";
 import { LightTheme, DarkTheme } from "../theme/theme";
 import AppBar from "../components/AppBar";
 import React, { useState, useEffect } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import MainTabNavigator from "../navigation";
+import MainTabNavigator from "@/navigation";
 
 const App = () => {
 	const systemColorScheme = useColorScheme();
@@ -42,7 +42,10 @@ const App = () => {
 	return (
 		<GestureHandlerRootView style={{ flex: 1 }}>
 			<PaperProvider theme={theme}>
-				<AppBar onToggleTheme={toggleTheme} currentTheme={currentTheme as any} />
+				<AppBar
+					onToggleTheme={toggleTheme}
+					currentTheme={currentTheme as any}
+				/>
 				<MainTabNavigator />
 			</PaperProvider>
 		</GestureHandlerRootView>
