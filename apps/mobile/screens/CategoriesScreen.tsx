@@ -1,25 +1,253 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { useTheme } from 'react-native-paper';
+import React, { useState, useMemo } from "react";
+import { View, FlatList, StyleSheet, Alert } from "react-native";
+import {
+	FAB,
+	ActivityIndicator,
+	Text,
+	Snackbar,
+	useTheme,
+	Surface,
+	Divider,
+	List,
+} from "react-native-paper";
+import { useCategories } from "../hooks/useCategories";
+import { useTransactionTypes } from "../hooks/useTransactionTypes";
+import CategoryListItem from "../components/CategoryListItem";
+import CategoryFormModal from "../components/CategoryFormModal";
+import {
+	CategoryRepository,
+	Category,
+} from "../repositories/CategoryRepository";
+import { useDatabase } from "../database";
 
-const CategoriesScreen: React.FC = () => {
-  const theme = useTheme();
-  return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <Text style={[styles.text, { color: theme.colors.onBackground }]}>Categories Screen</Text>
-    </View>
-  );
+const CategoriesScreen = () => {
+	const theme = useTheme();
+	const db = useDatabase();
+
+	const { categories, loading, error, refresh } = useCategories();
+	const { transactionTypes } = useTransactionTypes();
+	const [modalVisible, setModalVisible] = useState(false);
+	const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+	const [snackbar, setSnackbar] = useState({ visible: false, message: "" });
+
+	const openAddModal = () => {
+		setEditingCategory(null);
+		setModalVisible(true);
+	};
+
+	const openEditModal = (category: Category) => {
+		setEditingCategory(category);
+		setModalVisible(true);
+	};
+
+	const closeModal = () => {
+		setModalVisible(false);
+		setEditingCategory(null);
+	};
+
+	const handleSubmit = async (data: {
+		name: string;
+		transaction_type_id: number;
+	}) => {
+		try {
+			if (editingCategory) {
+				await CategoryRepository.update(db, editingCategory.id, data);
+				setSnackbar({ visible: true, message: "Category updated" });
+			} else {
+				await CategoryRepository.create(db, {
+					...data,
+					created_at: new Date().toISOString(),
+				});
+				setSnackbar({ visible: true, message: "Category created" });
+			}
+			closeModal();
+			refresh();
+		} catch (e: any) {
+			setSnackbar({
+				visible: true,
+				message: e.message || "Error saving category",
+			});
+		}
+	};
+
+	const handleDelete = (category: Category) => {
+		Alert.alert(
+			"Delete Category",
+			`Are you sure you want to delete "${category.name}"?`,
+			[
+				{ text: "Cancel", style: "cancel" },
+				{
+					text: "Delete",
+					style: "destructive",
+					onPress: async () => {
+						try {
+							await CategoryRepository.delete(db, category.id);
+							setSnackbar({ visible: true, message: "Category deleted" });
+							refresh();
+						} catch (e: any) {
+							setSnackbar({
+								visible: true,
+								message: e.message || "Error deleting category",
+							});
+						}
+					},
+				},
+			]
+		);
+	};
+
+	const getTypeName = (typeId: number) => {
+		return transactionTypes.find((t) => t.id === typeId)?.name || "";
+	};
+
+	// Group categories by transaction type
+	const groupedCategories = useMemo(() => {
+		const groups: { [key: string]: Category[] } = {};
+
+		categories.forEach((category) => {
+			const typeName = getTypeName(category.transaction_type_id);
+			if (!groups[typeName]) {
+				groups[typeName] = [];
+			}
+			groups[typeName].push(category);
+		});
+
+		return groups;
+	}, [categories, transactionTypes]);
+
+	// Flatten grouped data for FlatList
+	const flatListData = useMemo(() => {
+		const data: Array<{ type: "header" | "item"; content: any }> = [];
+
+		Object.entries(groupedCategories).forEach(([typeName, categories]) => {
+			// Add header
+			data.push({ type: "header", content: typeName });
+			// Add items
+			categories.forEach((category) => {
+				data.push({ type: "item", content: category });
+			});
+		});
+
+		return data;
+	}, [groupedCategories]);
+
+	return (
+		<View
+			style={[styles.container, { backgroundColor: theme.colors.background }]}
+		>
+			{loading ? (
+				<View style={styles.centered}>
+					<ActivityIndicator size="large" />
+					<Text variant="bodyLarge" style={{ marginTop: 16 }}>
+						Loading categories...
+					</Text>
+				</View>
+			) : error ? (
+				<View style={styles.centered}>
+					<Text variant="bodyLarge" style={{ color: theme.colors.error }}>
+						{error}
+					</Text>
+				</View>
+			) : (
+				<FlatList
+					data={flatListData}
+					keyExtractor={(item, index) =>
+						item.type === "header"
+							? `header-${item.content}`
+							: `item-${item.content.id}-${index}`
+					}
+					renderItem={({ item }) => {
+						if (item.type === "header") {
+							const headerColor =
+								item.content === "Income"
+									? theme.colors.primary
+									: theme.colors.error;
+							return (
+								<Surface style={styles.headerContainer}>
+									<Text
+										variant="titleMedium"
+										style={[styles.headerText, { color: headerColor }]}
+									>
+										{item.content}
+									</Text>
+								</Surface>
+							);
+						} else {
+							const category = item.content as Category;
+							return (
+								<CategoryListItem
+									category={category}
+									onEdit={() => openEditModal(category)}
+									onDelete={() => handleDelete(category)}
+								/>
+							);
+						}
+					}}
+					ListEmptyComponent={
+						<View style={styles.centered}>
+							<Text
+								variant="bodyLarge"
+								style={{ color: theme.colors.onSurfaceVariant }}
+							>
+								No categories yet.
+							</Text>
+						</View>
+					}
+					contentContainerStyle={
+						flatListData.length === 0 ? styles.centered : undefined
+					}
+					ItemSeparatorComponent={() => <Divider />}
+				/>
+			)}
+			<FAB
+				icon="plus"
+				style={styles.fab}
+				onPress={openAddModal}
+				accessibilityLabel="Add Category"
+			/>
+			<CategoryFormModal
+				visible={modalVisible}
+				onClose={closeModal}
+				onSubmit={handleSubmit}
+				transactionTypes={transactionTypes}
+				initialCategory={editingCategory}
+			/>
+			<Snackbar
+				visible={snackbar.visible}
+				onDismiss={() => setSnackbar({ visible: false, message: "" })}
+				duration={2000}
+			>
+				{snackbar.message}
+			</Snackbar>
+		</View>
+	);
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  text: {
-    fontSize: 24,
-  },
+	container: {
+		flex: 1,
+		padding: 16,
+	},
+	fab: {
+		position: "absolute",
+		right: 16,
+		bottom: 24,
+	},
+	centered: {
+		flex: 1,
+		justifyContent: "center",
+		alignItems: "center",
+		textAlign: "center",
+		marginTop: 32,
+	},
+	headerContainer: {
+		paddingHorizontal: 16,
+		paddingVertical: 8,
+		marginTop: 8,
+	},
+	headerText: {
+		fontWeight: "600",
+	},
 });
 
 export default CategoriesScreen;
