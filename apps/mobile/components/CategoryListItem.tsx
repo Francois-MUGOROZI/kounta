@@ -1,45 +1,67 @@
 import React from "react";
 import { View, StyleSheet } from "react-native";
-import { List, IconButton, Text } from "react-native-paper";
+import { Text, useTheme } from "react-native-paper";
+import SwipeableListItem from "./SwipeableListItem";
+import { Category } from "../repositories/CategoryRepository";
 
 interface CategoryListItemProps {
-	category: { id: number; name: string; transaction_type_id: number };
+	category: Category;
+	typeName: string;
 	onEdit: () => void;
 	onDelete: () => void;
 }
 
 const CategoryListItem: React.FC<CategoryListItemProps> = ({
 	category,
+	typeName,
 	onEdit,
 	onDelete,
 }) => {
+	const theme = useTheme();
 	return (
-		<List.Item
-			title={category.name}
-			right={(props) => (
-				<View style={styles.actions}>
-					<IconButton
-						icon="pencil"
-						size={20}
-						onPress={onEdit}
-						accessibilityLabel="Edit"
-					/>
-					<IconButton
-						icon="delete"
-						size={20}
-						onPress={onDelete}
-						accessibilityLabel="Delete"
-					/>
-				</View>
-			)}
-		/>
+		<SwipeableListItem
+			onEdit={onEdit}
+			onDelete={onDelete}
+			style={styles.container}
+		>
+			<View style={styles.content}>
+				<View
+					style={[styles.colorDot, { backgroundColor: theme.colors.primary }]}
+				/>
+				<Text variant="titleMedium" style={styles.name}>
+					{category.name}
+				</Text>
+				<Text variant="bodySmall" style={styles.type}>
+					{typeName}
+				</Text>
+			</View>
+		</SwipeableListItem>
 	);
 };
 
 const styles = StyleSheet.create({
-	actions: {
+	container: {
+		marginBottom: 4,
+		borderRadius: 8,
+		overflow: "hidden",
+	},
+	content: {
 		flexDirection: "row",
 		alignItems: "center",
+		padding: 16,
+	},
+	colorDot: {
+		width: 16,
+		height: 16,
+		borderRadius: 8,
+		marginRight: 12,
+	},
+	name: {
+		flex: 1,
+	},
+	type: {
+		marginLeft: 8,
+		color: "#888",
 	},
 });
 

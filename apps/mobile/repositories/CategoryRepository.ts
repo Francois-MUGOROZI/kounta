@@ -1,97 +1,59 @@
-import { useDatabase } from "../database";
-import React from "react";
-
-export interface Category {
-	id: number;
-	name: string;
-	transaction_type_id: number;
-	created_at: string;
-}
+import { SQLiteDatabase } from "expo-sqlite";
+import { Category } from "../types";
 
 export const CategoryRepository = {
-	useGetAll() {
-		const db = useDatabase();
-		const [categories, setCategories] = React.useState<Category[]>([]);
-		const [loading, setLoading] = React.useState(true);
-		const [error, setError] = React.useState<string | null>(null);
-
-		const fetchCategories = React.useCallback(async () => {
-			setLoading(true);
-			setError(null);
-			try {
-				const result = await db.getAllAsync<Category>(
-					"SELECT * FROM categories ORDER BY created_at DESC"
-				);
-				setCategories(result);
-			} catch (e: any) {
-				setError(e.message || "Failed to load categories");
-			} finally {
-				setLoading(false);
-			}
-		}, [db]);
-
-		React.useEffect(() => {
-			fetchCategories();
-		}, [fetchCategories]);
-
-		return { categories, loading, error, refresh: fetchCategories };
-	},
-
-	useGetById(id: number) {
-		const db = useDatabase();
-		const [category, setCategory] = React.useState<Category | null>(null);
-		const [loading, setLoading] = React.useState(true);
-		const [error, setError] = React.useState<string | null>(null);
-
-		const fetchCategory = React.useCallback(async () => {
-			setLoading(true);
-			setError(null);
-			try {
-				const result = await db.getFirstAsync<Category>(
-					"SELECT * FROM categories WHERE id = ?",
-					[id]
-				);
-				setCategory(result);
-			} catch (e: any) {
-				setError(e.message || "Failed to load category");
-			} finally {
-				setLoading(false);
-			}
-		}, [db, id]);
-
-		React.useEffect(() => {
-			fetchCategory();
-		}, [fetchCategory]);
-
-		return { category, loading, error, refresh: fetchCategory };
-	},
-
-	async create(db: any, category: Omit<Category, "id">): Promise<void> {
-		await db.runAsync(
-			`INSERT INTO categories (name, transaction_type_id, created_at)
-       VALUES (?, ?, ?)`,
-			[category.name, category.transaction_type_id, category.created_at]
+	async getAll(db: SQLiteDatabase): Promise<Category[]> {
+		return await db.getAllAsync<Category>(
+			"SELECT * FROM categories ORDER BY created_at DESC"
 		);
 	},
 
-	async update(db: any, id: number, updates: Partial<Category>): Promise<void> {
-		const fields = [];
-		const values = [];
+	async getById(db: SQLiteDatabase, id: number): Promise<Category | null> {
+		return await db.getFirstAsync<Category>(
+			"SELECT * FROM categories WHERE id = ?",
+			[id]
+		);
+	},
+
+	async create(
+		db: SQLiteDatabase,
+		category: Omit<Category, "id">
+	): Promise<void> {
+		const name: string = category.name ?? "";
+		const transaction_type_id: number =
+			typeof category.transaction_type_id === "number"
+				? category.transaction_type_id
+				: 0;
+		const created_at: string = category.created_at ?? new Date().toISOString();
+		await db.runAsync(
+			`INSERT INTO categories (name, transaction_type_id, created_at) VALUES (?, ?, ?)`,
+			[name as string, transaction_type_id as number, created_at as string]
+		);
+	},
+
+	async update(
+		db: SQLiteDatabase,
+		id: number,
+		updates: Partial<Category>
+	): Promise<void> {
+		const fields: string[] = [];
+		const values: (string | number)[] = [];
 		for (const key in updates) {
-			if (updates[key as keyof Category] !== undefined) {
+			const value = updates[key as keyof Category];
+			if (value !== undefined) {
 				fields.push(`${key} = ?`);
-				values.push(updates[key as keyof Category]);
+				values.push(value as string | number);
 			}
 		}
 		if (fields.length === 0) return;
-		values.push(id);
+		values.push(id as number);
 		await db.runAsync(
 			`UPDATE categories SET ${fields.join(", ")} WHERE id = ?`,
 			values
 		);
 	},
 
-	async delete(db: any, id: number): Promise<void> {
+	async delete(db: SQLiteDatabase, id: number): Promise<void> {
 		await db.runAsync("DELETE FROM categories WHERE id = ?", [id]);
 	},
 };

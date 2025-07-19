@@ -1,38 +1,32 @@
-import { executeSqlAsync } from "../database";
-
-export interface AssetType {
-	id: number;
-	name: string;
-}
+import { SQLiteDatabase } from "expo-sqlite";
+import { AssetType } from "../types";
 
 export const AssetTypeRepository = {
-	async getAll(): Promise<AssetType[]> {
-		const result = await executeSqlAsync(
+	async getAll(db: SQLiteDatabase): Promise<AssetType[]> {
+		return await db.getAllAsync<AssetType>(
 			"SELECT * FROM asset_types ORDER BY id ASC"
 		);
-		return result.rows?._array || [];
 	},
 
-	async getById(id: number): Promise<AssetType | null> {
-		const result = await executeSqlAsync(
+	async getById(db: SQLiteDatabase, id: number): Promise<AssetType | null> {
+		return await db.getFirstAsync<AssetType>(
 			"SELECT * FROM asset_types WHERE id = ?",
 			[id]
 		);
-		return result.rows?._array?.[0] || null;
 	},
 
-	async create(name: string): Promise<void> {
-		await executeSqlAsync("INSERT INTO asset_types (name) VALUES (?)", [name]);
+	async create(db: SQLiteDatabase, name: string): Promise<void> {
+		await db.runAsync("INSERT INTO asset_types (name) VALUES (?)", [name]);
 	},
 
-	async update(id: number, name: string): Promise<void> {
-		await executeSqlAsync("UPDATE asset_types SET name = ? WHERE id = ?", [
+	async update(db: SQLiteDatabase, id: number, name: string): Promise<void> {
+		await db.runAsync("UPDATE asset_types SET name = ? WHERE id = ?", [
 			name,
 			id,
 		]);
 	},
 
-	async delete(id: number): Promise<void> {
-		await executeSqlAsync("DELETE FROM asset_types WHERE id = ?", [id]);
+	async delete(db: SQLiteDatabase, id: number): Promise<void> {
+		await db.runAsync("DELETE FROM asset_types WHERE id = ?", [id]);
 	},
 };

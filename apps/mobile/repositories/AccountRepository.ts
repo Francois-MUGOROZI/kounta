@@ -1,57 +1,71 @@
-import { executeSqlAsync } from "../database";
+import { SQLiteDatabase } from "expo-sqlite";
 import { Account } from "../types";
 
 export const AccountRepository = {
-	async getAll(): Promise<Account[]> {
-		const result = await executeSqlAsync(
+	async getAll(db: SQLiteDatabase): Promise<Account[]> {
+		return await db.getAllAsync<Account>(
 			"SELECT * FROM accounts ORDER BY created_at DESC"
 		);
-		return result.rows?._array || [];
 	},
 
-	async getById(id: number): Promise<Account | null> {
-		const result = await executeSqlAsync(
+	async getById(db: SQLiteDatabase, id: number): Promise<Account | null> {
+		return await db.getFirstAsync<Account>(
 			"SELECT * FROM accounts WHERE id = ?",
 			[id]
 		);
-		return result.rows?._array?.[0] || null;
 	},
 
-	async create(account: Omit<Account, "id">): Promise<void> {
-		await executeSqlAsync(
-			`INSERT INTO accounts (name, type_id, currency, opening_balance, current_balance, created_at)
-       VALUES (?, ?, ?, ?, ?, ?)`,
+	async create(
+		db: SQLiteDatabase,
+		account: Omit<Account, "id">
+	): Promise<void> {
+		const name: string = account.name ?? "";
+		const account_number: string | null = account.account_number ?? null;
+		const account_type_id: number =
+			typeof account.account_type_id === "number" ? account.account_type_id : 0;
+		const currency: string = account.currency ?? "";
+		const opening_balance: number =
+			typeof account.opening_balance === "number" ? account.opening_balance : 0;
+		const current_balance: number =
+			typeof account.current_balance === "number" ? account.current_balance : 0;
+		const created_at: string = account.created_at ?? new Date().toISOString();
+		await db.runAsync(
+			`INSERT INTO accounts (name, account_number, account_type_id, currency, opening_balance, current_balance, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
 			[
-				account.name,
-				account.type_id,
-				account.currency,
-				account.opening_balance,
-				account.current_balance ?? account.opening_balance,
-				account.created_at instanceof Date
-					? account.created_at.toISOString()
-					: account.created_at,
+				name,
+				account_number,
+				account_type_id,
+				currency,
+				opening_balance,
+				current_balance,
+				created_at,
 			]
 		);
 	},
 
-	async update(id: number, updates: Partial<Account>): Promise<void> {
-		const fields = [];
-		const values = [];
+	async update(
+		db: SQLiteDatabase,
+		id: number,
+		updates: Partial<Account>
+	): Promise<void> {
+		const fields: string[] = [];
+		const values: (string | number | null)[] = [];
 		for (const key in updates) {
-			if (updates[key as keyof Account] !== undefined) {
+			const value = updates[key as keyof Account];
+			if (value !== undefined) {
 				fields.push(`${key} = ?`);
-				values.push(updates[key as keyof Account]);
+				values.push(value as string | number | null);
 			}
 		}
 		if (fields.length === 0) return;
-		values.push(id);
-		await executeSqlAsync(
+		values.push(id as number);
+		await db.runAsync(
 			`UPDATE accounts SET ${fields.join(", ")} WHERE id = ?`,
 			values
 		);
 	},
 
-	async delete(id: number): Promise<void> {
-		await executeSqlAsync("DELETE FROM accounts WHERE id = ?", [id]);
+	async delete(db: SQLiteDatabase, id: number): Promise<void> {
+		await db.runAsync("DELETE FROM accounts WHERE id = ?", [id]);
 	},
 };

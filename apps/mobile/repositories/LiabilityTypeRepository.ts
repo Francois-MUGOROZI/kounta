@@ -1,40 +1,32 @@
-import { executeSqlAsync } from "../database";
-
-export interface LiabilityType {
-	id: number;
-	name: string;
-}
+import { SQLiteDatabase } from "expo-sqlite";
+import { LiabilityType } from "../types";
 
 export const LiabilityTypeRepository = {
-	async getAll(): Promise<LiabilityType[]> {
-		const result = await executeSqlAsync(
+	async getAll(db: SQLiteDatabase): Promise<LiabilityType[]> {
+		return await db.getAllAsync<LiabilityType>(
 			"SELECT * FROM liability_types ORDER BY id ASC"
 		);
-		return result.rows?._array || [];
 	},
 
-	async getById(id: number): Promise<LiabilityType | null> {
-		const result = await executeSqlAsync(
+	async getById(db: SQLiteDatabase, id: number): Promise<LiabilityType | null> {
+		return await db.getFirstAsync<LiabilityType>(
 			"SELECT * FROM liability_types WHERE id = ?",
 			[id]
 		);
-		return result.rows?._array?.[0] || null;
 	},
 
-	async create(name: string): Promise<void> {
-		await executeSqlAsync("INSERT INTO liability_types (name) VALUES (?)", [
-			name,
-		]);
+	async create(db: SQLiteDatabase, name: string): Promise<void> {
+		await db.runAsync("INSERT INTO liability_types (name) VALUES (?)", [name]);
 	},
 
-	async update(id: number, name: string): Promise<void> {
-		await executeSqlAsync("UPDATE liability_types SET name = ? WHERE id = ?", [
+	async update(db: SQLiteDatabase, id: number, name: string): Promise<void> {
+		await db.runAsync("UPDATE liability_types SET name = ? WHERE id = ?", [
 			name,
 			id,
 		]);
 	},
 
-	async delete(id: number): Promise<void> {
-		await executeSqlAsync("DELETE FROM liability_types WHERE id = ?", [id]);
+	async delete(db: SQLiteDatabase, id: number): Promise<void> {
+		await db.runAsync("DELETE FROM liability_types WHERE id = ?", [id]);
 	},
 };

@@ -3,12 +3,19 @@
  * Corresponds to the 'accounts' table/model.
  */
 export interface Account {
+	id: number;
 	name: string;
-	type_id: string; // Foreign key to AccountType
-	currency: string; // ISO 4217 currency code (e.g., "RWF", "USD")
+	account_number?: string | null;
+	account_type_id: number;
+	currency: string;
 	opening_balance: number;
-	current_balance?: number; // Optional, can be calculated from transactions
-	created_at: Date;
+	current_balance: number;
+	created_at: string;
+}
+
+export interface AccountType {
+	id: number;
+	name: string;
 }
 
 /**
@@ -16,9 +23,37 @@ export interface Account {
  * Corresponds to the 'categories' table/model.
  */
 export interface Category {
+	id: number;
 	name: string;
-	type_id: string; // Foreign key to TransactionType
-	created_at: Date;
+	transaction_type_id: number;
+	created_at: string;
+}
+
+/**
+ * Represents a type of asset (e.g., "Real Estate", "Stocks", "Vehicles").
+ * Corresponds to the 'asset_types' table/model.
+ */
+export interface AssetType {
+	id: number;
+	name: string;
+}
+
+/**
+ * Represents a type of liability (e.g., "Personal Loan", "Mortgage", "Credit Card Debt").
+ * Corresponds to the 'liability_types' table/model.
+ */
+export interface LiabilityType {
+	id: number;
+	name: string;
+}
+
+/**
+ * Represents a type of transaction (e.g., "Income", "Expense").
+ * Corresponds to the 'transaction_types' table/model.
+ */
+export interface TransactionType {
+	id: number;
+	name: string;
 }
 
 /**
@@ -26,12 +61,14 @@ export interface Category {
  * Corresponds to the 'assets' table/model.
  */
 export interface Asset {
+	id: number;
 	name: string;
-	type_id: string; // Foreign key to AssetType
+	asset_type_id: number; // Foreign key to AssetType
 	currency: string;
 	initial_value: number; // The initial purchase value
 	current_value: number; // Current market value
-	created_at: Date;
+	created_at: string;
+	notes?: string | null;
 }
 
 /**
@@ -39,12 +76,14 @@ export interface Asset {
  * Corresponds to the 'liabilities' table/model.
  */
 export interface Liability {
+	id: number;
 	name: string;
-	type_id: string; // Foreign key to LiabilityType
+	liability_type_id: number; // Foreign key to LiabilityType
 	currency: string;
 	total_amount: number; // The original amount of the debt
 	current_balance: number; // The remaining amount to be paid
-	created_at: Date;
+	created_at: string;
+	notes?: string | null;
 }
 
 /**
@@ -53,16 +92,15 @@ export interface Liability {
  * Corresponds to the 'transactions' table/model.
  */
 export interface Transaction {
+	id: number;
 	description: string;
 	amount: number; // Always a positive value
-	type_id: string; // Foreign key to TransactionType
-	date: Date;
-
-	// Foreign Keys (as stored in the DB)
-	account_id: string;
-	category_id: string;
-	asset_id?: string | null;
-	liability_id?: string | null;
+	transaction_type_id: number; // Foreign key to TransactionType
+	date: string; // Date as ISO string
+	account_id: number; // Foreign key to Account
+	category_id: number; // Foreign key to Category
+	asset_id?: number | null; // Foreign key to Asset (optional)
+	liability_id?: number | null; // Foreign key to Liability (optional)
 }
 
 /**

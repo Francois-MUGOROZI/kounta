@@ -51,6 +51,7 @@ export async function initDatabase(db: any) {
 			initial_value REAL NOT NULL,
 			current_value REAL NOT NULL,
 			created_at TEXT NOT NULL,
+			notes TEXT,
 			FOREIGN KEY (asset_type_id) REFERENCES asset_types(id)
 		);
 	`);
@@ -63,6 +64,7 @@ export async function initDatabase(db: any) {
 			total_amount REAL NOT NULL,
 			current_balance REAL NOT NULL,
 			created_at TEXT NOT NULL,
+			notes TEXT,
 			FOREIGN KEY (liability_type_id) REFERENCES liability_types(id)
 		);
 	`);
@@ -114,8 +116,31 @@ export async function initDatabase(db: any) {
 		);
 	`);
 
+	// Run migrations
+	await runMigrations(db);
+
 	await seedTypeTables(db);
 	await seedCategories(db);
+}
+
+// Run database migrations
+async function runMigrations(db: any) {
+	try {
+		// Migration: Add notes column to liabilities table if it doesn't exist
+		const liabilitiesColumns = await db.getAllAsync(
+			"PRAGMA table_info(liabilities)"
+		);
+		const hasNotesColumn = liabilitiesColumns.some(
+			(col: any) => col.name === "notes"
+		);
+
+		if (!hasNotesColumn) {
+			await db.execAsync("ALTER TABLE liabilities ADD COLUMN notes TEXT");
+			console.log("Added notes column to liabilities table");
+		}
+	} catch (error) {
+		console.log("Migration error:", error);
+	}
 }
 
 // Seed type tables with enum values if empty

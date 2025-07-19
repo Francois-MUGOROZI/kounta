@@ -10,21 +10,33 @@ import {
 	Divider,
 	List,
 } from "react-native-paper";
-import { useCategories } from "../hooks/useCategories";
+import { useGetCategories } from "../hooks/category/useGetCategories";
+import { useCreateCategory } from "../hooks/category/useCreateCategory";
+import { useUpdateCategory } from "../hooks/category/useUpdateCategory";
+import { useDeleteCategory } from "../hooks/category/useDeleteCategory";
 import { useTransactionTypes } from "../hooks/useTransactionTypes";
 import CategoryListItem from "../components/CategoryListItem";
 import CategoryFormModal from "../components/CategoryFormModal";
-import {
-	CategoryRepository,
-	Category,
-} from "../repositories/CategoryRepository";
-import { useDatabase } from "../database";
+import { Category } from "../types";
 
 const CategoriesScreen = () => {
 	const theme = useTheme();
-	const db = useDatabase();
-
-	const { categories, loading, error, refresh } = useCategories();
+	const { categories, loading, error, refresh } = useGetCategories();
+	const {
+		createCategory,
+		loading: creating,
+		error: createError,
+	} = useCreateCategory();
+	const {
+		updateCategory,
+		loading: updating,
+		error: updateError,
+	} = useUpdateCategory();
+	const {
+		deleteCategory,
+		loading: deleting,
+		error: deleteError,
+	} = useDeleteCategory();
 	const { transactionTypes } = useTransactionTypes();
 	const [modalVisible, setModalVisible] = useState(false);
 	const [editingCategory, setEditingCategory] = useState<Category | null>(null);
@@ -51,13 +63,10 @@ const CategoriesScreen = () => {
 	}) => {
 		try {
 			if (editingCategory) {
-				await CategoryRepository.update(db, editingCategory.id, data);
+				await updateCategory(editingCategory.id, data);
 				setSnackbar({ visible: true, message: "Category updated" });
 			} else {
-				await CategoryRepository.create(db, {
-					...data,
-					created_at: new Date().toISOString(),
-				});
+				await createCategory({ ...data, created_at: new Date().toISOString() });
 				setSnackbar({ visible: true, message: "Category created" });
 			}
 			closeModal();
@@ -81,7 +90,7 @@ const CategoriesScreen = () => {
 					style: "destructive",
 					onPress: async () => {
 						try {
-							await CategoryRepository.delete(db, category.id);
+							await deleteCategory(category.id);
 							setSnackbar({ visible: true, message: "Category deleted" });
 							refresh();
 						} catch (e: any) {
@@ -103,7 +112,6 @@ const CategoriesScreen = () => {
 	// Group categories by transaction type
 	const groupedCategories = useMemo(() => {
 		const groups: { [key: string]: Category[] } = {};
-
 		categories.forEach((category) => {
 			const typeName = getTypeName(category.transaction_type_id);
 			if (!groups[typeName]) {
@@ -111,14 +119,12 @@ const CategoriesScreen = () => {
 			}
 			groups[typeName].push(category);
 		});
-
 		return groups;
 	}, [categories, transactionTypes]);
 
 	// Flatten grouped data for FlatList
 	const flatListData = useMemo(() => {
 		const data: Array<{ type: "header" | "item"; content: any }> = [];
-
 		Object.entries(groupedCategories).forEach(([typeName, categories]) => {
 			// Add header
 			data.push({ type: "header", content: typeName });
@@ -127,25 +133,27 @@ const CategoriesScreen = () => {
 				data.push({ type: "item", content: category });
 			});
 		});
-
 		return data;
 	}, [groupedCategories]);
+
+	const anyLoading = loading || creating || updating || deleting;
+	const anyError = error || createError || updateError || deleteError;
 
 	return (
 		<View
 			style={[styles.container, { backgroundColor: theme.colors.background }]}
 		>
-			{loading ? (
+			{anyLoading ? (
 				<View style={styles.centered}>
 					<ActivityIndicator size="large" />
 					<Text variant="bodyLarge" style={{ marginTop: 16 }}>
 						Loading categories...
 					</Text>
 				</View>
-			) : error ? (
+			) : anyError ? (
 				<View style={styles.centered}>
 					<Text variant="bodyLarge" style={{ color: theme.colors.error }}>
-						{error}
+						{anyError}
 					</Text>
 				</View>
 			) : (
@@ -163,20 +171,19 @@ const CategoriesScreen = () => {
 									? theme.colors.primary
 									: theme.colors.error;
 							return (
-								<Surface style={styles.headerContainer}>
-									<Text
-										variant="titleMedium"
-										style={[styles.headerText, { color: headerColor }]}
-									>
-										{item.content}
-									</Text>
-								</Surface>
+								<Text
+									variant="titleMedium"
+									style={[styles.headerText, { color: headerColor }]}
+								>
+									{item.content}
+								</Text>
 							);
 						} else {
 							const category = item.content as Category;
 							return (
 								<CategoryListItem
 									category={category}
+									typeName={getTypeName(category.transaction_type_id)}
 									onEdit={() => openEditModal(category)}
 									onDelete={() => handleDelete(category)}
 								/>
@@ -201,7 +208,8 @@ const CategoriesScreen = () => {
 			)}
 			<FAB
 				icon="plus"
-				style={styles.fab}
+				style={[styles.fab, { backgroundColor: theme.colors.primary }]}
+				color={theme.colors.onPrimary}
 				onPress={openAddModal}
 				accessibilityLabel="Add Category"
 			/>
@@ -247,6 +255,7 @@ const styles = StyleSheet.create({
 	},
 	headerText: {
 		fontWeight: "600",
+		marginTop: 8,
 	},
 });
 
