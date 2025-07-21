@@ -266,7 +266,7 @@ export const TransactionFilter: React.FC<TransactionFilterProps> = ({
 										: "Select Date Range"}
 								</Button>
 								<DatePickerModal
-									locale=""
+									locale="en"
 									mode="range"
 									visible={showDatePicker}
 									onDismiss={() => setShowDatePicker(false)}

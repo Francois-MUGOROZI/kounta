@@ -19,6 +19,7 @@ const MoreActionsContent: React.FC<MoreActionsContentProps> = ({ onClose }) => {
 	const actions = [
 		{ name: "Liabilities", icon: "credit-card-minus", screen: "Liabilities" },
 		{ name: "Categories", icon: "shape", screen: "Categories" },
+		{ name: "Manage Types", icon: "tune-variant", screen: "Types" },
 		// Add more actions here as needed
 	];
 
@@ -50,7 +51,7 @@ const MoreActionsContent: React.FC<MoreActionsContentProps> = ({ onClose }) => {
 						key={action.name}
 						style={{
 							width: "33%", // 3 items per row
-							padding: 5,
+							padding: 2,
 							alignItems: "center",
 						}}
 						onPress={() => handleNavigation(action.screen)}
@@ -58,19 +59,29 @@ const MoreActionsContent: React.FC<MoreActionsContentProps> = ({ onClose }) => {
 						<Card
 							style={{
 								width: "100%",
-								aspectRatio: 1, // Make cards square
+								aspectRatio: 1,
 								justifyContent: "center",
 								alignItems: "center",
 								backgroundColor: theme.colors.surface,
+								padding: 4,
 							}}
 						>
-							<Card.Content style={{ alignItems: "center" }}>
+							<Card.Content style={{ alignItems: "center", padding: 0 }}>
 								<IconButton
 									icon={action.icon}
-									size={30}
+									size={22}
 									iconColor={theme.colors.primary}
+									style={{ margin: 0 }}
 								/>
-								<Text style={{ color: theme.colors.onSurface }}>
+								<Text
+									style={{
+										color: theme.colors.onSurface,
+										fontSize: 12,
+										textAlign: "center",
+										marginTop: 2,
+									}}
+									numberOfLines={2}
+								>
 									{action.name}
 								</Text>
 							</Card.Content>

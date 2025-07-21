@@ -14,7 +14,8 @@ import AccountsScreen from "../screens/AccountsScreen";
 import AssetsScreen from "../screens/AssetsScreen";
 import LiabilitiesScreen from "../screens/LiabilitiesScreen";
 import CategoriesScreen from "../screens/CategoriesScreen";
-import { useTheme, FAB } from "react-native-paper";
+import TypesScreen from "../screens/TypesScreen";
+import { useTheme } from "react-native-paper";
 import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
 import AppBottomSheet from "../components/AppBottomSheet";
 import MoreActionsContent from "../components/MoreActionsContent";
@@ -139,6 +140,7 @@ const AppNavigator: React.FC = () => {
 			<Stack.Screen name="Main" component={MainTabNavigator} />
 			<Stack.Screen name="Categories" component={CategoriesScreen} />
 			<Stack.Screen name="Liabilities" component={LiabilitiesScreen} />
+			<Stack.Screen name="Types" component={TypesScreen} />
 		</Stack.Navigator>
 	);
 };

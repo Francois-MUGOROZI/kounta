@@ -1,38 +1,37 @@
 import React from "react";
-import { View, StyleSheet } from "react-native";
+import { View, StyleSheet, ViewStyle } from "react-native";
 import { Text, useTheme } from "react-native-paper";
 import SwipeableListItem from "./SwipeableListItem";
-import { Category } from "../types";
 
-interface CategoryListItemProps {
-	category: Category;
-	typeName: string;
+interface TypeListItemProps {
+	name: string;
 	onEdit: () => void;
 	onDelete: () => void;
+	style?: ViewStyle;
 }
 
-const CategoryListItem: React.FC<CategoryListItemProps> = ({
-	category,
-	typeName,
+const TypeListItem: React.FC<TypeListItemProps> = ({
+	name,
 	onEdit,
 	onDelete,
+	style,
 }) => {
 	const theme = useTheme();
+	const combinedStyle = style
+		? StyleSheet.flatten([styles.container, style])
+		: styles.container;
 	return (
 		<SwipeableListItem
 			onEdit={onEdit}
 			onDelete={onDelete}
-			style={styles.container}
+			style={combinedStyle}
 		>
 			<View style={styles.content}>
 				<View
 					style={[styles.colorDot, { backgroundColor: theme.colors.primary }]}
 				/>
-				<Text variant="titleMedium" style={styles.name}>
-					{category.name}
-				</Text>
-				<Text variant="bodySmall" style={styles.type}>
-					{typeName}
+				<Text style={styles.name} variant="titleMedium">
+					{name}
 				</Text>
 			</View>
 		</SwipeableListItem>
@@ -59,10 +58,6 @@ const styles = StyleSheet.create({
 	name: {
 		flex: 1,
 	},
-	type: {
-		marginLeft: 8,
-		color: "#888",
-	},
 });
 
-export default CategoryListItem;
+export default TypeListItem;

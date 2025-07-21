@@ -39,7 +39,8 @@ export async function initDatabase(db: any) {
 			opening_balance REAL NOT NULL,
 			current_balance REAL NOT NULL,
 			created_at TEXT NOT NULL,
-			FOREIGN KEY (account_type_id) REFERENCES account_types(id)
+			FOREIGN KEY (account_type_id) REFERENCES account_types(id),
+			UNIQUE(name, account_type_id)
 		);
 	`);
 	await db.execAsync(`
@@ -74,7 +75,8 @@ export async function initDatabase(db: any) {
 			name TEXT NOT NULL,
 			transaction_type_id INTEGER NOT NULL,
 			created_at TEXT NOT NULL,
-			FOREIGN KEY (transaction_type_id) REFERENCES transaction_types(id)
+			FOREIGN KEY (transaction_type_id) REFERENCES transaction_types(id),
+			UNIQUE(name, transaction_type_id)
 		);
 	`);
 	await db.execAsync(`
@@ -126,18 +128,7 @@ export async function initDatabase(db: any) {
 // Run database migrations
 async function runMigrations(db: any) {
 	try {
-		// Migration: Add notes column to liabilities table if it doesn't exist
-		const liabilitiesColumns = await db.getAllAsync(
-			"PRAGMA table_info(liabilities)"
-		);
-		const hasNotesColumn = liabilitiesColumns.some(
-			(col: any) => col.name === "notes"
-		);
-
-		if (!hasNotesColumn) {
-			await db.execAsync("ALTER TABLE liabilities ADD COLUMN notes TEXT");
-			console.log("Added notes column to liabilities table");
-		}
+		// Add any migration change here
 	} catch (error) {
 		console.log("Migration error:", error);
 	}
