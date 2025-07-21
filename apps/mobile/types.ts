@@ -139,3 +139,12 @@ export interface DashboardData {
 	}[];
 	upcomingBills: Transaction[];
 }
+
+// Transaction filter type for type-safe filtering
+export type TransactionFilter = {
+	transactionTypeId?: number;
+	categoryId?: number;
+	startDate?: string;
+	endDate?: string;
+	period?: string;
+};

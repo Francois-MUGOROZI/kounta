@@ -10,7 +10,7 @@ export interface Currency {
 }
 
 export const CURRENCIES: Currency[] = [
-	{ code: "RWF", name: "Rwandan Franc", symbol: "FRw", decimalPlaces: 0 },
+	{ code: "RWF", name: "Rwandan Franc", symbol: "RWF", decimalPlaces: 0 },
 	{ code: "USD", name: "US Dollar", symbol: "$", decimalPlaces: 2 },
 	{ code: "EUR", name: "Euro", symbol: "€", decimalPlaces: 2 },
 	{ code: "GBP", name: "British Pound", symbol: "£", decimalPlaces: 2 },

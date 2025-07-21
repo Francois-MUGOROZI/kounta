@@ -1,11 +1,37 @@
 import { SQLiteDatabase } from "expo-sqlite";
-import { Transaction } from "../types";
+import { Transaction, TransactionFilter } from "../types";
 
 export const TransactionRepository = {
-	async getAll(db: SQLiteDatabase): Promise<Transaction[]> {
-		return await db.getAllAsync<Transaction>(
-			"SELECT * FROM transactions ORDER BY date DESC"
-		);
+	async getAll(
+		db: SQLiteDatabase,
+		filter?: TransactionFilter
+	): Promise<Transaction[]> {
+		let query = "SELECT * FROM transactions";
+		const where: string[] = [];
+		const params: (string | number)[] = [];
+		if (filter) {
+			if (filter.transactionTypeId) {
+				where.push("transaction_type_id = ?");
+				params.push(filter.transactionTypeId);
+			}
+			if (filter.categoryId) {
+				where.push("category_id = ?");
+				params.push(filter.categoryId);
+			}
+			if (filter.startDate) {
+				where.push("date >= ?");
+				params.push(filter.startDate);
+			}
+			if (filter.endDate) {
+				where.push("date <= ?");
+				params.push(filter.endDate);
+			}
+		}
+		if (where.length > 0) {
+			query += " WHERE " + where.join(" AND ");
+		}
+		query += " ORDER BY date DESC";
+		return await db.getAllAsync<Transaction>(query, params);
 	},
 
 	async getById(db: SQLiteDatabase, id: number): Promise<Transaction | null> {

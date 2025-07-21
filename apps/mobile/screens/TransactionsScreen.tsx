@@ -20,12 +20,33 @@ import { useGetAssets } from "../hooks/asset/useGetAssets";
 import { useGetLiabilities } from "../hooks/liability/useGetLiabilities";
 import TransactionListItem from "../components/TransactionListItem";
 import TransactionFormDialog from "../components/TransactionFormDialog";
-import { Transaction } from "../types";
+import { TransactionFilter } from "../components/TransactionFilter";
+import type {
+	Transaction,
+	TransactionFilter as FilterTransaction,
+} from "../types";
 import { formatAmount } from "../utils/currency";
 
 const TransactionsScreen = () => {
 	const theme = useTheme();
-	const { transactions, loading, error, refresh } = useGetTransactions();
+	const getInitialMonthFilter = () => {
+		const now = new Date();
+		const startDate = new Date(now.getFullYear(), now.getMonth(), 1)
+			.toISOString()
+			.split("T")[0];
+		const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+			.toISOString()
+			.split("T")[0];
+		return {
+			period: "month",
+			startDate,
+			endDate,
+		};
+	};
+	const [filters, setFilters] = useState<FilterTransaction>(
+		getInitialMonthFilter()
+	);
+	const { transactions, loading, error, refresh } = useGetTransactions(filters);
 	const {
 		createTransaction,
 		loading: creating,
@@ -295,6 +316,15 @@ const TransactionsScreen = () => {
 		<View
 			style={[styles.container, { backgroundColor: theme.colors.background }]}
 		>
+			<TransactionFilter
+				transactionTypes={transactionTypes.map((t) => ({
+					label: t.name,
+					value: t.id,
+				}))}
+				categories={categories.map((c) => ({ label: c.name, value: c.id }))}
+				onApply={setFilters}
+				initialFilters={filters}
+			/>
 			{anyLoading ? (
 				<View style={styles.centered}>
 					<ActivityIndicator size="large" />
