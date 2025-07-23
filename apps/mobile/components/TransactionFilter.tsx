@@ -255,7 +255,7 @@ export const TransactionFilter: React.FC<TransactionFilterProps> = ({
 							))}
 						</RadioButton.Group>
 						{period === "custom" && (
-							<>
+							<View>
 								<Button
 									mode="outlined"
 									onPress={() => setShowDatePicker(true)}
@@ -283,7 +283,7 @@ export const TransactionFilter: React.FC<TransactionFilterProps> = ({
 										setShowDatePicker(false);
 									}}
 								/>
-							</>
+							</View>
 						)}
 					</Dialog.Content>
 					<Dialog.Actions>

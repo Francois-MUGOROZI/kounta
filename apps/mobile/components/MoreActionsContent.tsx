@@ -1,5 +1,5 @@
 import React from "react";
-import { View, TouchableOpacity } from "react-native";
+import { View, TouchableOpacity, StyleSheet } from "react-native";
 import { Text, useTheme, Card, IconButton, Divider } from "react-native-paper";
 import { useNavigation } from "@react-navigation/native";
 
@@ -24,62 +24,35 @@ const MoreActionsContent: React.FC<MoreActionsContentProps> = ({ onClose }) => {
 	];
 
 	return (
-		<>
-			<View
-				style={{
-					flexDirection: "row",
-					justifyContent: "space-between",
-					alignItems: "center",
-					marginBottom: 16,
-				}}
-			>
+		<View>
+			<View style={styles.container}>
 				<Text variant="titleLarge" style={{ color: theme.colors.onSurface }}>
 					More Actions
 				</Text>
 			</View>
 			<Divider />
-			<View
-				style={{
-					flexDirection: "row",
-					flexWrap: "wrap",
-					justifyContent: "flex-start",
-					marginTop: 16,
-				}}
-			>
+			<View style={styles.subContainer}>
 				{actions.map((action) => (
 					<TouchableOpacity
 						key={action.name}
-						style={{
-							width: "33%", // 3 items per row
-							padding: 2,
-							alignItems: "center",
-						}}
+						style={styles.actionButton}
 						onPress={() => handleNavigation(action.screen)}
 					>
 						<Card
-							style={{
-								width: "100%",
-								aspectRatio: 1,
-								justifyContent: "center",
-								alignItems: "center",
-								backgroundColor: theme.colors.surface,
-								padding: 4,
-							}}
+							style={[
+								styles.actionCard,
+								{ backgroundColor: theme.colors.surface },
+							]}
 						>
-							<Card.Content style={{ alignItems: "center", padding: 0 }}>
+							<Card.Content style={styles.actionContent}>
 								<IconButton
 									icon={action.icon}
 									size={22}
 									iconColor={theme.colors.primary}
-									style={{ margin: 0 }}
+									style={styles.iconButton}
 								/>
 								<Text
-									style={{
-										color: theme.colors.onSurface,
-										fontSize: 12,
-										textAlign: "center",
-										marginTop: 2,
-									}}
+									style={[styles.actionText, { color: theme.colors.onSurface }]}
 									numberOfLines={2}
 								>
 									{action.name}
@@ -89,8 +62,44 @@ const MoreActionsContent: React.FC<MoreActionsContentProps> = ({ onClose }) => {
 					</TouchableOpacity>
 				))}
 			</View>
-		</>
+		</View>
 	);
 };
+
+const styles = StyleSheet.create({
+	container: {
+		flexDirection: "row",
+		justifyContent: "space-between",
+		alignItems: "center",
+		marginBottom: 16,
+	},
+	subContainer: {
+		flexDirection: "row",
+		flexWrap: "wrap",
+		justifyContent: "flex-start",
+		marginTop: 16,
+	},
+	actionButton: {
+		width: "33%", // 3 items per row
+		padding: 2,
+		alignItems: "center",
+	},
+	actionCard: {
+		width: "100%",
+		aspectRatio: 1,
+		justifyContent: "center",
+		alignItems: "center",
+		padding: 4,
+	},
+	actionContent: { alignItems: "center", padding: 0 },
+	iconButton: {
+		margin: 0,
+	},
+	actionText: {
+		fontSize: 12,
+		textAlign: "center",
+		marginTop: 2,
+	},
+});
 
 export default MoreActionsContent;

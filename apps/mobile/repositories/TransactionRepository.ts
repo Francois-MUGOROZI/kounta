@@ -60,6 +60,7 @@ export const TransactionRepository = {
 		const asset_id: number | null = transaction.asset_id ?? null;
 		const liability_id: number | null = transaction.liability_id ?? null;
 
+		// Insert transaction
 		await db.runAsync(
 			`INSERT INTO transactions (description, amount, transaction_type_id, date, account_id, category_id, asset_id, liability_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 			[
@@ -73,6 +74,26 @@ export const TransactionRepository = {
 				liability_id,
 			]
 		);
+
+		// Fetch transaction type name
+		const typeRow = await db.getFirstAsync<{ name: string }>(
+			"SELECT name FROM transaction_types WHERE id = ?",
+			[transaction_type_id]
+		);
+		const transactionTypeName = typeRow?.name || "";
+
+		// Update account balance
+		if (transactionTypeName === "Income") {
+			await db.runAsync(
+				"UPDATE accounts SET current_balance = current_balance + ? WHERE id = ?",
+				[amount, account_id]
+			);
+		} else {
+			await db.runAsync(
+				"UPDATE accounts SET current_balance = current_balance - ? WHERE id = ?",
+				[amount, account_id]
+			);
+		}
 	},
 
 	async update(

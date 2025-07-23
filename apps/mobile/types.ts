@@ -1,3 +1,26 @@
+// Dashboard Aggregation Types
+export interface DashboardTotals {
+	currency: string;
+	totalIncome: number;
+	totalExpenses: number;
+	accountBalance: number;
+	assetValue: number;
+	liabilityValue: number;
+	netWorth: number;
+}
+
+export interface GroupedByType {
+	type: string;
+	count: number;
+	total: number;
+	currency: string;
+}
+
+export interface CategoryTotal {
+	category: string;
+	total: number;
+	currency: string;
+}
 /**
  * Represents a financial account where money is held.
  * Corresponds to the 'accounts' table/model.

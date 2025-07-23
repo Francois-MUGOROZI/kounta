@@ -1,20 +1,14 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import {
-	PaperProvider,
-	Text,
-	ActivityIndicator,
-	useTheme,
-} from "react-native-paper";
-import { useColorScheme, View } from "react-native";
-import { LightTheme, DarkTheme } from "../theme/theme";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { PaperProvider, Text, ActivityIndicator } from "react-native-paper";
+import { View } from "react-native";
+import { ThemeProvider, useAppTheme } from "../contexts/ThemeContext";
 import AppNavigator from "@/navigation";
 import { SQLiteProvider } from "expo-sqlite";
 import { useDatabaseInitialization } from "../database";
 
 const AppContent = () => {
-	const theme = useTheme();
+	const { theme } = useAppTheme();
 	const { isInitialized, isInitializing, error } = useDatabaseInitialization();
 	if (isInitializing) {
 		return (
@@ -45,44 +39,17 @@ const AppContent = () => {
 		);
 	}
 
-	return (
-		<PaperProvider theme={theme}>
-			<AppNavigator />
-		</PaperProvider>
-	);
+	return <AppNavigator />;
 };
 
-const App = () => {
-	const systemColorScheme = useColorScheme();
-	const [currentTheme, setCurrentTheme] = useState(
-		systemColorScheme === "dark" ? "dark" : "light"
-	);
-
-	useEffect(() => {
-		const loadTheme = async () => {
-			try {
-				const storedTheme = await AsyncStorage.getItem("appTheme");
-				if (storedTheme) {
-					setCurrentTheme(storedTheme);
-				}
-			} catch (e) {
-				console.error("Failed to load theme from storage", e);
-			}
-		};
-		loadTheme();
-	}, []);
-
-	const theme = currentTheme === "dark" ? DarkTheme : LightTheme;
-
-	return (
-		<GestureHandlerRootView style={{ flex: 1 }}>
-			<PaperProvider theme={theme}>
-				<SQLiteProvider databaseName="kounta.db">
-					<AppContent />
-				</SQLiteProvider>
-			</PaperProvider>
-		</GestureHandlerRootView>
-	);
-};
+const App = () => (
+	<GestureHandlerRootView>
+		<ThemeProvider>
+			<SQLiteProvider databaseName="kounta.db">
+				<AppContent />
+			</SQLiteProvider>
+		</ThemeProvider>
+	</GestureHandlerRootView>
+);
 
 export default App;

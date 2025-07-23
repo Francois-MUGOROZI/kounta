@@ -38,7 +38,7 @@ const MainTabNavigator: React.FC = () => {
 	);
 
 	return (
-		<>
+		<View style={{ flex: 1 }}>
 			<Tab.Navigator
 				screenOptions={{
 					headerShown: false,
@@ -126,7 +126,7 @@ const MainTabNavigator: React.FC = () => {
 			>
 				<MoreActionsContent onClose={closeBottomSheet} />
 			</AppBottomSheet>
-		</>
+		</View>
 	);
 };
 

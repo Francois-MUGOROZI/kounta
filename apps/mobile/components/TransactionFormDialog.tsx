@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, use } from "react";
 import { StyleSheet } from "react-native";
 import {
 	Portal,
@@ -6,11 +6,10 @@ import {
 	TextInput,
 	Button,
 	HelperText,
-	Text,
 	useTheme,
 } from "react-native-paper";
 import { Dropdown } from "react-native-paper-dropdown";
-import { Transaction } from "../types";
+import { Category, Transaction } from "../types";
 
 interface TransactionFormDialogProps {
 	visible: boolean;
@@ -27,7 +26,7 @@ interface TransactionFormDialogProps {
 	}) => void;
 	transactionTypes: { id: number; name: string }[];
 	accounts: { id: number; name: string }[];
-	categories: { id: number; name: string }[];
+	categories: Category[];
 	assets: { id: number; name: string }[];
 	liabilities: { id: number; name: string }[];
 	initialTransaction?: Transaction | null;
@@ -54,6 +53,7 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 	const [assetId, setAssetId] = useState<string>("");
 	const [liabilityId, setLiabilityId] = useState<string>("");
 	const [error, setError] = useState("");
+	const [filteredCategories, setFilteredCategories] = useState<Category[]>([]);
 
 	useEffect(() => {
 		if (initialTransaction) {
@@ -114,6 +114,18 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 			liability_id: liabilityId ? Number(liabilityId) : null,
 		});
 	};
+
+	useEffect(() => {
+		if (typeId) {
+			setFilteredCategories(
+				categories.filter(
+					(category) => category.transaction_type_id === Number(typeId)
+				)
+			);
+		} else {
+			setFilteredCategories(categories);
+		}
+	}, [typeId, categories]);
 
 	return (
 		<Portal>
@@ -195,7 +207,7 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 						label={"Category"}
 						value={categoryId}
 						onSelect={(v) => setCategoryId(v ?? "")}
-						options={categories.map((category) => ({
+						options={filteredCategories.map((category) => ({
 							label: category.name,
 							value: category.id.toString(),
 						}))}
