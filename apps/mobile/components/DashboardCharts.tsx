@@ -5,7 +5,7 @@ import { useDashboardChartsData } from "../hooks/dashboard/useDashboardChartsDat
 import { BarChart } from "react-native-chart-kit";
 
 const CHART_HEIGHT = 180;
-const CHART_WIDTH = 340; // Adjust as needed for your layout
+const CHART_WIDTH = 360; // Adjust as needed for your layout
 
 interface DashboardChartsProps {
 	currency: string;

@@ -1,3 +1,8 @@
 .local/
 .vscode/
 .idea/
+.env
+.DS_Store
+.env.local
+.env.development
+.local

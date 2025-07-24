@@ -27,7 +27,9 @@ export const AccountRepository = {
 		const opening_balance: number =
 			typeof account.opening_balance === "number" ? account.opening_balance : 0;
 		const current_balance: number =
-			typeof account.current_balance === "number" ? account.current_balance : 0;
+			typeof account.current_balance === "number"
+				? account.current_balance
+				: opening_balance;
 		const created_at: string = account.created_at ?? new Date().toISOString();
 		await db.runAsync(
 			`INSERT INTO accounts (name, account_number, account_type_id, currency, opening_balance, current_balance, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,

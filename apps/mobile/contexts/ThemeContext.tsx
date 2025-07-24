@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useColorScheme } from "react-native";
+import { useColorScheme, View } from "react-native";
 import { PaperProvider } from "react-native-paper";
 import { LightTheme, DarkTheme } from "../theme/theme";
 
@@ -42,7 +42,16 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
 
 	return (
 		<ThemeContext.Provider value={{ theme, isDark, toggleTheme }}>
-			<PaperProvider theme={theme}>{children}</PaperProvider>
+			<PaperProvider theme={theme}>
+				<View
+					style={{
+						flex: 1,
+						backgroundColor: theme.colors.background,
+					}}
+				>
+					{children}
+				</View>
+			</PaperProvider>
 		</ThemeContext.Provider>
 	);
 };

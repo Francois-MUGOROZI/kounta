@@ -1,51 +1,50 @@
 {
-  "expo": {
-    "name": "Kounta",
-    "slug": "kounta",
-    "version": "1.0.0",
-    "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
-    "scheme": "kounta",
-    "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
-    "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.francoismugorozi.kounta"
-    },
-    "android": {
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
-      },
-      "edgeToEdgeEnabled": true,
-      "package": "com.francoismugorozi.kounta"
-    },
-    "web": {
-      "bundler": "metro",
-      "output": "static",
-      "favicon": "./assets/images/favicon.png"
-    },
-    "plugins": [
-      "expo-router",
-      "@morrowdigital/watermelondb-expo-plugin",
-      "expo-build-properties",
-      [
-        "expo-splash-screen",
-        {
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 200,
-          "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
-        }
-      ],
-      "expo-sqlite"
-    ],
-    "experiments": {},
-    "extra": {
-      "eas": {
-        "projectId": "6fce6bca-df7c-4eb1-b356-6d8f8b31ae20"
-      }
-    },
-    "owner": "francois-mugorozi"
-  }
+	"expo": {
+		"name": "Kounta",
+		"slug": "kounta",
+		"version": "1.0.0",
+		"orientation": "portrait",
+		"icon": "./assets/images/icon.png",
+		"scheme": "kounta",
+		"userInterfaceStyle": "automatic",
+		"newArchEnabled": true,
+		"ios": {
+			"supportsTablet": true,
+			"bundleIdentifier": "com.francoismugorozi.kounta"
+		},
+		"android": {
+			"adaptiveIcon": {
+				"foregroundImage": "./assets/images/adaptive-icon.png",
+				"backgroundColor": "#ffffff"
+			},
+			"edgeToEdgeEnabled": true,
+			"package": "com.francoismugorozi.kounta"
+		},
+		"web": {
+			"bundler": "metro",
+			"output": "static",
+			"favicon": "./assets/images/favicon.png"
+		},
+		"plugins": [
+			"expo-router",
+			"expo-build-properties",
+			[
+				"expo-splash-screen",
+				{
+					"image": "./assets/images/splash-icon.png",
+					"imageWidth": 200,
+					"resizeMode": "contain",
+					"backgroundColor": "#ffffff"
+				}
+			],
+			"expo-sqlite"
+		],
+		"experiments": {},
+		"extra": {
+			"eas": {
+				"projectId": "6fce6bca-df7c-4eb1-b356-6d8f8b31ae20"
+			}
+		},
+		"owner": "francois-mugorozi"
+	}
 }

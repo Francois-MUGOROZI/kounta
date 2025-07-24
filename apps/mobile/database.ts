@@ -34,13 +34,14 @@ export async function initDatabase(db: any) {
 		CREATE TABLE IF NOT EXISTS accounts (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			name TEXT NOT NULL,
+			account_number TEXT,
 			account_type_id INTEGER NOT NULL,
 			currency TEXT NOT NULL,
 			opening_balance REAL NOT NULL,
 			current_balance REAL NOT NULL,
 			created_at TEXT NOT NULL,
 			FOREIGN KEY (account_type_id) REFERENCES account_types(id),
-			UNIQUE(name, account_type_id)
+			UNIQUE(name, account_type_id, account_number)
 		);
 	`);
 	await db.execAsync(`
@@ -142,7 +143,6 @@ export async function seedTypeTables(db: any) {
 		"Mobile Money",
 		"Cash",
 		"Credit Card",
-		"Investment Account",
 		"Other",
 	];
 	for (const name of accountTypes) {
@@ -213,7 +213,12 @@ export async function seedCategories(db: any) {
 				{ name: "Freelance", transaction_type_id: incomeType.id },
 				{ name: "Investment", transaction_type_id: incomeType.id },
 				{ name: "Business", transaction_type_id: incomeType.id },
-				{ name: "Other Income", transaction_type_id: incomeType.id },
+				{ name: "Assets", transaction_type_id: incomeType.id },
+				{ name: "Gifts", transaction_type_id: incomeType.id },
+				{ name: "Refunds", transaction_type_id: incomeType.id },
+				{ name: "Interest", transaction_type_id: incomeType.id },
+				{ name: "Dividends", transaction_type_id: incomeType.id },
+				{ name: "Other Earnings", transaction_type_id: incomeType.id },
 
 				// Expense categories
 				{ name: "Food & Dining", transaction_type_id: expenseType.id },
@@ -226,7 +231,13 @@ export async function seedCategories(db: any) {
 				{ name: "Education", transaction_type_id: expenseType.id },
 				{ name: "Insurance", transaction_type_id: expenseType.id },
 				{ name: "Taxes", transaction_type_id: expenseType.id },
-				{ name: "Other Expenses", transaction_type_id: expenseType.id },
+				{ name: "Gifts", transaction_type_id: expenseType.id },
+				{ name: "Subscriptions", transaction_type_id: expenseType.id },
+				{ name: "Travel", transaction_type_id: expenseType.id },
+				{ name: "Repairs & Maintenance", transaction_type_id: expenseType.id },
+				{ name: "Personal Care", transaction_type_id: expenseType.id },
+				{ name: "Giveaways", transaction_type_id: expenseType.id },
+				{ name: "Miscellaneous", transaction_type_id: expenseType.id },
 			];
 
 			for (const category of defaultCategories) {

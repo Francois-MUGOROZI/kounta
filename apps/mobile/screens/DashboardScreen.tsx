@@ -99,29 +99,31 @@ const DashboardScreen: React.FC = () => {
 				</Text>
 			)}
 
-			<Menu
-				visible={menuVisible}
-				onDismiss={() => setMenuVisible(false)}
-				anchor={
-					<Text
-						style={[styles.currencyMenu, { color: theme.colors.secondary }]}
-						onPress={() => setMenuVisible(true)}
-					>
-						Currency: {currency || "Select"}
-					</Text>
-				}
-			>
-				{currencies.map((cur) => (
-					<Menu.Item
-						key={cur}
-						onPress={() => {
-							handleCurrencyChange(cur);
-							setMenuVisible(false);
-						}}
-						title={cur}
-					/>
-				))}
-			</Menu>
+			<View style={styles.currencyMenu}>
+				<Menu
+					visible={menuVisible}
+					onDismiss={() => setMenuVisible(false)}
+					anchor={
+						<Text
+							style={{ color: theme.colors.secondary }}
+							onPress={() => setMenuVisible(true)}
+						>
+							Currency: {currency || "Select"}
+						</Text>
+					}
+				>
+					{currencies.map((cur) => (
+						<Menu.Item
+							key={cur}
+							onPress={() => {
+								handleCurrencyChange(cur);
+								setMenuVisible(false);
+							}}
+							title={cur}
+						/>
+					))}
+				</Menu>
+			</View>
 
 			{currency && (
 				<View key={currency} style={styles.currencySection}>
@@ -207,7 +209,8 @@ const styles = StyleSheet.create({
 		marginBottom: 16,
 		justifyContent: "center",
 		width: "100%",
-		textAlign: "right",
+		display: "flex",
+		alignItems: "flex-end",
 	},
 });
 

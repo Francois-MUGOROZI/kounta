@@ -20,6 +20,11 @@ const MoreActionsContent: React.FC<MoreActionsContentProps> = ({ onClose }) => {
 		{ name: "Liabilities", icon: "credit-card-minus", screen: "Liabilities" },
 		{ name: "Categories", icon: "shape", screen: "Categories" },
 		{ name: "Manage Types", icon: "tune-variant", screen: "Types" },
+		{
+			name: "Backup & Restore",
+			icon: "backup-restore",
+			screen: "BackupRestore",
+		},
 		// Add more actions here as needed
 	];
 

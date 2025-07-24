@@ -15,6 +15,7 @@ import AssetsScreen from "../screens/AssetsScreen";
 import LiabilitiesScreen from "../screens/LiabilitiesScreen";
 import CategoriesScreen from "../screens/CategoriesScreen";
 import TypesScreen from "../screens/TypesScreen";
+import BackupRestoreScreen from "../screens/BackupRestoreScreen";
 import { useTheme } from "react-native-paper";
 import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
 import AppBottomSheet from "../components/AppBottomSheet";
@@ -141,6 +142,11 @@ const AppNavigator: React.FC = () => {
 			<Stack.Screen name="Categories" component={CategoriesScreen} />
 			<Stack.Screen name="Liabilities" component={LiabilitiesScreen} />
 			<Stack.Screen name="Types" component={TypesScreen} />
+			<Stack.Screen
+				name="BackupRestore"
+				options={{ title: "Backup & Restore" }}
+				component={BackupRestoreScreen}
+			/>
 		</Stack.Navigator>
 	);
 };
