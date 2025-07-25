@@ -6,15 +6,13 @@ import {
 	Text,
 	Snackbar,
 	useTheme,
-	Surface,
 	Divider,
-	List,
 } from "react-native-paper";
 import { useGetCategories } from "../hooks/category/useGetCategories";
 import { useCreateCategory } from "../hooks/category/useCreateCategory";
 import { useUpdateCategory } from "../hooks/category/useUpdateCategory";
 import { useDeleteCategory } from "../hooks/category/useDeleteCategory";
-import { useTransactionTypes } from "../hooks/useTransactionTypes";
+import { useGetTransactionTypes } from "../hooks/transactionType/useGetTransactionTypes";
 import CategoryListItem from "../components/CategoryListItem";
 import CategoryFormModal from "../components/CategoryFormModal";
 import { Category } from "../types";
@@ -37,7 +35,7 @@ const CategoriesScreen = () => {
 		loading: deleting,
 		error: deleteError,
 	} = useDeleteCategory();
-	const { transactionTypes } = useTransactionTypes();
+	const { transactionTypes } = useGetTransactionTypes();
 	const [modalVisible, setModalVisible] = useState(false);
 	const [editingCategory, setEditingCategory] = useState<Category | null>(null);
 	const [snackbar, setSnackbar] = useState({ visible: false, message: "" });

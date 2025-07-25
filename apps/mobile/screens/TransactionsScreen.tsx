@@ -321,7 +321,11 @@ const TransactionsScreen = () => {
 					label: t.name,
 					value: t.id,
 				}))}
-				categories={categories.map((c) => ({ label: c.name, value: c.id }))}
+				categories={categories.map((c) => ({
+					label: c.name,
+					value: c.id,
+					transaction_type_id: c.transaction_type_id,
+				}))}
 				onApply={setFilters}
 				initialFilters={filters}
 			/>

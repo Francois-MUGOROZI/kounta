@@ -30,7 +30,7 @@ export const LiabilityRepository = {
 		const current_balance: number =
 			typeof liability.current_balance === "number"
 				? liability.current_balance
-				: 0;
+				: total_amount;
 		const created_at: string = liability.created_at ?? new Date().toISOString();
 		const notes: string | null = liability.notes ?? null;
 

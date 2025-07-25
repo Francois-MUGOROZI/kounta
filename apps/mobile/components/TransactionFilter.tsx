@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { View, StyleSheet } from "react-native";
 import {
 	Button,
@@ -18,7 +18,7 @@ import { TransactionFilter as TransactionFilterType } from "../types";
 
 interface TransactionFilterProps {
 	transactionTypes: { label: string; value: number }[];
-	categories: { label: string; value: number }[];
+	categories: { label: string; value: number; transaction_type_id: number }[];
 	onApply: (filters: TransactionFilterType) => void;
 	onClear?: () => void;
 	initialFilters?: TransactionFilterType;
@@ -66,6 +66,22 @@ export const TransactionFilter: React.FC<TransactionFilterProps> = ({
 			: undefined
 	);
 	const [showDatePicker, setShowDatePicker] = useState(false);
+	const [filteredCategories, setFilteredCategories] = useState<
+		{ label: string; value: number; transaction_type_id: number }[]
+	>([]);
+
+	useEffect(() => {
+		if (transactionTypeId) {
+			setFilteredCategories(
+				categories.filter(
+					(category) =>
+						category.transaction_type_id === Number(transactionTypeId)
+				)
+			);
+		} else {
+			setFilteredCategories(categories);
+		}
+	}, [transactionTypeId, categories]);
 
 	// For displaying active filters
 	const hasActiveFilters = Boolean(
@@ -219,7 +235,7 @@ export const TransactionFilter: React.FC<TransactionFilterProps> = ({
 							label={"Category"}
 							value={categoryId !== undefined ? categoryId.toString() : ""}
 							onSelect={(v) => setCategoryId(v ? parseInt(v, 10) : undefined)}
-							options={categories.map((cat) => ({
+							options={filteredCategories.map((cat) => ({
 								label: cat.label,
 								value: cat.value.toString(),
 							}))}
@@ -228,7 +244,7 @@ export const TransactionFilter: React.FC<TransactionFilterProps> = ({
 								<TextInput
 									{...props}
 									value={
-										categories.find(
+										filteredCategories.find(
 											(cat) =>
 												cat.value.toString() ===
 												(categoryId !== undefined ? categoryId.toString() : "")

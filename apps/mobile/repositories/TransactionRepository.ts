@@ -94,6 +94,14 @@ export const TransactionRepository = {
 				[amount, account_id]
 			);
 		}
+
+		// update liability balance if applicable
+		if (liability_id) {
+			await db.runAsync(
+				"UPDATE liabilities SET current_balance = current_balance - ? WHERE id = ?",
+				[amount, liability_id]
+			);
+		}
 	},
 
 	async update(
