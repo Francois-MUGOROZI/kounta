@@ -8,7 +8,7 @@ import {
 	Menu,
 } from "react-native-paper";
 import DashboardStatCard from "../components/DashboardStatCard";
-import DashboardCharts from "../components/DashboardCharts";
+// import DashboardCharts from "../components/DashboardCharts";
 import DashboardGroupList from "../components/DashboardGroupList";
 import { useDashboardStats } from "../hooks/dashboard/useDashboardStats";
 import { useDashboardGroups } from "../hooks/dashboard/useDashboardGroups";
@@ -53,6 +53,7 @@ const DashboardScreen: React.FC = () => {
 		accountsByType,
 		assetsByType,
 		liabilitiesByType,
+		expensesByCategory,
 		loading: groupsLoading,
 		error: groupsError,
 	} = useDashboardGroups(refresh);
@@ -99,7 +100,9 @@ const DashboardScreen: React.FC = () => {
 				</Text>
 			)}
 
-			<View style={styles.currencyMenu}>
+			{/* Currency selection menu */}
+
+			{/* <View style={styles.currencyMenu}>
 				<Menu
 					visible={menuVisible}
 					onDismiss={() => setMenuVisible(false)}
@@ -123,12 +126,11 @@ const DashboardScreen: React.FC = () => {
 						/>
 					))}
 				</Menu>
-			</View>
+			</View> */}
 
 			{currency && (
 				<View key={currency} style={styles.currencySection}>
 					<Divider style={{ marginVertical: 8 }} />
-					<DashboardCharts currency={currency} loading={loading} />
 					<View style={styles.cardRow}>
 						{STAT_CONFIG.map((stat) => (
 							<DashboardStatCard
@@ -169,6 +171,11 @@ const DashboardScreen: React.FC = () => {
 									title="Liabilities by Type"
 									items={liabilitiesByType[currency] || []}
 									icon="account-cash"
+								/>
+								<DashboardGroupList
+									title="Expenses by Category"
+									items={expensesByCategory[currency] || []}
+									icon="format-list-bulleted"
 								/>
 							</View>
 						)}

@@ -121,6 +121,14 @@ export const DashboardRepository = {
 			[currency, start, end]
 		);
 	},
+
+	async getExpensesByCategoryAndCurrency(
+		db: SQLiteDatabase
+	): Promise<CategoryTotal[]> {
+		return await db.getAllAsync(
+			`SELECT c.name as category, SUM(t.amount) as total, a.currency FROM transactions t JOIN categories c ON t.category_id = c.id JOIN accounts a ON t.account_id = a.id WHERE t.transaction_type_id = 2 GROUP BY c.name, a.currency ORDER BY total DESC`
+		);
+	},
 	// Income by category (this month, per currency)
 	async getIncomeByCategoryThisMonth(
 		db: SQLiteDatabase,

@@ -13,6 +13,9 @@ export function useDashboardGroups(refreshKey?: any) {
 	const [liabilitiesByType, setLiabilitiesByType] = useState<GroupedTypeMap>(
 		{}
 	);
+	const [expensesByCategory, setExpensesByCategory] = useState<GroupedTypeMap>(
+		{}
+	);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
@@ -24,12 +27,14 @@ export function useDashboardGroups(refreshKey?: any) {
 			DashboardRepository.getAccountsByTypeAndCurrency(db),
 			DashboardRepository.getAssetsByTypeAndCurrency(db),
 			DashboardRepository.getLiabilitiesByTypeAndCurrency(db),
+			DashboardRepository.getExpensesByCategoryAndCurrency(db),
 		])
-			.then(([acc, ast, liab]) => {
+			.then(async ([acc, ast, liab, exp]) => {
 				if (!mounted) return;
 				const accMap: GroupedTypeMap = {};
 				const astMap: GroupedTypeMap = {};
 				const liabMap: GroupedTypeMap = {};
+				const expMap: GroupedTypeMap = {};
 				acc.forEach((a) => {
 					if (!accMap[a.currency]) accMap[a.currency] = [];
 					accMap[a.currency].push({
@@ -54,9 +59,19 @@ export function useDashboardGroups(refreshKey?: any) {
 						currency: a.currency,
 					});
 				});
+
+				exp.forEach((e) => {
+					if (!expMap[e.currency]) expMap[e.currency] = [];
+					expMap[e.currency].push({
+						label: e.category,
+						value: Number(e.total) ?? 0,
+						currency: e.currency,
+					});
+				});
 				setAccountsByType(accMap);
 				setAssetsByType(astMap);
 				setLiabilitiesByType(liabMap);
+				setExpensesByCategory(expMap);
 				setLoading(false);
 			})
 			.catch((err) => {
@@ -73,6 +88,7 @@ export function useDashboardGroups(refreshKey?: any) {
 		accountsByType,
 		assetsByType,
 		liabilitiesByType,
+		expensesByCategory,
 		loading,
 		error,
 	};
