@@ -26,6 +26,7 @@ const TransactionListItem: React.FC<TransactionListItemProps> = ({
 }) => {
 	const theme = useTheme();
 	const isIncome = transactionTypeName === "Income";
+	const isTransfer = transactionTypeName === "Transfer";
 
 	return (
 		<SwipeableListItem
@@ -47,14 +48,19 @@ const TransactionListItem: React.FC<TransactionListItemProps> = ({
 					<Text
 						variant="titleMedium"
 						style={{
-							color: isIncome ? theme.colors.primary : theme.colors.error,
+							color: isTransfer
+								? theme.colors.secondary
+								: isIncome
+								? theme.colors.primary
+								: theme.colors.error,
 							fontWeight: "bold",
 						}}
 					>
 						{formatTransactionAmount(
 							transaction.amount,
 							accountCurrency,
-							isIncome
+							isIncome,
+							isTransfer
 						)}
 					</Text>
 					<Text variant="bodySmall" style={{ color: theme.colors.outline }}>

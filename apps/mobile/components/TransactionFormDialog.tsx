@@ -1,5 +1,5 @@
 import React, { useState, useEffect, use } from "react";
-import { StyleSheet } from "react-native";
+import { StyleSheet, View } from "react-native";
 import {
 	Portal,
 	Dialog,
@@ -9,22 +9,13 @@ import {
 	useTheme,
 } from "react-native-paper";
 import { Dropdown } from "react-native-paper-dropdown";
-import { Category, Transaction } from "../types";
+import { Category, Transaction, TransactionType } from "../types";
 
 interface TransactionFormDialogProps {
 	visible: boolean;
 	onClose: () => void;
-	onSubmit: (data: {
-		description: string;
-		amount: number;
-		transaction_type_id: number;
-		account_id: number;
-		category_id: number;
-		date: string;
-		asset_id?: number | null;
-		liability_id?: number | null;
-	}) => void;
-	transactionTypes: { id: number; name: string }[];
+	onSubmit: (data: Transaction) => void;
+	transactionTypes: TransactionType[];
 	accounts: { id: number; name: string }[];
 	categories: Category[];
 	assets: { id: number; name: string }[];
@@ -47,7 +38,8 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 	const [description, setDescription] = useState("");
 	const [amount, setAmount] = useState("");
 	const [typeId, setTypeId] = useState<string>("");
-	const [accountId, setAccountId] = useState<string>("");
+	const [fromAccountId, setFromAccountId] = useState<string>("");
+	const [toAccountId, setToAccountId] = useState<string>("");
 	const [categoryId, setCategoryId] = useState<string>("");
 	const [date, setDate] = useState("");
 	const [assetId, setAssetId] = useState<string>("");
@@ -55,12 +47,17 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 	const [error, setError] = useState("");
 	const [filteredCategories, setFilteredCategories] = useState<Category[]>([]);
 
+	const selectedTransactionType = transactionTypes.find(
+		(t) => t.id.toString() === typeId
+	)?.name;
+
 	useEffect(() => {
 		if (initialTransaction) {
 			setDescription(initialTransaction.description);
 			setAmount(initialTransaction.amount.toString());
 			setTypeId(initialTransaction.transaction_type_id.toString());
-			setAccountId(initialTransaction.account_id.toString());
+			setFromAccountId(initialTransaction.from_account_id?.toString() || "");
+			setToAccountId(initialTransaction.to_account_id?.toString() || "");
 			setCategoryId(initialTransaction.category_id.toString());
 			setDate(initialTransaction.date);
 			setAssetId(initialTransaction.asset_id?.toString() || "");
@@ -68,9 +65,10 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 		} else {
 			setDescription("");
 			setAmount("");
-			setTypeId(transactionTypes[0]?.id?.toString() ?? "");
-			setAccountId(accounts[0]?.id?.toString() ?? "");
-			setCategoryId(categories[0]?.id?.toString() ?? "");
+			setTypeId("");
+			setFromAccountId("");
+			setToAccountId("");
+			setCategoryId("");
 			setDate(new Date().toISOString().split("T")[0]);
 			setAssetId("");
 			setLiabilityId("");
@@ -87,32 +85,50 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 			setError("Amount must be a positive number");
 			return;
 		}
-		if (!typeId) {
+		if (!typeId || typeId.trim() === "") {
 			setError("Type is required");
 			return;
 		}
-		if (!accountId) {
-			setError("Account is required");
-			return;
+		if (selectedTransactionType === "Transfer") {
+			if (fromAccountId.trim() === "" || toAccountId.trim() === "") {
+				setError("From and To accounts are required for a transfer");
+				return;
+			}
+			if (fromAccountId === toAccountId) {
+				setError("From and To accounts cannot be the same");
+				return;
+			}
+		} else {
+			if (fromAccountId.trim() === "" && toAccountId.trim() === "") {
+				setError("An account is required");
+				return;
+			}
+			if (categoryId.trim() === "" && selectedTransactionType !== "Transfer") {
+				setError("Category is required");
+				return;
+			}
 		}
-		if (!categoryId) {
-			setError("Category is required");
-			return;
-		}
-		if (!date) {
+		if (date.trim() === "") {
 			setError("Date is required");
 			return;
 		}
+
 		onSubmit({
 			description: description.trim(),
 			amount: Number(amount),
 			transaction_type_id: Number(typeId),
-			account_id: Number(accountId),
-			category_id: Number(categoryId),
-			date: new Date(date).toISOString(),
-			asset_id: assetId ? Number(assetId) : null,
-			liability_id: liabilityId ? Number(liabilityId) : null,
-		});
+			from_account_id:
+				fromAccountId && fromAccountId !== ""
+					? Number(fromAccountId)
+					: undefined,
+			to_account_id:
+				toAccountId && toAccountId !== "" ? Number(toAccountId) : undefined,
+			category_id: categoryId && categoryId !== "" ? Number(categoryId) : null,
+			date: date && date.trim() !== "" ? date : new Date(date).toISOString(),
+			asset_id: assetId && assetId !== "" ? Number(assetId) : undefined,
+			liability_id:
+				liabilityId && liabilityId !== "" ? Number(liabilityId) : undefined,
+		} as Transaction);
 	};
 
 	useEffect(() => {
@@ -176,60 +192,139 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 							/>
 						)}
 					/>
-					<Dropdown
-						label={"Account"}
-						value={accountId}
-						onSelect={(v) => setAccountId(v ?? "")}
-						options={accounts.map((account) => ({
-							label: account.name,
-							value: account.id.toString(),
-						}))}
-						error={!!error}
-						CustomMenuHeader={() => null}
-						CustomDropdownInput={(props) => (
-							<TextInput
-								{...props}
-								value={
-									accounts.find(
-										(account) => account.id.toString() === accountId
-									)?.name || ""
-								}
-								style={{
-									backgroundColor: theme.colors.outlineVariant,
-									marginBottom: 8,
-								}}
-								outlineColor={theme.colors.primary}
-								activeOutlineColor={theme.colors.primary}
+
+					{selectedTransactionType === "Transfer" ? (
+						<View>
+							<Dropdown
+								label={"From Account"}
+								value={fromAccountId}
+								onSelect={(v) => setFromAccountId(v ?? "")}
+								options={accounts.map((account) => ({
+									label: account.name,
+									value: account.id.toString(),
+								}))}
+								error={!!error}
+								CustomMenuHeader={() => null}
+								CustomDropdownInput={(props) => (
+									<TextInput
+										{...props}
+										value={
+											accounts.find(
+												(account) => account.id.toString() === fromAccountId
+											)?.name || ""
+										}
+										style={{
+											backgroundColor: theme.colors.outlineVariant,
+											marginBottom: 8,
+										}}
+										outlineColor={theme.colors.primary}
+										activeOutlineColor={theme.colors.primary}
+									/>
+								)}
 							/>
-						)}
-					/>
-					<Dropdown
-						label={"Category"}
-						value={categoryId}
-						onSelect={(v) => setCategoryId(v ?? "")}
-						options={filteredCategories.map((category) => ({
-							label: category.name,
-							value: category.id.toString(),
-						}))}
-						error={!!error}
-						CustomMenuHeader={() => null}
-						CustomDropdownInput={(props) => (
-							<TextInput
-								{...props}
-								value={
-									categories.find(
-										(category) => category.id.toString() === categoryId
-									)?.name || ""
-								}
-								style={{
-									backgroundColor: theme.colors.outlineVariant,
-									marginBottom: 8,
-								}}
-								outlineColor={theme.colors.primary}
-								activeOutlineColor={theme.colors.primary}
+							<Dropdown
+								label={"To Account"}
+								value={toAccountId}
+								onSelect={(v) => setToAccountId(v ?? "")}
+								options={accounts.map((account) => ({
+									label: account.name,
+									value: account.id.toString(),
+								}))}
+								error={!!error}
+								CustomMenuHeader={() => null}
+								CustomDropdownInput={(props) => (
+									<TextInput
+										{...props}
+										value={
+											accounts.find(
+												(account) => account.id.toString() === toAccountId
+											)?.name || ""
+										}
+										style={{
+											backgroundColor: theme.colors.outlineVariant,
+											marginBottom: 8,
+										}}
+										outlineColor={theme.colors.primary}
+										activeOutlineColor={theme.colors.primary}
+									/>
+								)}
 							/>
-						)}
-					/>
+						</View>
+					) : (
+						<View>
+							<Dropdown
+								label={"Account"}
+								value={
+									selectedTransactionType === "Income"
+										? toAccountId
+										: fromAccountId
+								}
+								onSelect={(v) => {
+									if (selectedTransactionType === "Income") {
+										setToAccountId(v ?? "");
+										setFromAccountId("");
+									} else {
+										setFromAccountId(v ?? "");
+										setToAccountId("");
+									}
+								}}
+								options={accounts.map((account) => ({
+									label: account.name,
+									value: account.id.toString(),
+								}))}
+								error={!!error}
+								CustomMenuHeader={() => null}
+								CustomDropdownInput={(props) => (
+									<TextInput
+										{...props}
+										value={
+											accounts.find(
+												(account) =>
+													account.id.toString() ===
+													(selectedTransactionType === "Income"
+														? toAccountId
+														: fromAccountId)
+											)?.name || ""
+										}
+										style={{
+											backgroundColor: theme.colors.outlineVariant,
+											marginBottom: 8,
+										}}
+										outlineColor={theme.colors.primary}
+										activeOutlineColor={theme.colors.primary}
+									/>
+								)}
+							/>
+							<Dropdown
+								label={"Category"}
+								value={categoryId}
+								onSelect={(v) => setCategoryId(v ?? "")}
+								options={filteredCategories.map((category) => ({
+									label: category.name,
+									value: category.id.toString(),
+								}))}
+								error={!!error}
+								CustomMenuHeader={() => null}
+								CustomDropdownInput={(props) => (
+									<TextInput
+										{...props}
+										value={
+											categories.find(
+												(category) => category.id.toString() === categoryId
+											)?.name || ""
+										}
+										style={{
+											backgroundColor: theme.colors.outlineVariant,
+											marginBottom: 8,
+										}}
+										outlineColor={theme.colors.primary}
+										activeOutlineColor={theme.colors.primary}
+									/>
+								)}
+							/>
+						</View>
+					)}
+
 					<TextInput
 						label="Date"
 						value={date}

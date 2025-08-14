@@ -45,33 +45,31 @@ export const TransactionRepository = {
 		db: SQLiteDatabase,
 		transaction: Omit<Transaction, "id">
 	): Promise<void> {
-		const description: string = transaction.description ?? "";
-		const amount: number =
-			typeof transaction.amount === "number" ? transaction.amount : 0;
-		const transaction_type_id: number =
-			typeof transaction.transaction_type_id === "number"
-				? transaction.transaction_type_id
-				: 0;
-		const date: string = transaction.date ?? new Date().toISOString();
-		const account_id: number =
-			typeof transaction.account_id === "number" ? transaction.account_id : 0;
-		const category_id: number =
-			typeof transaction.category_id === "number" ? transaction.category_id : 0;
-		const asset_id: number | null = transaction.asset_id ?? null;
-		const liability_id: number | null = transaction.liability_id ?? null;
+		const {
+			description = "",
+			amount = 0,
+			transaction_type_id = 0,
+			date = new Date().toISOString(),
+			category_id = null,
+			asset_id = null,
+			liability_id = null,
+			from_account_id = null,
+			to_account_id = null,
+		} = transaction;
 
 		// Insert transaction
 		await db.runAsync(
-			`INSERT INTO transactions (description, amount, transaction_type_id, date, account_id, category_id, asset_id, liability_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+			`INSERT INTO transactions (description, amount, transaction_type_id, date, category_id, asset_id, liability_id, from_account_id, to_account_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			[
 				description,
 				amount,
 				transaction_type_id,
 				date,
-				account_id,
 				category_id,
 				asset_id,
 				liability_id,
+				from_account_id,
+				to_account_id,
 			]
 		);
 
@@ -82,16 +80,29 @@ export const TransactionRepository = {
 		);
 		const transactionTypeName = typeRow?.name || "";
 
-		// Update account balance
-		if (transactionTypeName === "Income") {
+		// Update account balances
+		if (transactionTypeName === "Income" && to_account_id) {
 			await db.runAsync(
 				"UPDATE accounts SET current_balance = current_balance + ? WHERE id = ?",
-				[amount, account_id]
+				[amount, to_account_id]
 			);
-		} else {
+		} else if (transactionTypeName === "Expense" && from_account_id) {
 			await db.runAsync(
 				"UPDATE accounts SET current_balance = current_balance - ? WHERE id = ?",
-				[amount, account_id]
+				[amount, from_account_id]
+			);
+		} else if (
+			transactionTypeName === "Transfer" &&
+			from_account_id &&
+			to_account_id
+		) {
+			await db.runAsync(
+				"UPDATE accounts SET current_balance = current_balance - ? WHERE id = ?",
+				[amount, from_account_id]
+			);
+			await db.runAsync(
+				"UPDATE accounts SET current_balance = current_balance + ? WHERE id = ?",
+				[amount, to_account_id]
 			);
 		}
 
@@ -109,6 +120,50 @@ export const TransactionRepository = {
 		id: number,
 		updates: Partial<Transaction>
 	): Promise<void> {
+		const originalTransaction = await this.getById(db, id);
+		if (!originalTransaction) {
+			throw new Error("Transaction not found");
+		}
+
+		// Revert original transaction balances
+		const originalTypeRow = await db.getFirstAsync<{ name: string }>(
+			"SELECT name FROM transaction_types WHERE id = ?",
+			[originalTransaction.transaction_type_id]
+		);
+		const originalTransactionTypeName = originalTypeRow?.name || "";
+
+		if (
+			originalTransactionTypeName === "Income" &&
+			originalTransaction.to_account_id
+		) {
+			await db.runAsync(
+				"UPDATE accounts SET current_balance = current_balance - ? WHERE id = ?",
+				[originalTransaction.amount, originalTransaction.to_account_id]
+			);
+		} else if (
+			originalTransactionTypeName === "Expense" &&
+			originalTransaction.from_account_id
+		) {
+			await db.runAsync(
+				"UPDATE accounts SET current_balance = current_balance + ? WHERE id = ?",
+				[originalTransaction.amount, originalTransaction.from_account_id]
+			);
+		} else if (
+			originalTransactionTypeName === "Transfer" &&
+			originalTransaction.from_account_id &&
+			originalTransaction.to_account_id
+		) {
+			await db.runAsync(
+				"UPDATE accounts SET current_balance = current_balance + ? WHERE id = ?",
+				[originalTransaction.amount, originalTransaction.from_account_id]
+			);
+			await db.runAsync(
+				"UPDATE accounts SET current_balance = current_balance - ? WHERE id = ?",
+				[originalTransaction.amount, originalTransaction.to_account_id]
+			);
+		}
+
+		// Update transaction
 		const fields: string[] = [];
 		const values: (string | number | null)[] = [];
 		for (const key in updates) {
@@ -124,9 +179,110 @@ export const TransactionRepository = {
 			`UPDATE transactions SET ${fields.join(", ")} WHERE id = ?`,
 			values
 		);
+
+		// Apply new transaction balances
+		const updatedTransaction = { ...originalTransaction, ...updates };
+		const newTypeRow = await db.getFirstAsync<{ name: string }>(
+			"SELECT name FROM transaction_types WHERE id = ?",
+			[updatedTransaction.transaction_type_id]
+		);
+		const newTransactionTypeName = newTypeRow?.name || "";
+
+		if (
+			newTransactionTypeName === "Income" &&
+			updatedTransaction.to_account_id
+		) {
+			await db.runAsync(
+				"UPDATE accounts SET current_balance = current_balance + ? WHERE id = ?",
+				[updatedTransaction.amount, updatedTransaction.to_account_id]
+			);
+		} else if (
+			newTransactionTypeName === "Expense" &&
+			updatedTransaction.from_account_id
+		) {
+			await db.runAsync(
+				"UPDATE accounts SET current_balance = current_balance - ? WHERE id = ?",
+				[updatedTransaction.amount, updatedTransaction.from_account_id]
+			);
+		} else if (
+			newTransactionTypeName === "Transfer" &&
+			updatedTransaction.from_account_id &&
+			updatedTransaction.to_account_id
+		) {
+			await db.runAsync(
+				"UPDATE accounts SET current_balance = current_balance - ? WHERE id = ?",
+				[updatedTransaction.amount, updatedTransaction.from_account_id]
+			);
+			await db.runAsync(
+				"UPDATE accounts SET current_balance = current_balance + ? WHERE id = ?",
+				[updatedTransaction.amount, updatedTransaction.to_account_id]
+			);
+		}
+
+		// update liability balance if applicable
+		if (originalTransaction.liability_id) {
+			await db.runAsync(
+				"UPDATE liabilities SET current_balance = current_balance + ? WHERE id = ?",
+				[originalTransaction.amount, originalTransaction.liability_id]
+			);
+		}
+		if (updatedTransaction.liability_id) {
+			await db.runAsync(
+				"UPDATE liabilities SET current_balance = current_balance - ? WHERE id = ?",
+				[updatedTransaction.amount, updatedTransaction.liability_id]
+			);
+		}
 	},
 
 	async delete(db: SQLiteDatabase, id: number): Promise<void> {
+		const transaction = await this.getById(db, id);
+		if (!transaction) {
+			return;
+		}
+
+		// Revert transaction balances
+		const typeRow = await db.getFirstAsync<{ name: string }>(
+			"SELECT name FROM transaction_types WHERE id = ?",
+			[transaction.transaction_type_id]
+		);
+		const transactionTypeName = typeRow?.name || "";
+
+		if (transactionTypeName === "Income" && transaction.to_account_id) {
+			await db.runAsync(
+				"UPDATE accounts SET current_balance = current_balance - ? WHERE id = ?",
+				[transaction.amount, transaction.to_account_id]
+			);
+		} else if (
+			transactionTypeName === "Expense" &&
+			transaction.from_account_id
+		) {
+			await db.runAsync(
+				"UPDATE accounts SET current_balance = current_balance + ? WHERE id = ?",
+				[transaction.amount, transaction.from_account_id]
+			);
+		} else if (
+			transactionTypeName === "Transfer" &&
+			transaction.from_account_id &&
+			transaction.to_account_id
+		) {
+			await db.runAsync(
+				"UPDATE accounts SET current_balance = current_balance + ? WHERE id = ?",
+				[transaction.amount, transaction.from_account_id]
+			);
+			await db.runAsync(
+				"UPDATE accounts SET current_balance = current_balance - ? WHERE id = ?",
+				[transaction.amount, transaction.to_account_id]
+			);
+		}
+
+		// update liability balance if applicable
+		if (transaction.liability_id) {
+			await db.runAsync(
+				"UPDATE liabilities SET current_balance = current_balance + ? WHERE id = ?",
+				[transaction.amount, transaction.liability_id]
+			);
+		}
+
 		await db.runAsync("DELETE FROM transactions WHERE id = ?", [id]);
 	},
 };

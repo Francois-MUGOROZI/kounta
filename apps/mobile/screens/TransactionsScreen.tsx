@@ -103,16 +103,7 @@ const TransactionsScreen = () => {
 		setEditingTransaction(null);
 	};
 
-	const handleSubmit = async (data: {
-		description: string;
-		amount: number;
-		transaction_type_id: number;
-		account_id: number;
-		category_id: number;
-		date: string;
-		asset_id?: number | null;
-		liability_id?: number | null;
-	}) => {
+	const handleSubmit = async (data: Transaction) => {
 		try {
 			if (editingTransaction) {
 				await updateTransaction(editingTransaction.id, data);
@@ -178,14 +169,23 @@ const TransactionsScreen = () => {
 		const groups: {
 			[currency: string]: {
 				transactions: Transaction[];
-				totals: { income: number; expenses: number; net: number };
+				totals: {
+					income: number;
+					expenses: number;
+					net: number;
+				};
 			};
 		} = {};
 
 		transactions.forEach((transaction) => {
-			const account = accounts.find((a) => a.id === transaction.account_id);
-			const currency = account?.currency || "USD";
+			const account = accounts.find(
+				(a) =>
+					a.id === transaction.from_account_id ||
+					a.id === transaction.to_account_id
+			);
+			const currency = account?.currency || "RWF";
 			const typeName = getTransactionTypeName(transaction.transaction_type_id);
+			const isExpense = typeName === "Expense";
 			const isIncome = typeName === "Income";
 
 			if (!groups[currency]) {
@@ -197,10 +197,12 @@ const TransactionsScreen = () => {
 
 			groups[currency].transactions.push(transaction);
 
-			if (isIncome) {
+			if (isExpense) {
+				groups[currency].totals.expenses += transaction.amount;
+			} else if (isIncome) {
 				groups[currency].totals.income += transaction.amount;
 			} else {
-				groups[currency].totals.expenses += transaction.amount;
+				// Transfer ignored
 			}
 		});
 
@@ -226,7 +228,7 @@ const TransactionsScreen = () => {
 					<Text variant="bodySmall" style={{ color: theme.colors.primary }}>
 						Income
 					</Text>
-					<Text variant="titleMedium" style={{ color: theme.colors.primary }}>
+					<Text variant="titleSmall" style={{ color: theme.colors.primary }}>
 						+{formatAmount(totals.income, currency)}
 					</Text>
 				</View>
@@ -234,7 +236,7 @@ const TransactionsScreen = () => {
 					<Text variant="bodySmall" style={{ color: theme.colors.error }}>
 						Expenses
 					</Text>
-					<Text variant="titleMedium" style={{ color: theme.colors.error }}>
+					<Text variant="titleSmall" style={{ color: theme.colors.error }}>
 						-{formatAmount(totals.expenses, currency)}
 					</Text>
 				</View>
@@ -246,7 +248,7 @@ const TransactionsScreen = () => {
 						Net
 					</Text>
 					<Text
-						variant="titleMedium"
+						variant="titleSmall"
 						style={{
 							color:
 								totals.net >= 0 ? theme.colors.primary : theme.colors.error,
@@ -266,31 +268,47 @@ const TransactionsScreen = () => {
 			transactions: Transaction[];
 			totals: { income: number; expenses: number; net: number };
 		}
-	) => (
-		<View key={currency}>
-			{renderCurrencySummary(currency, data.totals)}
-			<FlatList
-				data={data.transactions}
-				keyExtractor={(item) => item.id.toString()}
-				renderItem={({ item }) => (
-					<TransactionListItem
-						transaction={item}
-						accountName={getAccountName(item.account_id)}
-						accountCurrency={getAccountCurrency(item.account_id)}
-						categoryName={getCategoryName(item.category_id)}
-						transactionTypeName={getTransactionTypeName(
+	) => {
+		return (
+			<View key={currency}>
+				{renderCurrencySummary(currency, data.totals)}
+				<FlatList
+					data={data.transactions}
+					keyExtractor={(item) => item.id.toString()}
+					renderItem={({ item }) => {
+						const transactionTypeName = getTransactionTypeName(
 							item.transaction_type_id
-						)}
-						onEdit={() => openEditModal(item)}
-						onDelete={() => handleDelete(item)}
-					/>
-				)}
-				ItemSeparatorComponent={() => <Divider />}
-				scrollEnabled={false}
-			/>
-		</View>
-	);
-
+						);
+						const isTransfer = transactionTypeName === "Transfer";
+						const accountName = isTransfer
+							? `${getAccountName(
+									item.from_account_id as number
+							  )} to ${getAccountName(item.to_account_id as number)}`
+							: getAccountName(
+									(item.from_account_id || item.to_account_id) as number
+							  );
+						return (
+							<TransactionListItem
+								transaction={item}
+								accountName={accountName}
+								accountCurrency={getAccountCurrency(
+									(item.from_account_id || item.to_account_id) as number
+								)}
+								categoryName={getCategoryName(item.category_id)}
+								transactionTypeName={getTransactionTypeName(
+									item.transaction_type_id
+								)}
+								onEdit={() => openEditModal(item)}
+								onDelete={() => handleDelete(item)}
+							/>
+						);
+					}}
+					ItemSeparatorComponent={() => <Divider />}
+					scrollEnabled={false}
+				/>
+			</View>
+		);
+	};
 	const anyLoading =
 		loading ||
 		creating ||

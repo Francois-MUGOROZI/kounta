@@ -24,9 +24,10 @@ export const formatAmount = (amount: number, currency: string): string => {
 export const formatTransactionAmount = (
 	amount: number,
 	currency: string,
-	isIncome: boolean
+	isIncome: boolean,
+	isTransfer: boolean
 ): string => {
 	const symbol = getCurrencySymbol(currency);
-	const sign = isIncome ? "+" : "-";
+	const sign = isTransfer ? "↔" : isIncome ? "+" : "-";
 	return `${sign}${symbol}${amount.toLocaleString()}`;
 };

@@ -120,10 +120,11 @@ export interface Transaction {
 	amount: number; // Always a positive value
 	transaction_type_id: number; // Foreign key to TransactionType
 	date: string; // Date as ISO string
-	account_id: number; // Foreign key to Account
 	category_id: number; // Foreign key to Category
 	asset_id?: number | null; // Foreign key to Asset (optional)
 	liability_id?: number | null; // Foreign key to Liability (optional)
+	from_account_id?: number | null;
+	to_account_id?: number | null;
 }
 
 /**

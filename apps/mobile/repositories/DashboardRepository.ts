@@ -18,10 +18,10 @@ export const DashboardRepository = {
 		);
 		// Transactions (income/expense)
 		const income = await db.getAllAsync(
-			`SELECT a.currency, SUM(t.amount) as totalIncome FROM transactions t JOIN accounts a ON t.account_id = a.id WHERE t.transaction_type_id = 1 GROUP BY a.currency`
+			`SELECT a.currency, SUM(t.amount) as totalIncome FROM transactions t JOIN accounts a ON t.to_account_id = a.id WHERE t.transaction_type_id = 1 GROUP BY a.currency`
 		);
 		const expenses = await db.getAllAsync(
-			`SELECT a.currency, SUM(t.amount) as totalExpenses FROM transactions t JOIN accounts a ON t.account_id = a.id WHERE t.transaction_type_id = 2 GROUP BY a.currency`
+			`SELECT a.currency, SUM(t.amount) as totalExpenses FROM transactions t JOIN accounts a ON t.from_account_id = a.id WHERE t.transaction_type_id = 2 GROUP BY a.currency`
 		);
 
 		// Merge all by currency
@@ -117,7 +117,7 @@ export const DashboardRepository = {
 			999
 		).toISOString();
 		return await db.getAllAsync(
-			`SELECT c.name as category, SUM(t.amount) as total, a.currency FROM transactions t JOIN categories c ON t.category_id = c.id JOIN accounts a ON t.account_id = a.id WHERE t.transaction_type_id = 2 AND a.currency = ? AND t.date >= ? AND t.date <= ? GROUP BY c.name, a.currency`,
+			`SELECT c.name as category, SUM(t.amount) as total, a.currency FROM transactions t JOIN categories c ON t.category_id = c.id JOIN accounts a ON t.from_account_id = a.id WHERE t.transaction_type_id = 2 AND a.currency = ? AND t.date >= ? AND t.date <= ? GROUP BY c.name, a.currency`,
 			[currency, start, end]
 		);
 	},
@@ -126,7 +126,7 @@ export const DashboardRepository = {
 		db: SQLiteDatabase
 	): Promise<CategoryTotal[]> {
 		return await db.getAllAsync(
-			`SELECT c.name as category, SUM(t.amount) as total, a.currency FROM transactions t JOIN categories c ON t.category_id = c.id JOIN accounts a ON t.account_id = a.id WHERE t.transaction_type_id = 2 GROUP BY c.name, a.currency ORDER BY total DESC`
+			`SELECT c.name as category, SUM(t.amount) as total, a.currency FROM transactions t JOIN categories c ON t.category_id = c.id JOIN accounts a ON t.from_account_id = a.id WHERE t.transaction_type_id = 2 GROUP BY c.name, a.currency ORDER BY total DESC`
 		);
 	},
 	// Income by category (this month, per currency)
@@ -146,7 +146,7 @@ export const DashboardRepository = {
 			999
 		).toISOString();
 		return await db.getAllAsync(
-			`SELECT c.name as category, SUM(t.amount) as total, a.currency FROM transactions t JOIN categories c ON t.category_id = c.id JOIN accounts a ON t.account_id = a.id WHERE t.transaction_type_id = 1 AND a.currency = ? AND t.date >= ? AND t.date <= ? GROUP BY c.name, a.currency`,
+			`SELECT c.name as category, SUM(t.amount) as total, a.currency FROM transactions t JOIN categories c ON t.category_id = c.id JOIN accounts a ON t.to_account_id = a.id WHERE t.transaction_type_id = 1 AND a.currency = ? AND t.date >= ? AND t.date <= ? GROUP BY c.name, a.currency`,
 			[currency, start, end]
 		);
 	},

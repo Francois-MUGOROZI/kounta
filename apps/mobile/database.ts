@@ -87,15 +87,17 @@ export async function initDatabase(db: any) {
 			amount REAL NOT NULL,
 			transaction_type_id INTEGER NOT NULL,
 			date TEXT NOT NULL,
-			account_id INTEGER NOT NULL,
-			category_id INTEGER NOT NULL,
+			category_id INTEGER,
 			asset_id INTEGER,
 			liability_id INTEGER,
+			from_account_id INTEGER,
+			to_account_id INTEGER,
 			FOREIGN KEY (transaction_type_id) REFERENCES transaction_types(id),
-			FOREIGN KEY (account_id) REFERENCES accounts(id),
 			FOREIGN KEY (category_id) REFERENCES categories(id),
 			FOREIGN KEY (asset_id) REFERENCES assets(id),
-			FOREIGN KEY (liability_id) REFERENCES liabilities(id)
+			FOREIGN KEY (liability_id) REFERENCES liabilities(id),
+			FOREIGN KEY (from_account_id) REFERENCES accounts(id),
+			FOREIGN KEY (to_account_id) REFERENCES accounts(id)
 		);
 	`);
 	await db.execAsync(`
@@ -129,7 +131,7 @@ export async function initDatabase(db: any) {
 // Run database migrations
 async function runMigrations(db: any) {
 	try {
-		// Add any migration change here
+		// Write migrations here
 	} catch (error) {
 		console.log("Migration error:", error);
 	}
@@ -181,7 +183,7 @@ export async function seedTypeTables(db: any) {
 		);
 	}
 	// Transaction Types
-	const transactionTypes = ["Income", "Expense"];
+	const transactionTypes = ["Income", "Expense", "Transfer"];
 	for (const name of transactionTypes) {
 		await db.runAsync(
 			"INSERT OR IGNORE INTO transaction_types (name) VALUES (?)",
