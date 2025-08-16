@@ -16,13 +16,11 @@ development of the Kounta mobile application.
 
 ## 2. State Management and Database
 
-- **Database:** All data is persisted locally using **WatermelonDB** with a
-  **SQLite** adapter.
-- **Data Interaction:** Interact with the database _only_ through WatermelonDB
-  models and the repository layer. Do not write raw SQL queries.
-- **Reactive UI:** Use the `@watermelondb/withObservables` HOC or related hooks
-  to make UI components reactive to database changes.
-- **CRUD Operations:** Use WatermelonDB methods for all CRUD operations (e.g.,
+- **Database:** All data is persisted locally using **sqlite** with a **SQLite**
+  adapter.
+- **Data Interaction:** Interact with the database _only_ through the repository
+  layer -> hooks -> UI. to make UI components reactive to database changes.
+- **CRUD Operations:** Use SQLite methods for all CRUD operations (e.g.,
   `database.get('accounts').create(...)`).
 - **Atomicity:** Wrap all related database operations for a single transaction
   (e.g., creating a transaction and updating an account balance) in a single
@@ -72,14 +70,13 @@ apps/mobile/
 ├── assets/           # Images, fonts, icons
 ├── components/       # Stateless UI components (React Native Paper)
 ├── hooks/            # Business logic hooks (e.g., useAccounts.hook.ts)
-├── models/           # WatermelonDB models (e.g., account.model.ts)
 ├── repositories/     # Data access layer (e.g., account.repository.ts)
 ├── navigation/       # React Navigation setup
 ├── screens/          # Screen components (stateless, UI only)
 ├── theme/            # Custom theme, color palettes, typography
 ├── utils/            # Utility functions
 ├── App.ts            # Entry point
-├── database.ts       # WatermelonDB setup
+├── database.ts       # sqlite setup
 ├── .env              # Environment variables
 └── ...
 ```

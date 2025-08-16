@@ -54,6 +54,7 @@ const DashboardScreen: React.FC = () => {
 		assetsByType,
 		liabilitiesByType,
 		expensesByCategory,
+		envelopesByCurrency,
 		loading: groupsLoading,
 		error: groupsError,
 	} = useDashboardGroups(refresh);
@@ -171,6 +172,11 @@ const DashboardScreen: React.FC = () => {
 									title="Liabilities by Type"
 									items={liabilitiesByType[currency] || []}
 									icon="account-cash"
+								/>
+								<DashboardGroupList
+									title="Envelopes by Currency"
+									items={envelopesByCurrency[currency] || []}
+									icon="briefcase"
 								/>
 								<DashboardGroupList
 									title="Expenses by Category"

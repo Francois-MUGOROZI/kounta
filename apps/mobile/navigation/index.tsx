@@ -21,6 +21,7 @@ import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityI
 import AppBottomSheet from "../components/AppBottomSheet";
 import MoreActionsContent from "../components/MoreActionsContent";
 import AppBar from "@/components/AppBar";
+import EnvelopeScreen from "@/screens/EnvelopeScreen";
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -92,13 +93,13 @@ const MainTabNavigator: React.FC = () => {
 					}}
 				/>
 				<Tab.Screen
-					name="Assets"
-					component={AssetsScreen}
+					name="Envelopes"
+					component={EnvelopeScreen}
 					options={{
-						tabBarLabel: "Assets",
+						tabBarLabel: "Envelopes",
 						tabBarIcon: ({ color, size }) => (
 							<MaterialCommunityIcons
-								name="piggy-bank"
+								name="briefcase"
 								color={color}
 								size={size}
 							/>
@@ -140,6 +141,7 @@ const AppNavigator: React.FC = () => {
 		>
 			<Stack.Screen name="Main" component={MainTabNavigator} />
 			<Stack.Screen name="Categories" component={CategoriesScreen} />
+			<Stack.Screen name="Assets" component={AssetsScreen} />
 			<Stack.Screen name="Liabilities" component={LiabilitiesScreen} />
 			<Stack.Screen name="Types" component={TypesScreen} />
 			<Stack.Screen

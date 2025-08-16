@@ -16,6 +16,8 @@ export function useDashboardGroups(refreshKey?: any) {
 	const [expensesByCategory, setExpensesByCategory] = useState<GroupedTypeMap>(
 		{}
 	);
+	const [envelopesByCurrency, setEnvelopesByCurrency] =
+		useState<GroupedTypeMap>({});
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
@@ -28,13 +30,15 @@ export function useDashboardGroups(refreshKey?: any) {
 			DashboardRepository.getAssetsByTypeAndCurrency(db),
 			DashboardRepository.getLiabilitiesByTypeAndCurrency(db),
 			DashboardRepository.getExpensesByCategoryAndCurrency(db),
+			DashboardRepository.getEnvelopeByCurrency(db),
 		])
-			.then(async ([acc, ast, liab, exp]) => {
+			.then(async ([acc, ast, liab, exp, envelope]) => {
 				if (!mounted) return;
 				const accMap: GroupedTypeMap = {};
 				const astMap: GroupedTypeMap = {};
 				const liabMap: GroupedTypeMap = {};
 				const expMap: GroupedTypeMap = {};
+				const envMap: GroupedTypeMap = {};
 				acc.forEach((a) => {
 					if (!accMap[a.currency]) accMap[a.currency] = [];
 					accMap[a.currency].push({
@@ -68,10 +72,20 @@ export function useDashboardGroups(refreshKey?: any) {
 						currency: e.currency,
 					});
 				});
+				envelope.forEach((e) => {
+					if (!envMap[e.currency]) envMap[e.currency] = [];
+					envMap[e.currency].push({
+						label: e.name,
+						value: Number(e.balance) ?? 0,
+						currency: e.currency,
+					});
+				});
+
 				setAccountsByType(accMap);
 				setAssetsByType(astMap);
 				setLiabilitiesByType(liabMap);
 				setExpensesByCategory(expMap);
+				setEnvelopesByCurrency(envMap);
 				setLoading(false);
 			})
 			.catch((err) => {
@@ -89,6 +103,7 @@ export function useDashboardGroups(refreshKey?: any) {
 		assetsByType,
 		liabilitiesByType,
 		expensesByCategory,
+		envelopesByCurrency,
 		loading,
 		error,
 	};

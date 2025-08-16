@@ -21,6 +21,14 @@ export interface CategoryTotal {
 	total: number;
 	currency: string;
 }
+
+export interface EnvelopeTotal {
+	name: string;
+	currency: string;
+	total: number;
+	balance: number;
+}
+
 /**
  * Represents a financial account where money is held.
  * Corresponds to the 'accounts' table/model.
@@ -125,6 +133,21 @@ export interface Transaction {
 	liability_id?: number | null; // Foreign key to Liability (optional)
 	from_account_id?: number | null;
 	to_account_id?: number | null;
+	envelope_id?: number | null;
+}
+
+/** Envelope
+ * Represents a envelope for money allocations.
+ */
+
+export interface Envelope {
+	id: number;
+	name: string;
+	total_amount: number;
+	current_balance: number;
+	currency: string;
+	purpose?: string | null;
+	created_at?: string; // ISO date string
 }
 
 /**

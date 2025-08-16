@@ -1,5 +1,11 @@
 import { SQLiteDatabase } from "expo-sqlite";
-import type { DashboardTotals, GroupedByType, CategoryTotal } from "../types";
+import type {
+	DashboardTotals,
+	GroupedByType,
+	CategoryTotal,
+	Envelope,
+	EnvelopeTotal,
+} from "../types";
 
 export const DashboardRepository = {
 	// Get all top-level stats grouped by currency
@@ -148,6 +154,12 @@ export const DashboardRepository = {
 		return await db.getAllAsync(
 			`SELECT c.name as category, SUM(t.amount) as total, a.currency FROM transactions t JOIN categories c ON t.category_id = c.id JOIN accounts a ON t.to_account_id = a.id WHERE t.transaction_type_id = 1 AND a.currency = ? AND t.date >= ? AND t.date <= ? GROUP BY c.name, a.currency`,
 			[currency, start, end]
+		);
+	},
+
+	async getEnvelopeByCurrency(db: SQLiteDatabase): Promise<EnvelopeTotal[]> {
+		return await db.getAllAsync(
+			`SELECT currency,name, SUM(total_amount) as total, SUM(current_balance) as balance FROM envelopes GROUP BY currency,name`
 		);
 	},
 };

@@ -26,6 +26,7 @@ import type {
 	TransactionFilter as FilterTransaction,
 } from "../types";
 import { formatAmount } from "../utils/currency";
+import { useGetEnvelopes } from "@/hooks/envelope/useGetEnvelope";
 
 const TransactionsScreen = () => {
 	const theme = useTheme();
@@ -83,6 +84,13 @@ const TransactionsScreen = () => {
 		loading: loadingLiabilities,
 		error: errorLiabilities,
 	} = useGetLiabilities();
+
+	const {
+		envelopes,
+		loading: loadingEnvelopes,
+		error: errorEnvelopes,
+	} = useGetEnvelopes();
+
 	const [modalVisible, setModalVisible] = useState(false);
 	const [editingTransaction, setEditingTransaction] =
 		useState<Transaction | null>(null);
@@ -318,7 +326,8 @@ const TransactionsScreen = () => {
 		loadingAccounts ||
 		loadingCategories ||
 		loadingAssets ||
-		loadingLiabilities;
+		loadingLiabilities ||
+		loadingEnvelopes;
 	const anyError =
 		error ||
 		createError ||
@@ -328,7 +337,8 @@ const TransactionsScreen = () => {
 		errorAccounts ||
 		errorCategories ||
 		errorAssets ||
-		errorLiabilities;
+		errorLiabilities ||
+		errorEnvelopes;
 
 	return (
 		<View
@@ -396,6 +406,7 @@ const TransactionsScreen = () => {
 				assets={assets}
 				liabilities={liabilities}
 				initialTransaction={editingTransaction}
+				envelopes={envelopes}
 			/>
 			<Snackbar
 				visible={snackbar.visible}

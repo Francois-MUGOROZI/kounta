@@ -30,6 +30,19 @@ export async function initDatabase(db: any) {
 	`);
 
 	// Main entity tables
+
+	// Envelopes table
+	await db.execAsync(`
+		CREATE TABLE IF NOT EXISTS envelopes (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			name TEXT NOT NULL UNIQUE,
+			currency TEXT NOT NULL,
+			total_amount REAL NOT NULL DEFAULT 0,
+			current_balance REAL NOT NULL DEFAULT 0,
+			purpose TEXT
+		);
+	`);
+
 	await db.execAsync(`
 		CREATE TABLE IF NOT EXISTS accounts (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -92,12 +105,14 @@ export async function initDatabase(db: any) {
 			liability_id INTEGER,
 			from_account_id INTEGER,
 			to_account_id INTEGER,
+			envelope_id INTEGER,
 			FOREIGN KEY (transaction_type_id) REFERENCES transaction_types(id),
 			FOREIGN KEY (category_id) REFERENCES categories(id),
 			FOREIGN KEY (asset_id) REFERENCES assets(id),
 			FOREIGN KEY (liability_id) REFERENCES liabilities(id),
 			FOREIGN KEY (from_account_id) REFERENCES accounts(id),
-			FOREIGN KEY (to_account_id) REFERENCES accounts(id)
+			FOREIGN KEY (to_account_id) REFERENCES accounts(id),
+			FOREIGN KEY (envelope_id) REFERENCES envelopes(id)
 		);
 	`);
 	await db.execAsync(`

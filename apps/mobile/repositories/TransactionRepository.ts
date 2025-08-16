@@ -55,11 +55,12 @@ export const TransactionRepository = {
 			liability_id = null,
 			from_account_id = null,
 			to_account_id = null,
+			envelope_id = null,
 		} = transaction;
 
 		// Insert transaction
 		await db.runAsync(
-			`INSERT INTO transactions (description, amount, transaction_type_id, date, category_id, asset_id, liability_id, from_account_id, to_account_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			`INSERT INTO transactions (description, amount, transaction_type_id, date, category_id, asset_id, liability_id, from_account_id, to_account_id, envelope_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			[
 				description,
 				amount,
@@ -70,6 +71,7 @@ export const TransactionRepository = {
 				liability_id,
 				from_account_id,
 				to_account_id,
+				envelope_id,
 			]
 		);
 
@@ -111,6 +113,14 @@ export const TransactionRepository = {
 			await db.runAsync(
 				"UPDATE liabilities SET current_balance = current_balance - ? WHERE id = ?",
 				[amount, liability_id]
+			);
+		}
+
+		// update envelope balance if applicable
+		if (envelope_id) {
+			await db.runAsync(
+				"UPDATE envelopes SET current_balance = current_balance - ? WHERE id = ?",
+				[amount, envelope_id]
 			);
 		}
 	},

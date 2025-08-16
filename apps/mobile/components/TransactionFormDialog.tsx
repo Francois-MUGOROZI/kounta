@@ -20,6 +20,7 @@ interface TransactionFormDialogProps {
 	categories: Category[];
 	assets: { id: number; name: string }[];
 	liabilities: { id: number; name: string }[];
+	envelopes: { id: number; name: string }[];
 	initialTransaction?: Transaction | null;
 }
 
@@ -32,6 +33,7 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 	categories,
 	assets,
 	liabilities,
+	envelopes,
 	initialTransaction,
 }) => {
 	const theme = useTheme();
@@ -44,6 +46,7 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 	const [date, setDate] = useState("");
 	const [assetId, setAssetId] = useState<string>("");
 	const [liabilityId, setLiabilityId] = useState<string>("");
+	const [envelopeId, setEnvelopeId] = useState<string>("");
 	const [error, setError] = useState("");
 	const [filteredCategories, setFilteredCategories] = useState<Category[]>([]);
 
@@ -62,6 +65,7 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 			setDate(initialTransaction.date);
 			setAssetId(initialTransaction.asset_id?.toString() || "");
 			setLiabilityId(initialTransaction.liability_id?.toString() || "");
+			setEnvelopeId(initialTransaction.envelope_id?.toString() || "");
 		} else {
 			setDescription("");
 			setAmount("");
@@ -72,6 +76,7 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 			setDate(new Date().toISOString().split("T")[0]);
 			setAssetId("");
 			setLiabilityId("");
+			setEnvelopeId("");
 		}
 		setError("");
 	}, [visible, initialTransaction, transactionTypes, accounts, categories]);
@@ -128,6 +133,8 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 			asset_id: assetId && assetId !== "" ? Number(assetId) : undefined,
 			liability_id:
 				liabilityId && liabilityId !== "" ? Number(liabilityId) : undefined,
+			envelope_id:
+				envelopeId && envelopeId !== "" ? Number(envelopeId) : undefined,
 		} as Transaction);
 	};
 
@@ -332,65 +339,101 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 						style={styles.input}
 						placeholder="YYYY-MM-DD"
 					/>
-					<Dropdown
-						label={"Asset (optional)"}
-						value={assetId}
-						onSelect={(v) => setAssetId(v ?? "")}
-						options={[
-							{ label: "None", value: "" },
-							...assets.map((asset) => ({
-								label: asset.name,
-								value: asset.id.toString(),
-							})),
-						]}
-						error={!!error}
-						CustomMenuHeader={() => null}
-						CustomDropdownInput={(props) => (
-							<TextInput
-								{...props}
-								value={
-									assets.find((asset) => asset.id.toString() === assetId)
-										?.name || "None"
-								}
-								style={{
-									backgroundColor: theme.colors.outlineVariant,
-									marginBottom: 8,
-								}}
-								outlineColor={theme.colors.primary}
-								activeOutlineColor={theme.colors.primary}
+					{selectedTransactionType !== "Transfer" && (
+						<Dropdown
+							label={"Asset (optional)"}
+							value={assetId}
+							onSelect={(v) => setAssetId(v ?? "")}
+							options={[
+								{ label: "None", value: "" },
+								...assets.map((asset) => ({
+									label: asset.name,
+									value: asset.id.toString(),
+								})),
+							]}
+							error={!!error}
+							CustomMenuHeader={() => null}
+							CustomDropdownInput={(props) => (
+								<TextInput
+									{...props}
+									value={
+										assets.find((asset) => asset.id.toString() === assetId)
+											?.name || "None"
+									}
+									style={{
+										backgroundColor: theme.colors.outlineVariant,
+										marginBottom: 8,
+									}}
+									outlineColor={theme.colors.primary}
+									activeOutlineColor={theme.colors.primary}
+								/>
+							)}
+						/>
+					)}
+					{selectedTransactionType === "Expense" && (
+						<>
+							<Dropdown
+								label={"Envelope (optional)"}
+								value={envelopeId}
+								onSelect={(v) => setEnvelopeId(v ?? "")}
+								options={[
+									{ label: "None", value: "" },
+									...envelopes.map((envelope) => ({
+										label: envelope.name,
+										value: envelope.id.toString(),
+									})),
+								]}
+								error={!!error}
+								CustomMenuHeader={() => null}
+								CustomDropdownInput={(props) => (
+									<TextInput
+										{...props}
+										value={
+											envelopes.find(
+												(envelope) => envelope.id.toString() === envelopeId
+											)?.name || "None"
+										}
+										style={{
+											backgroundColor: theme.colors.outlineVariant,
+											marginBottom: 8,
+										}}
+										outlineColor={theme.colors.primary}
+										activeOutlineColor={theme.colors.primary}
+									/>
+								)}
 							/>
-						)}
-					/>
-					<Dropdown
-						label={"Liability (optional)"}
-						value={liabilityId}
-						onSelect={(v) => setLiabilityId(v ?? "")}
-						options={[
-							{ label: "None", value: "" },
-							...liabilities.map((liability) => ({
-								label: liability.name,
-								value: liability.id.toString(),
-							})),
-						]}
-						error={!!error}
-						CustomMenuHeader={() => null}
-						CustomDropdownInput={(props) => (
-							<TextInput
-								{...props}
-								value={
-									liabilities.find(
-										(liability) => liability.id.toString() === liabilityId
-									)?.name || "None"
-								}
-								style={{
-									backgroundColor: theme.colors.outlineVariant,
-									marginBottom: 8,
-								}}
-								outlineColor={theme.colors.primary}
-								activeOutlineColor={theme.colors.primary}
+							<Dropdown
+								label={"Liability (optional)"}
+								value={liabilityId}
+								onSelect={(v) => setLiabilityId(v ?? "")}
+								options={[
+									{ label: "None", value: "" },
+									...liabilities.map((liability) => ({
+										label: liability.name,
+										value: liability.id.toString(),
+									})),
+								]}
+								error={!!error}
+								CustomMenuHeader={() => null}
+								CustomDropdownInput={(props) => (
+									<TextInput
+										{...props}
+										value={
+											liabilities.find(
+												(liability) => liability.id.toString() === liabilityId
+											)?.name || "None"
+										}
+										style={{
+											backgroundColor: theme.colors.outlineVariant,
+											marginBottom: 8,
+										}}
+										outlineColor={theme.colors.primary}
+										activeOutlineColor={theme.colors.primary}
+									/>
+								)}
 							/>
-						)}
-					/>
+						</>
+					)}
 					<HelperText type="error" visible={!!error}>
 						{error}
 					</HelperText>
