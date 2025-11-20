@@ -1,15 +1,11 @@
-import React, { useState, useEffect, use } from "react";
-import { StyleSheet, View } from "react-native";
-import {
-	Portal,
-	Dialog,
-	TextInput,
-	Button,
-	HelperText,
-	useTheme,
-} from "react-native-paper";
+import React, { useState, useEffect } from "react";
+import { StyleSheet, View, ScrollView } from "react-native";
+import { Button, HelperText, useTheme, TextInput } from "react-native-paper";
 import { Dropdown } from "react-native-paper-dropdown";
 import { Category, Transaction, TransactionType } from "../types";
+import AppDialog from "./AppDialog";
+import AppTextInput from "./AppTextInput";
+import AppNumberInput from "./AppNumberInput";
 
 interface TransactionFormDialogProps {
 	visible: boolean;
@@ -150,28 +146,56 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 		}
 	}, [typeId, categories]);
 
+	// Helper to render dropdown input with premium styling
+	const renderDropdownInput = (props: any, value: string, label: string) => (
+		<TextInput
+			{...props}
+			value={value}
+			label={label}
+			dense
+			style={{
+				backgroundColor: theme.colors.surfaceVariant,
+				marginBottom: 8,
+				fontSize: 14,
+			}}
+			mode="outlined"
+			theme={{ roundness: 8 }}
+			right={<TextInput.Icon icon="chevron-down" />}
+			contentStyle={{ paddingVertical: 0 }}
+		/>
+	);
+
 	return (
-		<Portal>
-			<Dialog visible={visible} onDismiss={onClose}>
-				<Dialog.Title>
-					{initialTransaction ? "Edit Transaction" : "Add Transaction"}
-				</Dialog.Title>
-				<Dialog.Content
-					style={{ display: "flex", flexDirection: "column", gap: 2 }}
-				>
-					<TextInput
+		<AppDialog
+			visible={visible}
+			onDismiss={onClose}
+			title={initialTransaction ? "Edit Transaction" : "Add Transaction"}
+			actions={
+				<>
+					<Button onPress={onClose} style={{ marginRight: 8 }}>
+						Cancel
+					</Button>
+					<Button mode="contained" onPress={handleSave}>
+						Save
+					</Button>
+				</>
+			}
+		>
+			<ScrollView
+				style={{ maxHeight: 500 }}
+				showsVerticalScrollIndicator={false}
+				contentContainerStyle={{ paddingBottom: 16 }}
+			>
+				<View style={{ gap: 8 }}>
+					<AppTextInput
 						label="Description"
 						value={description}
 						onChangeText={setDescription}
-						style={styles.input}
-						autoFocus
 					/>
-					<TextInput
+					<AppNumberInput
 						label="Amount"
 						value={amount}
 						onChangeText={setAmount}
-						style={styles.input}
-						keyboardType="numeric"
 					/>
 					<Dropdown
 						label={"Type"}
@@ -183,21 +207,14 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 						}))}
 						error={!!error}
 						CustomMenuHeader={() => null}
-						CustomDropdownInput={(props) => (
-							<TextInput
-								{...props}
-								value={
-									transactionTypes.find((type) => type.id.toString() === typeId)
-										?.name || ""
-								}
-								style={{
-									backgroundColor: theme.colors.outlineVariant,
-									marginBottom: 8,
-								}}
-								outlineColor={theme.colors.primary}
-								activeOutlineColor={theme.colors.primary}
-							/>
-						)}
+						CustomDropdownInput={(props) =>
+							renderDropdownInput(
+								props,
+								transactionTypes.find((type) => type.id.toString() === typeId)
+									?.name || "",
+								"Type"
+							)
+						}
 					/>
 
 					{selectedTransactionType === "Transfer" ? (
@@ -212,22 +229,15 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 								}))}
 								error={!!error}
 								CustomMenuHeader={() => null}
-								CustomDropdownInput={(props) => (
-									<TextInput
-										{...props}
-										value={
-											accounts.find(
-												(account) => account.id.toString() === fromAccountId
-											)?.name || ""
-										}
-										style={{
-											backgroundColor: theme.colors.outlineVariant,
-											marginBottom: 8,
-										}}
-										outlineColor={theme.colors.primary}
-										activeOutlineColor={theme.colors.primary}
-									/>
-								)}
+								CustomDropdownInput={(props) =>
+									renderDropdownInput(
+										props,
+										accounts.find(
+											(account) => account.id.toString() === fromAccountId
+										)?.name || "",
+										"From Account"
+									)
+								}
 							/>
 							<Dropdown
 								label={"To Account"}
@@ -239,22 +249,15 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 								}))}
 								error={!!error}
 								CustomMenuHeader={() => null}
-								CustomDropdownInput={(props) => (
-									<TextInput
-										{...props}
-										value={
-											accounts.find(
-												(account) => account.id.toString() === toAccountId
-											)?.name || ""
-										}
-										style={{
-											backgroundColor: theme.colors.outlineVariant,
-											marginBottom: 8,
-										}}
-										outlineColor={theme.colors.primary}
-										activeOutlineColor={theme.colors.primary}
-									/>
-								)}
+								CustomDropdownInput={(props) =>
+									renderDropdownInput(
+										props,
+										accounts.find(
+											(account) => account.id.toString() === toAccountId
+										)?.name || "",
+										"To Account"
+									)
+								}
 							/>
 						</View>
 					) : (
@@ -281,26 +284,19 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 								}))}
 								error={!!error}
 								CustomMenuHeader={() => null}
-								CustomDropdownInput={(props) => (
-									<TextInput
-										{...props}
-										value={
-											accounts.find(
-												(account) =>
-													account.id.toString() ===
-													(selectedTransactionType === "Income"
-														? toAccountId
-														: fromAccountId)
-											)?.name || ""
-										}
-										style={{
-											backgroundColor: theme.colors.outlineVariant,
-											marginBottom: 8,
-										}}
-										outlineColor={theme.colors.primary}
-										activeOutlineColor={theme.colors.primary}
-									/>
-								)}
+								CustomDropdownInput={(props) =>
+									renderDropdownInput(
+										props,
+										accounts.find(
+											(account) =>
+												account.id.toString() ===
+												(selectedTransactionType === "Income"
+													? toAccountId
+													: fromAccountId)
+										)?.name || "",
+										"Account"
+									)
+								}
 							/>
 							<Dropdown
 								label={"Category"}
@@ -312,33 +308,26 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 								}))}
 								error={!!error}
 								CustomMenuHeader={() => null}
-								CustomDropdownInput={(props) => (
-									<TextInput
-										{...props}
-										value={
-											categories.find(
-												(category) => category.id.toString() === categoryId
-											)?.name || ""
-										}
-										style={{
-											backgroundColor: theme.colors.outlineVariant,
-											marginBottom: 8,
-										}}
-										outlineColor={theme.colors.primary}
-										activeOutlineColor={theme.colors.primary}
-									/>
-								)}
+								CustomDropdownInput={(props) =>
+									renderDropdownInput(
+										props,
+										categories.find(
+											(category) => category.id.toString() === categoryId
+										)?.name || "",
+										"Category"
+									)
+								}
 							/>
 						</View>
 					)}
 
-					<TextInput
+					<AppTextInput
 						label="Date"
 						value={date}
 						onChangeText={setDate}
-						style={styles.input}
-						placeholder="YYYY-MM-DD"
+						type="date"
 					/>
+
 					{selectedTransactionType !== "Transfer" && (
 						<Dropdown
 							label={"Asset (optional)"}
@@ -353,21 +342,14 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 							]}
 							error={!!error}
 							CustomMenuHeader={() => null}
-							CustomDropdownInput={(props) => (
-								<TextInput
-									{...props}
-									value={
-										assets.find((asset) => asset.id.toString() === assetId)
-											?.name || "None"
-									}
-									style={{
-										backgroundColor: theme.colors.outlineVariant,
-										marginBottom: 8,
-									}}
-									outlineColor={theme.colors.primary}
-									activeOutlineColor={theme.colors.primary}
-								/>
-							)}
+							CustomDropdownInput={(props) =>
+								renderDropdownInput(
+									props,
+									assets.find((asset) => asset.id.toString() === assetId)
+										?.name || "None",
+									"Asset (optional)"
+								)
+							}
 						/>
 					)}
 					{selectedTransactionType === "Expense" && (
@@ -385,22 +367,15 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 								]}
 								error={!!error}
 								CustomMenuHeader={() => null}
-								CustomDropdownInput={(props) => (
-									<TextInput
-										{...props}
-										value={
-											envelopes.find(
-												(envelope) => envelope.id.toString() === envelopeId
-											)?.name || "None"
-										}
-										style={{
-											backgroundColor: theme.colors.outlineVariant,
-											marginBottom: 8,
-										}}
-										outlineColor={theme.colors.primary}
-										activeOutlineColor={theme.colors.primary}
-									/>
-								)}
+								CustomDropdownInput={(props) =>
+									renderDropdownInput(
+										props,
+										envelopes.find(
+											(envelope) => envelope.id.toString() === envelopeId
+										)?.name || "None",
+										"Envelope (optional)"
+									)
+								}
 							/>
 							<Dropdown
 								label={"Liability (optional)"}
@@ -415,48 +390,29 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 								]}
 								error={!!error}
 								CustomMenuHeader={() => null}
-								CustomDropdownInput={(props) => (
-									<TextInput
-										{...props}
-										value={
-											liabilities.find(
-												(liability) => liability.id.toString() === liabilityId
-											)?.name || "None"
-										}
-										style={{
-											backgroundColor: theme.colors.outlineVariant,
-											marginBottom: 8,
-										}}
-										outlineColor={theme.colors.primary}
-										activeOutlineColor={theme.colors.primary}
-									/>
-								)}
+								CustomDropdownInput={(props) =>
+									renderDropdownInput(
+										props,
+										liabilities.find(
+											(liability) => liability.id.toString() === liabilityId
+										)?.name || "None",
+										"Liability (optional)"
+									)
+								}
 							/>
 						</>
 					)}
 					<HelperText type="error" visible={!!error}>
 						{error}
 					</HelperText>
-				</Dialog.Content>
-				<Dialog.Actions>
-					<Button onPress={onClose}>Cancel</Button>
-					<Button mode="contained" onPress={handleSave}>
-						Save
-					</Button>
-				</Dialog.Actions>
-			</Dialog>
-		</Portal>
+				</View>
+			</ScrollView>
+		</AppDialog>
 	);
 };
 
 const styles = StyleSheet.create({
-	input: {
-		marginBottom: 8,
-	},
-	label: {
-		marginTop: 8,
-		marginBottom: 4,
-	},
+	// Styles handled by Premium components
 });
 
 export default TransactionFormDialog;

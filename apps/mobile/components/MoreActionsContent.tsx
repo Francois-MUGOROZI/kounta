@@ -96,6 +96,7 @@ const styles = StyleSheet.create({
 		justifyContent: "center",
 		alignItems: "center",
 		padding: 4,
+		borderRadius: 12,
 	},
 	actionContent: { alignItems: "center", padding: 0 },
 	iconButton: {

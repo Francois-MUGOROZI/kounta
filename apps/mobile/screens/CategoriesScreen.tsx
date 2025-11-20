@@ -198,9 +198,10 @@ const CategoriesScreen = () => {
 							</Text>
 						</View>
 					}
-					contentContainerStyle={
-						flatListData.length === 0 ? styles.centered : undefined
-					}
+					contentContainerStyle={[
+						flatListData.length === 0 ? styles.centered : undefined,
+						{ paddingBottom: 80 },
+					]}
 					ItemSeparatorComponent={() => <Divider />}
 				/>
 			)}

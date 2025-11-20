@@ -1,15 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { View, StyleSheet } from "react-native";
 import {
-	Portal,
 	Text,
-	TextInput,
 	Button,
 	HelperText,
 	RadioButton,
-	useTheme,
-	Dialog,
 } from "react-native-paper";
+import AppDialog from "./AppDialog";
+import AppTextInput from "./AppTextInput";
 
 interface CategoryFormModalProps {
 	visible: boolean;
@@ -60,46 +58,49 @@ const CategoryFormModal: React.FC<CategoryFormModalProps> = ({
 	};
 
 	return (
-		<Portal>
-			<Dialog visible={visible} onDismiss={onClose}>
-				<Dialog.Title>
-					{initialCategory ? "Edit Category" : "Add Category"}
-				</Dialog.Title>
-				<Dialog.Content>
-					<TextInput
-						label="Name"
-						value={name}
-						onChangeText={setName}
-						style={styles.input}
-						autoFocus
-					/>
-					<HelperText type="error" visible={!!error}>
-						{error}
-					</HelperText>
-					<Text variant="titleMedium" style={styles.label}>
-						Type
-					</Text>
-					<RadioButton.Group
-						onValueChange={(v) => setTransactionTypeId(Number(v))}
-						value={transactionTypeId ? String(transactionTypeId) : ""}
-					>
-						{transactionTypes.map((type) => (
-							<RadioButton.Item
-								key={type.id}
-								label={type.name}
-								value={String(type.id)}
-							/>
-						))}
-					</RadioButton.Group>
-				</Dialog.Content>
-				<Dialog.Actions>
-					<Button onPress={onClose}>Cancel</Button>
+		<AppDialog
+			visible={visible}
+			onDismiss={onClose}
+			title={initialCategory ? "Edit Category" : "Add Category"}
+			actions={
+				<>
+					<Button onPress={onClose} style={{ marginRight: 8 }}>
+						Cancel
+					</Button>
 					<Button mode="contained" onPress={handleSave}>
 						Save
 					</Button>
-				</Dialog.Actions>
-			</Dialog>
-		</Portal>
+				</>
+			}
+		>
+			<View>
+				<AppTextInput
+					label="Name"
+					value={name}
+					onChangeText={setName}
+					error={error && !name.trim() ? "Name is required" : undefined}
+				/>
+				<Text variant="titleMedium" style={styles.label}>
+					Type
+				</Text>
+				<RadioButton.Group
+					onValueChange={(v) => setTransactionTypeId(Number(v))}
+					value={transactionTypeId ? String(transactionTypeId) : ""}
+				>
+					{transactionTypes.map((type) => (
+						<RadioButton.Item
+							key={type.id}
+							label={type.name}
+							value={String(type.id)}
+							style={{ paddingHorizontal: 0 }}
+						/>
+					))}
+				</RadioButton.Group>
+				<HelperText type="error" visible={!!error && !transactionTypeId}>
+					{error}
+				</HelperText>
+			</View>
+		</AppDialog>
 	);
 };
 

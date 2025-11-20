@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { StyleSheet } from "react-native";
 import {
-	Portal,
-	Dialog,
 	TextInput,
 	Button,
 	HelperText,
@@ -12,6 +10,9 @@ import {
 import { Dropdown } from "react-native-paper-dropdown";
 import { Asset } from "../types";
 import { getPopularCurrencyOptions } from "../constants/currencies";
+import AppDialog from "./AppDialog";
+import AppTextInput from "./AppTextInput";
+import AppNumberInput from "./AppNumberInput";
 
 interface AssetFormDialogProps {
 	visible: boolean;
@@ -94,100 +95,107 @@ const AssetFormDialog: React.FC<AssetFormDialogProps> = ({
 		});
 	};
 
+	// Helper to render dropdown input with app styling
+	const renderDropdownInput = (props: any, value: string, label: string) => (
+		<TextInput
+			{...props}
+			value={value}
+			label={label}
+			dense
+			style={{
+				backgroundColor: theme.colors.surfaceVariant,
+				marginBottom: 8,
+				fontSize: 14,
+			}}
+			mode="outlined"
+			theme={{ roundness: 8 }}
+			right={<TextInput.Icon icon="chevron-down" />}
+			contentStyle={{ paddingVertical: 0 }}
+		/>
+	);
+
+	const selectedTypeLabel =
+		assetTypes.find((type) => type.id.toString() === typeId)?.name || "";
+
 	return (
-		<Portal>
-			<Dialog visible={visible} onDismiss={onClose}>
-				<Dialog.Title>{initialAsset ? "Edit Asset" : "Add Asset"}</Dialog.Title>
-				<Dialog.Content
-					style={{ display: "flex", flexDirection: "column", gap: 2 }}
-				>
-					<TextInput
-						label="Name"
-						value={name}
-						onChangeText={setName}
-						style={styles.input}
-						autoFocus
-					/>
-					<Dropdown
-						label={"Asset Type"}
-						value={typeId}
-						onSelect={(v) => setTypeId(v ?? "")}
-						options={assetTypes.map((type) => ({
-							label: type.name,
-							value: type.id.toString(),
-						}))}
-						error={!!error}
-						CustomMenuHeader={() => null}
-						CustomDropdownInput={(props) => (
-							<TextInput
-								{...props}
-								value={
-									assetTypes.find((type) => type.id.toString() === typeId)
-										?.name || ""
-								}
-								style={{
-									backgroundColor: theme.colors.outlineVariant,
-									marginBottom: 8,
-								}}
-								outlineColor={theme.colors.primary}
-								activeOutlineColor={theme.colors.primary}
-							/>
-						)}
-					/>
-					<Dropdown
-						label={"Currency"}
-						value={currency}
-						onSelect={(v) => setCurrency(v ?? "")}
-						options={getPopularCurrencyOptions()}
-						error={!!error}
-						CustomMenuHeader={() => null}
-						CustomDropdownInput={(props) => (
-							<TextInput
-								{...props}
-								style={{
-									backgroundColor: theme.colors.outlineVariant,
-									marginBottom: 8,
-								}}
-								autoCapitalize="characters"
-								outlineColor={theme.colors.primary}
-								activeOutlineColor={theme.colors.primary}
-								value={currency}
-							/>
-						)}
-					/>
-					<TextInput
-						label="Initial Value"
-						value={initialValue}
-						onChangeText={setInitialValue}
-						style={styles.input}
-						keyboardType="numeric"
-					/>
-					<TextInput
-						label="Current Value"
-						value={currentValue}
-						onChangeText={setCurrentValue}
-						style={styles.input}
-						keyboardType="numeric"
-					/>
-					<TextInput
-						label="Notes (optional)"
-						value={notes}
-						onChangeText={setNotes}
-						style={styles.input}
-						multiline
-					/>
-					<HelperText type="error" visible={!!error}>
-						{error}
-					</HelperText>
-				</Dialog.Content>
-				<Dialog.Actions>
-					<Button onPress={onClose}>Cancel</Button>
+		<AppDialog
+			visible={visible}
+			onDismiss={onClose}
+			title={initialAsset ? "Edit Asset" : "Add Asset"}
+			actions={
+				<>
+					<Button onPress={onClose} style={{ marginRight: 8 }}>
+						Cancel
+					</Button>
 					<Button mode="contained" onPress={handleSave}>
 						Save
 					</Button>
-				</Dialog.Actions>
-			</Dialog>
-		</Portal>
+				</>
+			}
+		>
+			<AppTextInput
+				label="Name"
+				value={name}
+				onChangeText={setName}
+				error={error && !name.trim() ? "Name is required" : undefined}
+			/>
+			<Dropdown
+				label={"Asset Type"}
+				value={typeId}
+				onSelect={(v) => setTypeId(v ?? "")}
+				options={assetTypes.map((type) => ({
+					label: type.name,
+					value: type.id.toString(),
+				}))}
+				error={!!error && !typeId}
+				CustomMenuHeader={() => null}
+				CustomDropdownInput={(props) =>
+					renderDropdownInput(props, selectedTypeLabel, "Asset Type")
+				}
+			/>
+			<Dropdown
+				label={"Currency"}
+				value={currency}
+				onSelect={(v) => setCurrency(v ?? "")}
+				options={getPopularCurrencyOptions()}
+				error={!!error && !currency}
+				CustomMenuHeader={() => null}
+				CustomDropdownInput={(props) =>
+					renderDropdownInput(props, currency, "Currency")
+				}
+			/>
+			<AppNumberInput
+				label="Initial Value"
+				value={initialValue}
+				onChangeText={setInitialValue}
+				currency={currency || "RWF"}
+				error={
+					error && (!initialValue || isNaN(Number(initialValue)))
+						? "Valid initial value required"
+						: undefined
+				}
+			/>
+			<AppNumberInput
+				label="Current Value"
+				value={currentValue}
+				onChangeText={setCurrentValue}
+				currency={currency || "RWF"}
+				error={
+					error && (!currentValue || isNaN(Number(currentValue)))
+						? "Valid current value required"
+						: undefined
+				}
+			/>
+			<AppTextInput
+				label="Notes (optional)"
+				value={notes}
+				onChangeText={setNotes}
+				multiline
+			/>
+			<HelperText type="error" visible={!!error}>
+				{error}
+			</HelperText>
+		</AppDialog>
 	);
 };
 

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { View, StyleSheet } from "react-native";
-import { Text, useTheme, IconButton } from "react-native-paper";
+import { Text, useTheme, IconButton, Avatar } from "react-native-paper";
 import SwipeableListItem from "./SwipeableListItem";
 import AddToEnvelopeDialog from "./AddToEnvelopeDialog";
 import { Envelope } from "../types";
@@ -36,29 +36,47 @@ const EnvelopeListItem: React.FC<EnvelopeListItemProps> = ({
 				onDelete={onDelete}
 				style={styles.container}
 			>
-				<View style={styles.content}>
+				<View style={[styles.content, { backgroundColor: theme.colors.surface }]}>
 					<View style={styles.topRow}>
+						<Avatar.Icon
+							size={36}
+							icon="email-outline"
+							style={{
+								backgroundColor: theme.colors.elevation.level3,
+								marginRight: 16,
+							}}
+							color={theme.colors.primary}
+						/>
 						<View style={styles.titleContainer}>
-							<Text variant="titleMedium">{envelope.name}</Text>
-						</View>
-						<View style={styles.balanceContainer}>
-							<Text variant="titleSmall">
-								{envelope.currency} {envelope.total_amount.toLocaleString()} |{" "}
-								{envelope.current_balance.toLocaleString()}
+							<Text variant="titleMedium" style={{ fontWeight: "600" }}>
+								{envelope.name}
+							</Text>
+							<Text variant="bodySmall" style={{ color: theme.colors.outline }}>
+								{envelope.purpose}
 							</Text>
 						</View>
-					</View>
-					<View style={styles.descriptionRow}>
-						<Text variant="bodySmall" style={{ color: theme.colors.outline }}>
-							{envelope.purpose}
-						</Text>
+						<View style={styles.balanceContainer}>
+							<Text
+								variant="titleMedium"
+								style={{
+									fontWeight: "bold",
+									color: theme.colors.primary,
+								}}
+							>
+								{envelope.currency} {envelope.current_balance.toLocaleString()}
+							</Text>
+							<Text variant="bodySmall" style={{ color: theme.colors.outline }}>
+								of {envelope.total_amount.toLocaleString()}
+							</Text>
+						</View>
 					</View>
 					<View style={styles.actionsRow}>
 						<IconButton
 							icon="plus"
-							size={16}
+							size={20}
 							onPress={() => setShowAddDialog(true)}
 							disabled={loading}
+							style={{ margin: 0 }}
 						/>
 					</View>
 				</View>
@@ -80,12 +98,11 @@ const styles = StyleSheet.create({
 		overflow: "hidden",
 	},
 	content: {
-		padding: 0,
+		padding: 16,
 	},
 	topRow: {
 		flexDirection: "row",
 		alignItems: "center",
-		marginBottom: 8,
 	},
 	titleContainer: {
 		flex: 1,
@@ -93,13 +110,10 @@ const styles = StyleSheet.create({
 	balanceContainer: {
 		alignItems: "flex-end",
 	},
-	descriptionRow: {
-		marginBottom: 0,
-	},
 	actionsRow: {
 		flexDirection: "row",
 		justifyContent: "flex-end",
-		height: 40,
+		marginTop: 8,
 	},
 });
 

@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from "react";
 import {
-	Dialog,
-	Portal,
 	Button,
-	TextInput,
 	HelperText,
 } from "react-native-paper";
+import AppDialog from "./AppDialog";
+import AppTextInput from "./AppTextInput";
 
 interface TypeFormDialogProps {
 	visible: boolean;
@@ -39,32 +38,32 @@ const TypeFormDialog: React.FC<TypeFormDialogProps> = ({
 	};
 
 	return (
-		<Portal>
-			<Dialog visible={visible} onDismiss={onClose}>
-				<Dialog.Title>
-					{initialName ? `Edit ${typeLabel}` : `Add ${typeLabel}`}
-				</Dialog.Title>
-				<Dialog.Content>
-					<TextInput
-						label={`${typeLabel} Name`}
-						value={name}
-						onChangeText={setName}
-						autoFocus
-						error={!!error}
-						maxLength={50}
-					/>
-					<HelperText type="error" visible={!!error}>
-						{error}
-					</HelperText>
-				</Dialog.Content>
-				<Dialog.Actions>
-					<Button onPress={onClose}>Cancel</Button>
+		<AppDialog
+			visible={visible}
+			onDismiss={onClose}
+			title={initialName ? `Edit ${typeLabel}` : `Add ${typeLabel}`}
+			actions={
+				<>
+					<Button onPress={onClose} style={{ marginRight: 8 }}>
+						Cancel
+					</Button>
 					<Button mode="contained" onPress={handleSave}>
 						Save
 					</Button>
-				</Dialog.Actions>
-			</Dialog>
-		</Portal>
+				</>
+			}
+		>
+			<AppTextInput
+				label={`${typeLabel} Name`}
+				value={name}
+				onChangeText={setName}
+				error={error}
+				maxLength={50}
+			/>
+			<HelperText type="error" visible={!!error}>
+				{error}
+			</HelperText>
+		</AppDialog>
 	);
 };
 

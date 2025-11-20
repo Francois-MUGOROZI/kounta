@@ -227,7 +227,7 @@ const TransactionsScreen = () => {
 		currency: string,
 		totals: { income: number; expenses: number; net: number }
 	) => (
-		<Surface key={currency} style={styles.currencySummary}>
+		<Surface key={currency} style={styles.currencySummary} elevation={1}>
 			<Text variant="titleMedium" style={styles.currencyLabel}>
 				{currency} Summary
 			</Text>
@@ -283,7 +283,7 @@ const TransactionsScreen = () => {
 				<FlatList
 					data={data.transactions}
 					keyExtractor={(item) => item.id.toString()}
-					renderItem={({ item }) => {
+					renderItem={({ item, index }) => {
 						const transactionTypeName = getTransactionTypeName(
 							item.transaction_type_id
 						);
@@ -308,10 +308,10 @@ const TransactionsScreen = () => {
 								)}
 								onEdit={() => openEditModal(item)}
 								onDelete={() => handleDelete(item)}
+								index={index}
 							/>
 						);
 					}}
-					ItemSeparatorComponent={() => <Divider />}
 					scrollEnabled={false}
 				/>
 			</View>
@@ -387,6 +387,8 @@ const TransactionsScreen = () => {
 						renderTransactionSection(currency, data)
 					}
 					ItemSeparatorComponent={() => <View style={{ height: 16 }} />}
+					contentContainerStyle={{ paddingBottom: 100 }}
+					showsVerticalScrollIndicator={false}
 				/>
 			)}
 			<FAB
@@ -432,8 +434,7 @@ const styles = StyleSheet.create({
 	currencySummary: {
 		padding: 16,
 		marginBottom: 16,
-		borderRadius: 8,
-		elevation: 2,
+		borderRadius: 16,
 	},
 	currencyLabel: {
 		marginBottom: 12,

@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from "react";
 import { StyleSheet } from "react-native";
 import {
-	Portal,
-	Dialog,
 	TextInput,
 	Button,
 	HelperText,
 	useTheme,
 } from "react-native-paper";
 import { Dropdown } from "react-native-paper-dropdown";
+import AppDialog from "./AppDialog";
+import AppTextInput from "./AppTextInput";
+import AppNumberInput from "./AppNumberInput";
 import { getPopularCurrencyOptions } from "../constants/currencies";
 import { Envelope } from "@/types";
 
@@ -74,74 +75,90 @@ const EnvelopeFormDialog: React.FC<EnvelopeFormDialogProps> = ({
 		} as Envelope);
 	};
 
+	// Helper to render dropdown input with app styling
+	const renderDropdownInput = (props: any, value: string, label: string) => (
+		<TextInput
+			{...props}
+			value={value}
+			label={label}
+			dense
+			style={{
+				backgroundColor: theme.colors.surfaceVariant,
+				marginBottom: 8,
+				fontSize: 14,
+			}}
+			mode="outlined"
+			theme={{ roundness: 8 }}
+			right={<TextInput.Icon icon="chevron-down" />}
+			contentStyle={{ paddingVertical: 0 }}
+		/>
+	);
+
 	return (
-		<Portal>
-			<Dialog visible={visible} onDismiss={onClose}>
-				<Dialog.Title>
-					{initialEnvelope ? "Edit Envelope" : "Add Envelope"}
-				</Dialog.Title>
-				<Dialog.Content
-					style={{ display: "flex", flexDirection: "column", gap: 2 }}
-				>
-					<TextInput
-						label="Name"
-						value={name}
-						onChangeText={setName}
-						style={styles.input}
-						autoFocus
-					/>
-					<Dropdown
-						label={"Currency"}
-						value={currency}
-						onSelect={(v) => setCurrency(v ?? "")}
-						options={getPopularCurrencyOptions()}
-						error={!!error}
-						CustomMenuHeader={() => null}
-						CustomDropdownInput={(props) => (
-							<TextInput
-								{...props}
-								style={{
-									backgroundColor: theme.colors.outlineVariant,
-									marginBottom: 8,
-								}}
-								autoCapitalize="characters"
-								value={currency}
-							/>
-						)}
-					/>
-					<TextInput
-						label="Total Amount"
-						value={totalAmount}
-						onChangeText={setTotalAmount}
-						style={styles.input}
-						keyboardType="numeric"
-					/>
-					<TextInput
-						label="Current Balance"
-						value={currentBalance}
-						onChangeText={setCurrentBalance}
-						style={styles.input}
-						keyboardType="numeric"
-					/>
-					<TextInput
-						label="Purpose (optional)"
-						value={purpose}
-						onChangeText={setPurpose}
-						style={styles.input}
-						multiline
-					/>
-					<HelperText type="error" visible={!!error}>
-						{error}
-					</HelperText>
-				</Dialog.Content>
-				<Dialog.Actions>
-					<Button onPress={onClose}>Cancel</Button>
+		<AppDialog
+			visible={visible}
+			onDismiss={onClose}
+			title={initialEnvelope ? "Edit Envelope" : "Add Envelope"}
+			actions={
+				<>
+					<Button onPress={onClose} style={{ marginRight: 8 }}>
+						Cancel
+					</Button>
 					<Button mode="contained" onPress={handleSave}>
 						Save
 					</Button>
-				</Dialog.Actions>
-			</Dialog>
-		</Portal>
+				</>
+			}
+		>
+			<AppTextInput
+				label="Name"
+				value={name}
+				onChangeText={setName}
+				error={error && (!name.trim() || name.length < 3) ? "Name is required (min 3 chars)" : undefined}
+			/>
+			<Dropdown
+				label={"Currency"}
+				value={currency}
+				onSelect={(v) => setCurrency(v ?? "")}
+				options={getPopularCurrencyOptions()}
+				error={!!error && (!currency || currency.length < 3)}
+				CustomMenuHeader={() => null}
+				CustomDropdownInput={(props) =>
+					renderDropdownInput(props, currency, "Currency")
+				}
+			/>
+			<AppNumberInput
+				label="Total Amount"
+				value={totalAmount}
+				onChangeText={setTotalAmount}
+				currency={currency || "RWF"}
+				error={
+					error && (!totalAmount || isNaN(Number(totalAmount)))
+						? "Valid total amount required"
+						: undefined
+				}
+			/>
+			<AppNumberInput
+				label="Current Balance"
+				value={currentBalance}
+				onChangeText={setCurrentBalance}
+				currency={currency || "RWF"}
+				error={
+					error && (!currentBalance || isNaN(Number(currentBalance)))
+						? "Valid current balance required"
+						: undefined
+				}
+			/>
+			<AppTextInput
+				label="Purpose (optional)"
+				value={purpose}
+				onChangeText={setPurpose}
+				multiline
+			/>
+			<HelperText type="error" visible={!!error}>
+				{error}
+			</HelperText>
+		</AppDialog>
 	);
 };
 

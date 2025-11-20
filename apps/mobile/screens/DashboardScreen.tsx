@@ -5,13 +5,12 @@ import {
 	useTheme,
 	Divider,
 	ActivityIndicator,
-	Menu,
 } from "react-native-paper";
-import DashboardStatCard from "../components/DashboardStatCard";
-// import DashboardCharts from "../components/DashboardCharts";
+import AppCard from "../components/AppCard";
 import DashboardGroupList from "../components/DashboardGroupList";
 import { useDashboardStats } from "../hooks/dashboard/useDashboardStats";
 import { useDashboardGroups } from "../hooks/dashboard/useDashboardGroups";
+import { formatAmount } from "../utils/currency";
 
 // Define the stat keys as a type
 export type StatKey =
@@ -30,20 +29,20 @@ const STAT_CONFIG: {
 }[] = [
 	{ key: "netWorth", label: "Net Worth", icon: "scale-balance" },
 	{ key: "totalIncome", label: "Total Income", icon: "cash-plus" },
-	{ key: "accountBalance", label: "Account Balance", icon: "bank" },
-	{ key: "assetValue", label: "Asset Value", icon: "diamond-stone" },
 	{
 		key: "totalExpenses",
 		label: "Total Expenses",
 		icon: "cash-minus",
 		danger: true,
 	},
+	{ key: "assetValue", label: "Asset Value", icon: "diamond-stone" },
 	{
 		key: "liabilityValue",
 		label: "Liabilities",
 		icon: "account-cash",
 		danger: true,
 	},
+	{ key: "accountBalance", label: "Account Balance", icon: "bank" },
 ];
 
 const DashboardScreen: React.FC = () => {
@@ -60,11 +59,6 @@ const DashboardScreen: React.FC = () => {
 	} = useDashboardGroups(refresh);
 	const currencies = Object.keys(stats);
 	const [currency, setCurrency] = React.useState<string | null>(null);
-	const [menuVisible, setMenuVisible] = React.useState(false);
-	// Handle currency selection change
-	const handleCurrencyChange = (currency: string) => {
-		setCurrency(currency);
-	};
 
 	React.useEffect(() => {
 		if (currencies.length > 0) {
@@ -72,17 +66,37 @@ const DashboardScreen: React.FC = () => {
 		}
 	}, [currencies, currency]);
 
+	const renderHeroCard = (cur: string) => {
+		const netWorth = stats[cur]?.netWorth || 0;
+		return (
+			<AppCard
+				variant="hero"
+				style={styles.heroCard}
+				title="Total Net Worth"
+				subtitle="Combined across all accounts and assets"
+			>
+				<Text
+					variant="headlineSmall"
+					style={{ color: theme.colors.onPrimary, fontWeight: "bold" }}
+				>
+					{formatAmount(netWorth, cur)}
+				</Text>
+			</AppCard>
+		);
+	};
+
 	return (
 		<ScrollView
 			style={{ flex: 1, backgroundColor: theme.colors.background }}
 			contentContainerStyle={styles.container}
+			showsVerticalScrollIndicator={false}
 		>
-			<Text
-				variant="titleMedium"
-				style={[styles.title, { color: theme.colors.primary }]}
-			>
-				Dashboard
-			</Text>
+			<View style={styles.header}>
+				<Text variant="titleMedium" style={styles.title}>
+					Dashboard
+				</Text>
+			</View>
+
 			{loading && (
 				<ActivityIndicator
 					animating
@@ -101,51 +115,36 @@ const DashboardScreen: React.FC = () => {
 				</Text>
 			)}
 
-			{/* Currency selection menu */}
-
-			{/* <View style={styles.currencyMenu}>
-				<Menu
-					visible={menuVisible}
-					onDismiss={() => setMenuVisible(false)}
-					anchor={
-						<Text
-							style={{ color: theme.colors.secondary }}
-							onPress={() => setMenuVisible(true)}
-						>
-							Currency: {currency || "Select"}
-						</Text>
-					}
-				>
-					{currencies.map((cur) => (
-						<Menu.Item
-							key={cur}
-							onPress={() => {
-								handleCurrencyChange(cur);
-								setMenuVisible(false);
-							}}
-							title={cur}
-						/>
-					))}
-				</Menu>
-			</View> */}
-
 			{currency && (
 				<View key={currency} style={styles.currencySection}>
-					<Divider style={{ marginVertical: 8 }} />
-					<View style={styles.cardRow}>
-						{STAT_CONFIG.map((stat) => (
-							<DashboardStatCard
+					{renderHeroCard(currency)}
+
+					<View style={styles.statsGrid}>
+						{STAT_CONFIG.filter((s) => s.key !== "netWorth").map((stat, index) => (
+							<AppCard
 								key={stat.key}
-								label={stat.label}
-								value={stats[currency][stat.key]}
-								currency={currency}
-								loading={loading}
-								icon={stat.icon}
-								danger={stat.danger}
-							/>
+								style={styles.statCard}
+								title={stat.label}
+							>
+								<Text
+									variant="titleMedium"
+									style={{
+										color: stat.danger
+											? theme.colors.error
+											: theme.colors.primary,
+										fontWeight: "bold",
+									}}
+								>
+									{formatAmount(stats[currency][stat.key], currency)}
+								</Text>
+							</AppCard>
 						))}
 					</View>
+
 					<View style={styles.groupsSection}>
+						<Text variant="titleMedium" style={styles.sectionTitle}>
+							Breakdown
+						</Text>
 						{groupsLoading ? (
 							<ActivityIndicator
 								animating
@@ -157,7 +156,7 @@ const DashboardScreen: React.FC = () => {
 								{groupsError}
 							</Text>
 						) : (
-							<View>
+							<View style={{ gap: 16 }}>
 								<DashboardGroupList
 									title="Accounts by Type"
 									items={accountsByType[currency] || []}
@@ -195,35 +194,38 @@ const DashboardScreen: React.FC = () => {
 const styles = StyleSheet.create({
 	container: {
 		padding: 16,
-		flexGrow: 1,
+		paddingBottom: 100, // Extra padding for bottom scrolling
+	},
+	header: {
+		marginBottom: 24,
+		marginTop: 8,
 	},
 	title: {
-		marginBottom: 16,
 		fontWeight: "bold",
 	},
 	currencySection: {
 		marginBottom: 32,
 	},
-	currencyLabel: {
-		marginBottom: 4,
-		fontWeight: "600",
+	heroCard: {
+		marginBottom: 24,
 	},
-	cardRow: {
-		display: "flex",
+	statsGrid: {
 		flexDirection: "row",
 		flexWrap: "wrap",
 		justifyContent: "space-between",
 		gap: 8,
+		marginBottom: 24,
+	},
+	statCard: {
+		width: "48%", // Two columns
+		marginBottom: 0,
 	},
 	groupsSection: {
-		marginTop: 16,
+		marginTop: 8,
 	},
-	currencyMenu: {
+	sectionTitle: {
 		marginBottom: 16,
-		justifyContent: "center",
-		width: "100%",
-		display: "flex",
-		alignItems: "flex-end",
+		fontWeight: "600",
 	},
 });
 

@@ -6,11 +6,13 @@ import {
 	TextInput,
 	Button,
 	HelperText,
-	Text,
 	useTheme,
 } from "react-native-paper";
 import { Dropdown } from "react-native-paper-dropdown";
 import { getPopularCurrencyOptions } from "../constants/currencies";
+import AppDialog from "./AppDialog";
+import AppTextInput from "./AppTextInput";
+import AppNumberInput from "./AppNumberInput";
 
 interface AccountFormDialogProps {
 	visible: boolean;
@@ -95,88 +97,93 @@ const AccountFormDialog: React.FC<AccountFormDialogProps> = ({
 		accountTypes.find((type) => type.id.toString() === accountTypeId)?.name ||
 		"";
 
-	return (
-		<Portal>
-			<Dialog visible={visible} onDismiss={onClose}>
-				<Dialog.Title>
-					{initialAccount ? "Edit Account" : "Add Account"}
-				</Dialog.Title>
-				<Dialog.Content
-					style={{ display: "flex", flexDirection: "column", gap: 2 }}
-				>
-					<TextInput
-						label="Name"
-						value={name}
-						onChangeText={setName}
-						style={styles.input}
-						autoFocus
-					/>
-					<TextInput
-						label="Account Number (optional)"
-						value={accountNumber}
-						onChangeText={setAccountNumber}
-						style={styles.input}
-					/>
+	// Helper to render dropdown input with app styling
+	const renderDropdownInput = (props: any, value: string, label: string) => (
+		<TextInput
+			{...props}
+			value={value}
+			label={label}
+			dense
+			style={{
+				backgroundColor: theme.colors.surfaceVariant,
+				marginBottom: 8,
+				fontSize: 14,
+			}}
+			mode="outlined"
+			theme={{ roundness: 8 }}
+			right={<TextInput.Icon icon="chevron-down" />}
+			contentStyle={{ paddingVertical: 0 }}
+		/>
+	);
 
-					<Dropdown
-						label={"Account Type"}
-						value={accountTypeId}
-						onSelect={(v) => setAccountTypeId(v ?? "")}
-						options={accountTypes.map((type) => ({
-							label: type.name,
-							value: type.id.toString(),
-						}))}
-						error={!!error}
-						CustomMenuHeader={() => null}
-						CustomDropdownInput={(props) => (
-							<TextInput
-								{...props}
-								style={{
-									backgroundColor: theme.colors.outlineVariant,
-									marginBottom: 8,
-								}}
-								value={selectedTypeLabel}
-							/>
-						)}
-					/>
-					<Dropdown
-						label={"Currency"}
-						value={currency}
-						onSelect={(v) => setCurrency(v ?? "")}
-						options={getPopularCurrencyOptions()}
-						error={!!error}
-						CustomMenuHeader={() => null}
-						CustomDropdownInput={(props) => (
-							<TextInput
-								{...props}
-								style={{
-									backgroundColor: theme.colors.outlineVariant,
-									marginBottom: 8,
-								}}
-								autoCapitalize="characters"
-								value={currency}
-							/>
-						)}
-					/>
-					<TextInput
-						label="Opening Balance"
-						value={openingBalance}
-						onChangeText={setOpeningBalance}
-						style={styles.input}
-						keyboardType="numeric"
-					/>
-					<HelperText type="error" visible={!!error}>
-						{error}
-					</HelperText>
-				</Dialog.Content>
-				<Dialog.Actions>
-					<Button onPress={onClose}>Cancel</Button>
+	return (
+		<AppDialog
+			visible={visible}
+			onDismiss={onClose}
+			title={initialAccount ? "Edit Account" : "Add Account"}
+			actions={
+				<>
+					<Button onPress={onClose} style={{ marginRight: 8 }}>
+						Cancel
+					</Button>
 					<Button mode="contained" onPress={handleSave}>
 						Save
 					</Button>
-				</Dialog.Actions>
-			</Dialog>
-		</Portal>
+				</>
+			}
+		>
+			<AppTextInput
+				label="Name"
+				value={name}
+				onChangeText={setName}
+				error={error && !name.trim() ? "Name is required" : undefined}
+			/>
+			<AppTextInput
+				label="Account Number (optional)"
+				value={accountNumber}
+				onChangeText={setAccountNumber}
+			/>
+
+			<Dropdown
+				label={"Account Type"}
+				value={accountTypeId}
+				onSelect={(v) => setAccountTypeId(v ?? "")}
+				options={accountTypes.map((type) => ({
+					label: type.name,
+					value: type.id.toString(),
+				}))}
+				error={!!error && !accountTypeId}
+				CustomMenuHeader={() => null}
+				CustomDropdownInput={(props) =>
+					renderDropdownInput(props, selectedTypeLabel, "Account Type")
+				}
+			/>
+			<Dropdown
+				label={"Currency"}
+				value={currency}
+				onSelect={(v) => setCurrency(v ?? "")}
+				options={getPopularCurrencyOptions()}
+				error={!!error && !currency}
+				CustomMenuHeader={() => null}
+				CustomDropdownInput={(props) =>
+					renderDropdownInput(props, currency, "Currency")
+				}
+			/>
+			<AppNumberInput
+				label="Opening Balance"
+				value={openingBalance}
+				onChangeText={setOpeningBalance}
+				currency={currency || "RWF"}
+				error={
+					error && (!openingBalance || isNaN(Number(openingBalance)))
+						? "Valid opening balance required"
+						: undefined
+				}
+			/>
+			<HelperText type="error" visible={!!error}>
+				{error}
+			</HelperText>
+		</AppDialog>
 	);
 };
 

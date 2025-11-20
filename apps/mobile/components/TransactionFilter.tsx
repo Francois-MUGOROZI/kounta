@@ -8,13 +8,13 @@ import {
 	Chip,
 	IconButton,
 	useTheme,
-	Portal,
-	Dialog,
 	TextInput,
 } from "react-native-paper";
 import { DatePickerModal } from "react-native-paper-dates";
 import { Dropdown } from "react-native-paper-dropdown";
 import { TransactionFilter as TransactionFilterType } from "../types";
+import AppDialog from "./AppDialog";
+import AppTextInput from "./AppTextInput";
 
 interface TransactionFilterProps {
 	transactionTypes: { label: string; value: number }[];
@@ -139,6 +139,25 @@ export const TransactionFilter: React.FC<TransactionFilterProps> = ({
 			? `${dateRange.startDate.toLocaleDateString()} - ${dateRange.endDate.toLocaleDateString()}`
 			: "";
 
+	// Helper to render dropdown input with premium styling
+	const renderDropdownInput = (props: any, value: string, label: string) => (
+		<TextInput
+			{...props}
+			value={value}
+			label={label}
+			dense
+			style={{
+				backgroundColor: theme.colors.surfaceVariant,
+				marginBottom: 8,
+				fontSize: 14,
+			}}
+			mode="outlined"
+			theme={{ roundness: 8 }}
+			right={<TextInput.Icon icon="chevron-down" />}
+			contentStyle={{ paddingVertical: 0 }}
+		/>
+	);
+
 	return (
 		<View style={{ zIndex: 100 }}>
 			{/* Filter trigger button */}
@@ -191,118 +210,15 @@ export const TransactionFilter: React.FC<TransactionFilterProps> = ({
 			</View>
 
 			{/* Dialog for filter controls */}
-			<Portal>
-				<Dialog visible={open} onDismiss={() => setOpen(false)}>
-					<Dialog.Title>Filter Transactions</Dialog.Title>
-					<Dialog.Content>
-						<Dropdown
-							label={"Transaction Type"}
-							value={
-								transactionTypeId !== undefined
-									? transactionTypeId.toString()
-									: ""
-							}
-							onSelect={(v) =>
-								setTransactionTypeId(v ? parseInt(v, 10) : undefined)
-							}
-							options={transactionTypes.map((type) => ({
-								label: type.label,
-								value: type.value.toString(),
-							}))}
-							CustomMenuHeader={() => null}
-							CustomDropdownInput={(props) => (
-								<TextInput
-									{...props}
-									value={
-										transactionTypes.find(
-											(type) =>
-												type.value.toString() ===
-												(transactionTypeId !== undefined
-													? transactionTypeId.toString()
-													: "")
-										)?.label || ""
-									}
-									style={{
-										backgroundColor: theme.colors.outlineVariant,
-										marginBottom: 8,
-									}}
-									outlineColor={theme.colors.primary}
-									activeOutlineColor={theme.colors.primary}
-								/>
-							)}
-						/>
-						<Dropdown
-							label={"Category"}
-							value={categoryId !== undefined ? categoryId.toString() : ""}
-							onSelect={(v) => setCategoryId(v ? parseInt(v, 10) : undefined)}
-							options={filteredCategories.map((cat) => ({
-								label: cat.label,
-								value: cat.value.toString(),
-							}))}
-							CustomMenuHeader={() => null}
-							CustomDropdownInput={(props) => (
-								<TextInput
-									{...props}
-									value={
-										filteredCategories.find(
-											(cat) =>
-												cat.value.toString() ===
-												(categoryId !== undefined ? categoryId.toString() : "")
-										)?.label || ""
-									}
-									style={{
-										backgroundColor: theme.colors.outlineVariant,
-										marginBottom: 8,
-									}}
-									outlineColor={theme.colors.primary}
-									activeOutlineColor={theme.colors.primary}
-								/>
-							)}
-						/>
-						<Divider style={{ marginVertical: 8 }} />
-						<Text variant="labelLarge">Period</Text>
-						<RadioButton.Group onValueChange={setPeriod} value={period}>
-							{PERIODS.map((p) => (
-								<RadioButton.Item
-									key={p.value}
-									label={p.label}
-									value={p.value}
-								/>
-							))}
-						</RadioButton.Group>
-						{period === "custom" && (
-							<View>
-								<Button
-									mode="outlined"
-									onPress={() => setShowDatePicker(true)}
-									style={{ marginVertical: 8 }}
-								>
-									{dateRange?.startDate && dateRange?.endDate
-										? `${dateRange.startDate.toLocaleDateString()} - ${dateRange.endDate.toLocaleDateString()}`
-										: "Select Date Range"}
-								</Button>
-								<DatePickerModal
-									locale="en"
-									mode="range"
-									visible={showDatePicker}
-									onDismiss={() => setShowDatePicker(false)}
-									startDate={dateRange?.startDate}
-									endDate={dateRange?.endDate}
-									onConfirm={({
-										startDate,
-										endDate,
-									}: {
-										startDate: Date | undefined;
-										endDate: Date | undefined;
-									}) => {
-										setDateRange({ startDate, endDate });
-										setShowDatePicker(false);
-									}}
-								/>
-							</View>
-						)}
-					</Dialog.Content>
-					<Dialog.Actions>
+			<AppDialog
+				visible={open}
+				onDismiss={() => setOpen(false)}
+				title="Filter Transactions"
+				actions={
+					<>
+						<Button mode="outlined" onPress={handleClear} style={styles.button}>
+							Clear
+						</Button>
 						<Button
 							mode="contained"
 							onPress={handleApply}
@@ -310,31 +226,110 @@ export const TransactionFilter: React.FC<TransactionFilterProps> = ({
 						>
 							Apply
 						</Button>
-						<Button mode="outlined" onPress={handleClear} style={styles.button}>
-							Clear
-						</Button>
-					</Dialog.Actions>
-				</Dialog>
-			</Portal>
+					</>
+				}
+			>
+				<View>
+					<Dropdown
+						label={"Transaction Type"}
+						value={
+							transactionTypeId !== undefined ? transactionTypeId.toString() : ""
+						}
+						onSelect={(v) =>
+							setTransactionTypeId(v ? parseInt(v, 10) : undefined)
+						}
+						options={transactionTypes.map((type) => ({
+							label: type.label,
+							value: type.value.toString(),
+						}))}
+						CustomMenuHeader={() => null}
+						CustomDropdownInput={(props) =>
+							renderDropdownInput(
+								props,
+								transactionTypes.find(
+									(type) =>
+										type.value.toString() ===
+										(transactionTypeId !== undefined
+											? transactionTypeId.toString()
+											: "")
+								)?.label || "",
+								"Transaction Type"
+							)
+						}
+					/>
+					<Dropdown
+						label={"Category"}
+						value={categoryId !== undefined ? categoryId.toString() : ""}
+						onSelect={(v) => setCategoryId(v ? parseInt(v, 10) : undefined)}
+						options={filteredCategories.map((cat) => ({
+							label: cat.label,
+							value: cat.value.toString(),
+						}))}
+						CustomMenuHeader={() => null}
+						CustomDropdownInput={(props) =>
+							renderDropdownInput(
+								props,
+								filteredCategories.find(
+									(cat) =>
+										cat.value.toString() ===
+										(categoryId !== undefined ? categoryId.toString() : "")
+								)?.label || "",
+								"Category"
+							)
+						}
+					/>
+					<Divider style={{ marginVertical: 16 }} />
+					<Text variant="labelLarge" style={{ marginBottom: 8 }}>
+						Period
+					</Text>
+					<RadioButton.Group onValueChange={setPeriod} value={period}>
+						{PERIODS.map((p) => (
+							<RadioButton.Item
+								key={p.value}
+								label={p.label}
+								value={p.value}
+								style={{ paddingHorizontal: 0 }}
+							/>
+						))}
+					</RadioButton.Group>
+					{period === "custom" && (
+						<View>
+							<Button
+								mode="outlined"
+								onPress={() => setShowDatePicker(true)}
+								style={{ marginVertical: 8 }}
+							>
+								{dateRange?.startDate && dateRange?.endDate
+									? `${dateRange.startDate.toLocaleDateString()} - ${dateRange.endDate.toLocaleDateString()}`
+									: "Select Date Range"}
+							</Button>
+							<DatePickerModal
+								locale="en"
+								mode="range"
+								visible={showDatePicker}
+								onDismiss={() => setShowDatePicker(false)}
+								startDate={dateRange?.startDate}
+								endDate={dateRange?.endDate}
+								onConfirm={({
+									startDate,
+									endDate,
+								}: {
+									startDate: Date | undefined;
+									endDate: Date | undefined;
+								}) => {
+									setDateRange({ startDate, endDate });
+									setShowDatePicker(false);
+								}}
+							/>
+						</View>
+					)}
+				</View>
+			</AppDialog>
 		</View>
 	);
 };
 
 const styles = StyleSheet.create({
-	container: {
-		// No longer used, Dialog handles its own styling
-	},
-	title: {
-		marginBottom: 12,
-	},
-	input: {
-		marginBottom: 8,
-	},
-	buttonRow: {
-		flexDirection: "row",
-		justifyContent: "space-between",
-		marginTop: 16,
-	},
 	button: {
 		flex: 1,
 		marginHorizontal: 4,

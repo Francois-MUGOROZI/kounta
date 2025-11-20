@@ -1,6 +1,6 @@
 import React from "react";
 import { View, StyleSheet, ViewStyle } from "react-native";
-import { Text, useTheme } from "react-native-paper";
+import { Text, useTheme, Avatar } from "react-native-paper";
 import SwipeableListItem from "./SwipeableListItem";
 
 interface TypeListItemProps {
@@ -26,9 +26,15 @@ const TypeListItem: React.FC<TypeListItemProps> = ({
 			onDelete={onDelete}
 			style={combinedStyle}
 		>
-			<View style={styles.content}>
-				<View
-					style={[styles.colorDot, { backgroundColor: theme.colors.primary }]}
+			<View style={[styles.content, { backgroundColor: theme.colors.surface }]}>
+				<Avatar.Icon
+					size={36}
+					icon="tag-outline"
+					style={{
+						backgroundColor: theme.colors.elevation.level3,
+						marginRight: 16,
+					}}
+					color={theme.colors.primary}
 				/>
 				<Text style={styles.name} variant="titleMedium">
 					{name}
@@ -49,14 +55,9 @@ const styles = StyleSheet.create({
 		alignItems: "center",
 		padding: 16,
 	},
-	colorDot: {
-		width: 16,
-		height: 16,
-		borderRadius: 8,
-		marginRight: 12,
-	},
 	name: {
 		flex: 1,
+		fontWeight: "600",
 	},
 });
 

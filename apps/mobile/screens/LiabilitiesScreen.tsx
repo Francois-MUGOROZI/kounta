@@ -6,9 +6,9 @@ import {
 	Text,
 	Snackbar,
 	useTheme,
-	Surface,
 	Divider,
 } from "react-native-paper";
+import AppCard from "../components/AppCard";
 import { useGetLiabilities } from "../hooks/liability/useGetLiabilities";
 import { useCreateLiability } from "../hooks/liability/useCreateLiability";
 import { useUpdateLiability } from "../hooks/liability/useUpdateLiability";
@@ -164,19 +164,20 @@ const LiabilitiesScreen = () => {
 		<View
 			style={[styles.container, { backgroundColor: theme.colors.background }]}
 		>
-			<Surface style={styles.totalBalanceContainer}>
-				<Text variant="titleMedium" style={styles.totalBalanceLabel}>
-					Total Debt
-				</Text>
+			<AppCard
+				title="Total Debt"
+				subtitle="Combined across all liabilities"
+				style={styles.totalBalanceContainer}
+			>
 				<Text variant="headlineSmall" style={styles.totalBalanceValue}>
 					{Object.entries(totalByCurrency).map(([cur, val], idx) => (
-						<Text variant="titleSmall" key={cur}>
+						<Text variant="titleMedium" key={cur} style={{ fontWeight: "bold" }}>
 							{formatAmount(val, cur)}
 							{idx < Object.entries(totalByCurrency).length - 1 ? " | " : ""}
 						</Text>
 					))}
 				</Text>
-			</Surface>
+			</AppCard>
 			{anyLoading ? (
 				<View style={styles.centered}>
 					<ActivityIndicator size="large" />
@@ -230,9 +231,10 @@ const LiabilitiesScreen = () => {
 							</Text>
 						</View>
 					}
-					contentContainerStyle={
-						flatListData.length === 0 ? styles.centered : undefined
-					}
+					contentContainerStyle={[
+						flatListData.length === 0 ? styles.centered : undefined,
+						{ paddingBottom: 80 },
+					]}
 					ItemSeparatorComponent={() => <Divider />}
 				/>
 			)}
@@ -272,13 +274,7 @@ const styles = StyleSheet.create({
 		bottom: 24,
 	},
 	totalBalanceContainer: {
-		padding: 16,
 		marginBottom: 16,
-		borderRadius: 8,
-		elevation: 2,
-	},
-	totalBalanceLabel: {
-		marginBottom: 8,
 	},
 	totalBalanceValue: {
 		fontWeight: "bold",

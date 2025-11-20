@@ -7,8 +7,6 @@ import {
 	SegmentedButtons,
 	Divider,
 	Snackbar,
-	IconButton,
-	Surface,
 } from "react-native-paper";
 import { useGetAccountTypes } from "../hooks/accountType/useGetAccountTypes";
 import { useCreateAccountType } from "../hooks/accountType/useCreateAccountType";
@@ -201,7 +199,7 @@ const TypesScreen = () => {
 						</Text>
 					)
 				}
-				contentContainerStyle={{ flexGrow: 1 }}
+				contentContainerStyle={{ flexGrow: 1, paddingBottom: 80 }}
 				ItemSeparatorComponent={() => <Divider />}
 			/>
 			<FAB

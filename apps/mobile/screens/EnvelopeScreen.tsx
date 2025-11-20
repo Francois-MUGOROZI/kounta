@@ -6,9 +6,9 @@ import {
 	Text,
 	Snackbar,
 	useTheme,
-	Surface,
 	Divider,
 } from "react-native-paper";
+import AppCard from "../components/AppCard";
 import { useGetEnvelopes } from "../hooks/envelope/useGetEnvelope";
 import { useCreateEnvelope } from "../hooks/envelope/useCreateEnvelope";
 import { useUpdateEnvelope } from "../hooks/envelope/useUpdateEnvelope";
@@ -134,20 +134,21 @@ const EnvelopeScreen = () => {
 		<View
 			style={[styles.container, { backgroundColor: theme.colors.background }]}
 		>
-			<Surface style={styles.totalBalanceContainer}>
-				<Text variant="titleMedium" style={styles.totalBalanceLabel}>
-					Total Balance
-				</Text>
+			<AppCard
+				title="Total Balance"
+				subtitle="Combined across all envelopes"
+				style={styles.totalBalanceContainer}
+			>
 				<Text variant="headlineSmall" style={styles.totalBalanceValue}>
 					{Object.entries(totalByCurrency).map(([cur, val], idx) => (
-						<Text variant="titleSmall" key={cur}>
+						<Text variant="titleMedium" key={cur} style={{ fontWeight: "bold" }}>
 							{cur}: {val.total.toLocaleString()} |{" "}
 							{val.balance.toLocaleString()}
 							{idx < Object.entries(totalByCurrency).length - 1 ? " | " : ""}
 						</Text>
 					))}
 				</Text>
-			</Surface>
+			</AppCard>
 			{anyLoading ? (
 				<View style={styles.centered}>
 					<ActivityIndicator size="large" />
@@ -201,9 +202,10 @@ const EnvelopeScreen = () => {
 							</Text>
 						</View>
 					}
-					contentContainerStyle={
-						flatListData.length === 0 ? styles.centered : undefined
-					}
+					contentContainerStyle={[
+						flatListData.length === 0 ? styles.centered : undefined,
+						{ paddingBottom: 80 },
+					]}
 					ItemSeparatorComponent={() => <Divider />}
 				/>
 			)}
@@ -259,17 +261,9 @@ const styles = StyleSheet.create({
 	},
 	totalBalanceContainer: {
 		marginBottom: 16,
-		padding: 16,
-		borderRadius: 12,
-		elevation: 2,
-	},
-	totalBalanceLabel: {
-		color: "#888",
-		marginBottom: 4,
 	},
 	totalBalanceValue: {
 		fontWeight: "bold",
-		fontSize: 24,
 	},
 });
 

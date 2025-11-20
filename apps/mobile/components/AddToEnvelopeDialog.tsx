@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { StyleSheet } from "react-native";
 import {
-	Portal,
-	Dialog,
-	TextInput,
 	Button,
 	HelperText,
 } from "react-native-paper";
+import AppDialog from "./AppDialog";
+import AppNumberInput from "./AppNumberInput";
 import { Envelope } from "@/types";
 
 interface AddToEnvelopeDialogProps {
@@ -41,32 +40,32 @@ const AddToEnvelopeDialog: React.FC<AddToEnvelopeDialogProps> = ({
 	};
 
 	return (
-		<Portal>
-			<Dialog visible={visible} onDismiss={onClose}>
-				<Dialog.Title>Add to {envelope.name}</Dialog.Title>
-				<Dialog.Content
-					style={{ display: "flex", flexDirection: "column", gap: 2 }}
-				>
-					<TextInput
-						label={`Amount (${envelope.currency})`}
-						value={amount}
-						onChangeText={setAmount}
-						style={styles.input}
-						keyboardType="numeric"
-						autoFocus
-					/>
-					<HelperText type="error" visible={!!error}>
-						{error}
-					</HelperText>
-				</Dialog.Content>
-				<Dialog.Actions>
-					<Button onPress={onClose}>Cancel</Button>
+		<AppDialog
+			visible={visible}
+			onDismiss={onClose}
+			title={`Add to ${envelope.name}`}
+			actions={
+				<>
+					<Button onPress={onClose} style={{ marginRight: 8 }}>
+						Cancel
+					</Button>
 					<Button mode="contained" onPress={handleSave}>
 						Add
 					</Button>
-				</Dialog.Actions>
-			</Dialog>
-		</Portal>
+				</>
+			}
+		>
+			<AppNumberInput
+				label={`Amount (${envelope.currency})`}
+				value={amount}
+				onChangeText={setAmount}
+				currency={envelope.currency}
+				error={error}
+			/>
+			<HelperText type="error" visible={!!error}>
+				{error}
+			</HelperText>
+		</AppDialog>
 	);
 };
 

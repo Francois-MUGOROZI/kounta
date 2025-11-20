@@ -1,6 +1,6 @@
 import React from "react";
 import { View, StyleSheet } from "react-native";
-import { Text, useTheme } from "react-native-paper";
+import { Text, useTheme, Avatar } from "react-native-paper";
 import SwipeableListItem from "./SwipeableListItem";
 import { Asset } from "../types";
 import { formatAmount } from "../utils/currency";
@@ -19,6 +19,23 @@ const AssetListItem: React.FC<AssetListItemProps> = ({
 	onDelete,
 }) => {
 	const theme = useTheme();
+	const getIcon = (type: string) => {
+		switch (type.toLowerCase()) {
+			case "cash":
+				return "cash";
+			case "bank":
+				return "bank";
+			case "real estate":
+				return "home-city";
+			case "vehicle":
+				return "car";
+			case "investment":
+				return "chart-line";
+			default:
+				return "briefcase";
+		}
+	};
+
 	return (
 		<SwipeableListItem
 			onEdit={onEdit}
@@ -26,8 +43,16 @@ const AssetListItem: React.FC<AssetListItemProps> = ({
 			style={styles.container}
 		>
 			<View style={[styles.content, { backgroundColor: theme.colors.surface }]}>
+				<Avatar.Icon
+					size={36}
+					icon={getIcon(typeName)}
+					style={{ backgroundColor: theme.colors.elevation.level3, marginRight: 16 }}
+					color={theme.colors.primary}
+				/>
 				<View style={styles.info}>
-					<Text variant="titleMedium">{asset.name}</Text>
+					<Text variant="titleMedium" style={{ fontWeight: "600" }}>
+						{asset.name}
+					</Text>
 					<Text variant="bodySmall" style={{ color: theme.colors.outline }}>
 						{typeName}
 					</Text>
@@ -38,7 +63,13 @@ const AssetListItem: React.FC<AssetListItemProps> = ({
 					) : null}
 				</View>
 				<View style={styles.value}>
-					<Text variant="titleMedium">
+					<Text
+						variant="titleMedium"
+						style={{
+							fontWeight: "bold",
+							color: theme.colors.primary,
+						}}
+					>
 						{formatAmount(asset.current_value, asset.currency)}
 					</Text>
 				</View>
