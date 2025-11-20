@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { TransactionTypeRepository } from "../../repositories/TransactionTypeRepository";
 import { useDatabase } from "../../database";
 import { TransactionType } from "../../types";
+import { addEventListener, EVENTS } from "../../utils/events";
 
 export const useGetTransactionTypes = () => {
 	const db = useDatabase();
@@ -26,6 +27,15 @@ export const useGetTransactionTypes = () => {
 
 	useEffect(() => {
 		refresh();
+
+		// Subscribe to global data changes to keep the transaction types list in sync
+		const subscription = addEventListener(EVENTS.DATA_CHANGED, () => {
+			refresh();
+		});
+
+		return () => {
+			subscription.remove();
+		};
 	}, []);
 
 	return { transactionTypes, loading, error, refresh };

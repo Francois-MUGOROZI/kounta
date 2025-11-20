@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { TransactionRepository } from "../../repositories/TransactionRepository";
 import { useDatabase } from "../../database";
 import { Transaction, TransactionFilter } from "../../types";
+import { addEventListener, EVENTS } from "../../utils/events";
 
 export const useGetTransactions = (filter?: TransactionFilter) => {
 	const db = useDatabase();
@@ -24,6 +25,15 @@ export const useGetTransactions = (filter?: TransactionFilter) => {
 
 	useEffect(() => {
 		refresh();
+
+		// Subscribe to global data changes to keep the transactions list in sync
+		const subscription = addEventListener(EVENTS.DATA_CHANGED, () => {
+			refresh();
+		});
+
+		return () => {
+			subscription.remove();
+		};
 	}, [refresh]);
 
 	return { transactions, loading, error, refresh };

@@ -1,5 +1,6 @@
 import { SQLiteDatabase } from "expo-sqlite";
 import { Liability } from "../types";
+import { emitEvent, EVENTS } from "../utils/events";
 
 export const LiabilityRepository = {
 	async getAll(db: SQLiteDatabase): Promise<Liability[]> {
@@ -35,7 +36,8 @@ export const LiabilityRepository = {
 		const notes: string | null = liability.notes ?? null;
 
 		await db.runAsync(
-			`INSERT INTO liabilities (name, liability_type_id, currency, total_amount, current_balance, created_at, notes) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+			`INSERT INTO liabilities (name, liability_type_id, currency, total_amount, current_balance, created_at, notes)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
 			[
 				name,
 				liability_type_id,
@@ -46,6 +48,8 @@ export const LiabilityRepository = {
 				notes,
 			]
 		);
+		// Notify the app that data has changed so UI can update
+		emitEvent(EVENTS.DATA_CHANGED);
 	},
 
 	async update(
@@ -59,18 +63,22 @@ export const LiabilityRepository = {
 			const value = updates[key as keyof Liability];
 			if (value !== undefined) {
 				fields.push(`${key} = ?`);
-				values.push(value as string | number | null);
+				values.push(value);
 			}
 		}
 		if (fields.length === 0) return;
-		values.push(id as number);
+		values.push(id);
 		await db.runAsync(
 			`UPDATE liabilities SET ${fields.join(", ")} WHERE id = ?`,
 			values
 		);
+		// Notify the app that data has changed so UI can update
+		emitEvent(EVENTS.DATA_CHANGED);
 	},
 
 	async delete(db: SQLiteDatabase, id: number): Promise<void> {
 		await db.runAsync("DELETE FROM liabilities WHERE id = ?", [id]);
+		// Notify the app that data has changed so UI can update
+		emitEvent(EVENTS.DATA_CHANGED);
 	},
 };

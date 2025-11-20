@@ -1,5 +1,6 @@
 import { SQLiteDatabase } from "expo-sqlite";
 import { Envelope } from "../types";
+import { emitEvent, EVENTS } from "../utils/events";
 
 export const EnvelopeRepository = {
 	async getAll(db: SQLiteDatabase): Promise<Envelope[]> {
@@ -30,6 +31,7 @@ export const EnvelopeRepository = {
 			`INSERT INTO envelopes (name, total_amount, current_balance, purpose, currency) VALUES (?, ?, ?, ?, ?)`,
 			[name, total_amount, current_balance, purpose, currency]
 		);
+		emitEvent(EVENTS.DATA_CHANGED);
 	},
 
 	async update(
@@ -43,10 +45,12 @@ export const EnvelopeRepository = {
 		const values = fields.map((f) => (updates as any)[f]);
 		values.push(id);
 		await db.runAsync(`UPDATE envelopes SET ${setClause} WHERE id = ?`, values);
+		emitEvent(EVENTS.DATA_CHANGED);
 	},
 
 	async delete(db: SQLiteDatabase, id: number): Promise<void> {
 		await db.runAsync("DELETE FROM envelopes WHERE id = ?", [id]);
+		emitEvent(EVENTS.DATA_CHANGED);
 	},
 
 	async addToEnvelope(
@@ -58,5 +62,6 @@ export const EnvelopeRepository = {
 			`UPDATE envelopes SET total_amount = total_amount + ?, current_balance = current_balance + ? WHERE id = ?`,
 			[amount, amount, envelopeId]
 		);
+		emitEvent(EVENTS.DATA_CHANGED);
 	},
 };

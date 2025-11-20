@@ -1,4 +1,5 @@
-import { executeSqlAsync } from "../database";
+import { SQLiteDatabase } from "expo-sqlite";
+import { emitEvent, EVENTS } from "../utils/events";
 
 export interface Budget {
 	id: number;
@@ -9,46 +10,55 @@ export interface Budget {
 }
 
 export const BudgetRepository = {
-	async getAll(): Promise<Budget[]> {
-		const result = await executeSqlAsync(
+	async getAll(db: SQLiteDatabase): Promise<Budget[]> {
+		return await db.getAllAsync<Budget>(
 			"SELECT * FROM budgets ORDER BY created_at DESC"
 		);
-		return result.rows?._array || [];
 	},
 
-	async getById(id: number): Promise<Budget | null> {
-		const result = await executeSqlAsync("SELECT * FROM budgets WHERE id = ?", [
+	async getById(db: SQLiteDatabase, id: number): Promise<Budget | null> {
+		return await db.getFirstAsync<Budget>("SELECT * FROM budgets WHERE id = ?", [
 			id,
 		]);
-		return result.rows?._array?.[0] || null;
 	},
 
-	async create(budget: Omit<Budget, "id">): Promise<void> {
-		await executeSqlAsync(
+	async create(
+		db: SQLiteDatabase,
+		budget: Omit<Budget, "id">
+	): Promise<void> {
+		await db.runAsync(
 			`INSERT INTO budgets (category_id, amount, period, created_at)
        VALUES (?, ?, ?, ?)`,
 			[budget.category_id, budget.amount, budget.period, budget.created_at]
 		);
+		emitEvent(EVENTS.DATA_CHANGED);
 	},
 
-	async update(id: number, updates: Partial<Budget>): Promise<void> {
-		const fields = [];
-		const values = [];
+	async update(
+		db: SQLiteDatabase,
+		id: number,
+		updates: Partial<Budget>
+	): Promise<void> {
+		const fields: string[] = [];
+		const values: (string | number)[] = [];
 		for (const key in updates) {
-			if (updates[key as keyof Budget] !== undefined) {
+			const value = updates[key as keyof Budget];
+			if (value !== undefined) {
 				fields.push(`${key} = ?`);
-				values.push(updates[key as keyof Budget]);
+				values.push(value);
 			}
 		}
 		if (fields.length === 0) return;
 		values.push(id);
-		await executeSqlAsync(
+		await db.runAsync(
 			`UPDATE budgets SET ${fields.join(", ")} WHERE id = ?`,
 			values
 		);
+		emitEvent(EVENTS.DATA_CHANGED);
 	},
 
-	async delete(id: number): Promise<void> {
-		await executeSqlAsync("DELETE FROM budgets WHERE id = ?", [id]);
+	async delete(db: SQLiteDatabase, id: number): Promise<void> {
+		await db.runAsync("DELETE FROM budgets WHERE id = ?", [id]);
+		emitEvent(EVENTS.DATA_CHANGED);
 	},
 };

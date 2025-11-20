@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useDatabase } from "../../database";
 import { CategoryRepository } from "../../repositories/CategoryRepository";
 import { Category } from "../../types";
+import { addEventListener, EVENTS } from "../../utils/events";
 
 export function useGetCategories() {
 	const db = useDatabase();
@@ -24,6 +25,15 @@ export function useGetCategories() {
 
 	useEffect(() => {
 		fetchCategories();
+
+		// Subscribe to global data changes to keep the categories list in sync
+		const subscription = addEventListener(EVENTS.DATA_CHANGED, () => {
+			fetchCategories();
+		});
+
+		return () => {
+			subscription.remove();
+		};
 	}, [fetchCategories]);
 
 	return { categories, loading, error, refresh: fetchCategories };

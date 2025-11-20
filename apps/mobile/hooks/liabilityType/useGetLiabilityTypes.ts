@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { LiabilityTypeRepository } from "../../repositories/LiabilityTypeRepository";
 import { useDatabase } from "../../database";
 import { LiabilityType } from "../../types";
+import { addEventListener, EVENTS } from "../../utils/events";
 
 export const useGetLiabilityTypes = () => {
 	const db = useDatabase();
@@ -24,6 +25,15 @@ export const useGetLiabilityTypes = () => {
 
 	useEffect(() => {
 		refresh();
+
+		// Subscribe to global data changes to keep the liability types list in sync
+		const subscription = addEventListener(EVENTS.DATA_CHANGED, () => {
+			refresh();
+		});
+
+		return () => {
+			subscription.remove();
+		};
 	}, []);
 
 	return { liabilityTypes, loading, error, refresh };

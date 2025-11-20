@@ -1,5 +1,6 @@
 import { SQLiteDatabase } from "expo-sqlite";
 import { Category } from "../types";
+import { emitEvent, EVENTS } from "../utils/events";
 
 export const CategoryRepository = {
 	async getAll(db: SQLiteDatabase): Promise<Category[]> {
@@ -29,6 +30,7 @@ export const CategoryRepository = {
 			`INSERT INTO categories (name, transaction_type_id, created_at) VALUES (?, ?, ?)`,
 			[name as string, transaction_type_id as number, created_at as string]
 		);
+		emitEvent(EVENTS.DATA_CHANGED);
 	},
 
 	async update(
@@ -51,9 +53,11 @@ export const CategoryRepository = {
 			`UPDATE categories SET ${fields.join(", ")} WHERE id = ?`,
 			values
 		);
+		emitEvent(EVENTS.DATA_CHANGED);
 	},
 
 	async delete(db: SQLiteDatabase, id: number): Promise<void> {
 		await db.runAsync("DELETE FROM categories WHERE id = ?", [id]);
+		emitEvent(EVENTS.DATA_CHANGED);
 	},
 };

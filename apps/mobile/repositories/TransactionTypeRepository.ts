@@ -1,5 +1,6 @@
 import { SQLiteDatabase } from "expo-sqlite";
 import { TransactionType } from "../types";
+import { emitEvent, EVENTS } from "../utils/events";
 
 export const TransactionTypeRepository = {
 	async getAll(db: SQLiteDatabase): Promise<TransactionType[]> {
@@ -22,6 +23,7 @@ export const TransactionTypeRepository = {
 		await db.runAsync("INSERT INTO transaction_types (name) VALUES (?)", [
 			name,
 		]);
+		emitEvent(EVENTS.DATA_CHANGED);
 	},
 
 	async update(db: SQLiteDatabase, id: number, name: string): Promise<void> {
@@ -29,9 +31,11 @@ export const TransactionTypeRepository = {
 			name,
 			id,
 		]);
+		emitEvent(EVENTS.DATA_CHANGED);
 	},
 
 	async delete(db: SQLiteDatabase, id: number): Promise<void> {
 		await db.runAsync("DELETE FROM transaction_types WHERE id = ?", [id]);
+		emitEvent(EVENTS.DATA_CHANGED);
 	},
 };

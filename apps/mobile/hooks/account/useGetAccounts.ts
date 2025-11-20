@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useDatabase } from "../../database";
 import { AccountRepository } from "../../repositories/AccountRepository";
 import { Account } from "../../types";
+import { addEventListener, EVENTS } from "../../utils/events";
 
 export function useGetAccounts() {
 	const db = useDatabase();
@@ -24,6 +25,15 @@ export function useGetAccounts() {
 
 	useEffect(() => {
 		fetchAccounts();
+
+		// Subscribe to global data changes to keep the accounts list in sync
+		const subscription = addEventListener(EVENTS.DATA_CHANGED, () => {
+			fetchAccounts();
+		});
+
+		return () => {
+			subscription.remove();
+		};
 	}, [fetchAccounts]);
 
 	return { accounts, loading, error, refresh: fetchAccounts };

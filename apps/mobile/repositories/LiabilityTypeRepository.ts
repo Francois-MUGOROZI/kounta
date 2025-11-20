@@ -1,5 +1,6 @@
 import { SQLiteDatabase } from "expo-sqlite";
 import { LiabilityType } from "../types";
+import { emitEvent, EVENTS } from "../utils/events";
 
 export const LiabilityTypeRepository = {
 	async getAll(db: SQLiteDatabase): Promise<LiabilityType[]> {
@@ -17,6 +18,7 @@ export const LiabilityTypeRepository = {
 
 	async create(db: SQLiteDatabase, name: string): Promise<void> {
 		await db.runAsync("INSERT INTO liability_types (name) VALUES (?)", [name]);
+		emitEvent(EVENTS.DATA_CHANGED);
 	},
 
 	async update(db: SQLiteDatabase, id: number, name: string): Promise<void> {
@@ -24,9 +26,11 @@ export const LiabilityTypeRepository = {
 			name,
 			id,
 		]);
+		emitEvent(EVENTS.DATA_CHANGED);
 	},
 
 	async delete(db: SQLiteDatabase, id: number): Promise<void> {
 		await db.runAsync("DELETE FROM liability_types WHERE id = ?", [id]);
+		emitEvent(EVENTS.DATA_CHANGED);
 	},
 };

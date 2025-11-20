@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useDatabase } from "../../database";
 import { DashboardRepository } from "../../repositories/DashboardRepository";
 import type { DashboardTotals } from "../../types";
+import { addEventListener, EVENTS } from "../../utils/events";
 
 export type DashboardStats = {
 	[currency: string]: DashboardTotals;
@@ -33,6 +34,17 @@ export function useDashboardStats() {
 
 	useEffect(() => {
 		fetchStats();
+
+		// Subscribe to the global DATA_CHANGED event.
+		// This ensures that whenever any data is modified in the app (e.g., a new transaction),
+		// the dashboard statistics are immediately re-fetched and updated.
+		const subscription = addEventListener(EVENTS.DATA_CHANGED, () => {
+			fetchStats();
+		});
+
+		return () => {
+			subscription.remove();
+		};
 	}, [fetchStats]);
 
 	return { stats, loading, error, refresh: fetchStats };

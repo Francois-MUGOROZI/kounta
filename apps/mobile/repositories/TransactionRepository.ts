@@ -1,5 +1,6 @@
 import { SQLiteDatabase } from "expo-sqlite";
 import { Transaction, TransactionFilter } from "../types";
+import { emitEvent, EVENTS } from "../utils/events";
 
 export const TransactionRepository = {
 	async getAll(
@@ -123,6 +124,9 @@ export const TransactionRepository = {
 				[amount, envelope_id]
 			);
 		}
+
+		// Notify the app that data has changed so UI can update
+		emitEvent(EVENTS.DATA_CHANGED);
 	},
 
 	async update(
@@ -242,6 +246,8 @@ export const TransactionRepository = {
 				[updatedTransaction.amount, updatedTransaction.liability_id]
 			);
 		}
+
+		emitEvent(EVENTS.DATA_CHANGED);
 	},
 
 	async delete(db: SQLiteDatabase, id: number): Promise<void> {
@@ -294,5 +300,6 @@ export const TransactionRepository = {
 		}
 
 		await db.runAsync("DELETE FROM transactions WHERE id = ?", [id]);
+		emitEvent(EVENTS.DATA_CHANGED);
 	},
 };

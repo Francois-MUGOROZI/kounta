@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { AssetTypeRepository } from "../../repositories/AssetTypeRepository";
 import { useDatabase } from "../../database";
 import { AssetType } from "../../types";
+import { addEventListener, EVENTS } from "../../utils/events";
 
 export const useGetAssetTypes = () => {
 	const db = useDatabase();
@@ -24,6 +25,15 @@ export const useGetAssetTypes = () => {
 
 	useEffect(() => {
 		refresh();
+
+		// Subscribe to global data changes to keep the asset types list in sync
+		const subscription = addEventListener(EVENTS.DATA_CHANGED, () => {
+			refresh();
+		});
+
+		return () => {
+			subscription.remove();
+		};
 	}, []);
 
 	return { assetTypes, loading, error, refresh };

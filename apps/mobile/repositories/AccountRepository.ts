@@ -1,5 +1,6 @@
 import { SQLiteDatabase } from "expo-sqlite";
 import { Account } from "../types";
+import { emitEvent, EVENTS } from "../utils/events";
 
 export const AccountRepository = {
 	async getAll(db: SQLiteDatabase): Promise<Account[]> {
@@ -43,6 +44,8 @@ export const AccountRepository = {
 				created_at,
 			]
 		);
+		// Notify the app that data has changed so UI can update
+		emitEvent(EVENTS.DATA_CHANGED);
 	},
 
 	async update(
@@ -65,9 +68,13 @@ export const AccountRepository = {
 			`UPDATE accounts SET ${fields.join(", ")} WHERE id = ?`,
 			values
 		);
+		// Notify the app that data has changed so UI can update
+		emitEvent(EVENTS.DATA_CHANGED);
 	},
 
 	async delete(db: SQLiteDatabase, id: number): Promise<void> {
 		await db.runAsync("DELETE FROM accounts WHERE id = ?", [id]);
+		// Notify the app that data has changed so UI can update
+		emitEvent(EVENTS.DATA_CHANGED);
 	},
 };

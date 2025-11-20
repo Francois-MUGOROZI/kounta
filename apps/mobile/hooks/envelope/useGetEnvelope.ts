@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useDatabase } from "../../database";
 import { Envelope } from "../../types";
 import { EnvelopeRepository } from "@/repositories/EnvelopeRepository";
+import { addEventListener, EVENTS } from "../../utils/events";
 
 export function useGetEnvelopes() {
 	const db = useDatabase();
@@ -24,6 +25,15 @@ export function useGetEnvelopes() {
 
 	useEffect(() => {
 		fetchEnvelopes();
+
+		// Subscribe to global data changes to keep the envelopes list in sync
+		const subscription = addEventListener(EVENTS.DATA_CHANGED, () => {
+			fetchEnvelopes();
+		});
+
+		return () => {
+			subscription.remove();
+		};
 	}, [fetchEnvelopes]);
 
 	return { envelopes, loading, error, refresh: fetchEnvelopes };
