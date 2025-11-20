@@ -48,4 +48,15 @@ export const EnvelopeRepository = {
 	async delete(db: SQLiteDatabase, id: number): Promise<void> {
 		await db.runAsync("DELETE FROM envelopes WHERE id = ?", [id]);
 	},
+
+	async addToEnvelope(
+		db: SQLiteDatabase,
+		envelopeId: number,
+		amount: number
+	): Promise<void> {
+		await db.runAsync(
+			`UPDATE envelopes SET total_amount = total_amount + ?, current_balance = current_balance + ? WHERE id = ?`,
+			[amount, amount, envelopeId]
+		);
+	},
 };

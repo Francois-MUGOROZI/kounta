@@ -186,6 +186,7 @@ const EnvelopeScreen = () => {
 									envelope={envelope}
 									onEdit={() => openEditModal(envelope)}
 									onDelete={() => handleDelete(envelope)}
+									onEnvelopeUpdated={refresh}
 								/>
 							);
 						}
