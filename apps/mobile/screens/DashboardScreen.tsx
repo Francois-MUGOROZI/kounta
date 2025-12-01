@@ -1,11 +1,6 @@
 import React from "react";
 import { View, StyleSheet, ScrollView } from "react-native";
-import {
-	Text,
-	useTheme,
-	Divider,
-	ActivityIndicator,
-} from "react-native-paper";
+import { Text, useTheme, Divider, ActivityIndicator } from "react-native-paper";
 import AppCard from "../components/AppCard";
 import DashboardGroupList from "../components/DashboardGroupList";
 import { useDashboardStats } from "../hooks/dashboard/useDashboardStats";
@@ -19,13 +14,15 @@ export type StatKey =
 	| "totalExpenses"
 	| "accountBalance"
 	| "assetValue"
-	| "liabilityValue";
+	| "liabilityValue"
+	| "totalUnpaidBills";
 
 const STAT_CONFIG: {
 	key: StatKey;
 	label: string;
 	icon: string;
 	danger?: boolean;
+	warning?: boolean;
 }[] = [
 	{ key: "netWorth", label: "Net Worth", icon: "scale-balance" },
 	{ key: "totalIncome", label: "Total Income", icon: "cash-plus" },
@@ -43,6 +40,12 @@ const STAT_CONFIG: {
 		danger: true,
 	},
 	{ key: "accountBalance", label: "Account Balance", icon: "bank" },
+	{
+		key: "totalUnpaidBills",
+		label: "Unpaid Bills",
+		icon: "receipt",
+		warning: true,
+	},
 ];
 
 const DashboardScreen: React.FC = () => {
@@ -120,25 +123,29 @@ const DashboardScreen: React.FC = () => {
 					{renderHeroCard(currency)}
 
 					<View style={styles.statsGrid}>
-						{STAT_CONFIG.filter((s) => s.key !== "netWorth").map((stat, index) => (
-							<AppCard
-								key={stat.key}
-								style={styles.statCard}
-								title={stat.label}
-							>
-								<Text
-									variant="titleMedium"
-									style={{
-										color: stat.danger
-											? theme.colors.error
-											: theme.colors.primary,
-										fontWeight: "bold",
-									}}
+						{STAT_CONFIG.filter((s) => s.key !== "netWorth").map(
+							(stat, index) => (
+								<AppCard
+									key={stat.key}
+									style={styles.statCard}
+									title={stat.label}
 								>
-									{formatAmount(stats[currency][stat.key], currency)}
-								</Text>
-							</AppCard>
-						))}
+									<Text
+										variant="titleMedium"
+										style={{
+											color: stat.danger
+												? theme.colors.error
+												: stat.warning
+												? theme.colors.secondary
+												: theme.colors.primary,
+											fontWeight: "bold",
+										}}
+									>
+										{formatAmount(stats[currency][stat.key], currency)}
+									</Text>
+								</AppCard>
+							)
+						)}
 					</View>
 
 					<View style={styles.groupsSection}>

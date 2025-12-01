@@ -19,6 +19,7 @@ const MoreActionsContent: React.FC<MoreActionsContentProps> = ({ onClose }) => {
 	const actions = [
 		{ name: "Assets", icon: "piggy-bank", screen: "Assets" },
 		{ name: "Liabilities", icon: "credit-card-minus", screen: "Liabilities" },
+		{ name: "Bills", icon: "receipt", screen: "Bills" },
 		{ name: "Categories", icon: "shape", screen: "Categories" },
 		{ name: "Manage Types", icon: "tune-variant", screen: "Types" },
 		{

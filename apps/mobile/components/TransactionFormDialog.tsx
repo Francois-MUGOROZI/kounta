@@ -17,6 +17,7 @@ interface TransactionFormDialogProps {
 	assets: { id: number; name: string }[];
 	liabilities: { id: number; name: string }[];
 	envelopes: { id: number; name: string }[];
+	bills: { id: number; name: string; amount: number }[];
 	initialTransaction?: Transaction | null;
 }
 
@@ -30,6 +31,7 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 	assets,
 	liabilities,
 	envelopes,
+	bills,
 	initialTransaction,
 }) => {
 	const theme = useTheme();
@@ -43,6 +45,7 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 	const [assetId, setAssetId] = useState<string>("");
 	const [liabilityId, setLiabilityId] = useState<string>("");
 	const [envelopeId, setEnvelopeId] = useState<string>("");
+	const [billId, setBillId] = useState<string>("");
 	const [error, setError] = useState("");
 	const [filteredCategories, setFilteredCategories] = useState<Category[]>([]);
 
@@ -62,6 +65,7 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 			setAssetId(initialTransaction.asset_id?.toString() || "");
 			setLiabilityId(initialTransaction.liability_id?.toString() || "");
 			setEnvelopeId(initialTransaction.envelope_id?.toString() || "");
+			setBillId(initialTransaction.bill_id?.toString() || "");
 		} else {
 			setDescription("");
 			setAmount("");
@@ -73,6 +77,7 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 			setAssetId("");
 			setLiabilityId("");
 			setEnvelopeId("");
+			setBillId("");
 		}
 		setError("");
 	}, [visible, initialTransaction, transactionTypes, accounts, categories]);
@@ -131,6 +136,7 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 				liabilityId && liabilityId !== "" ? Number(liabilityId) : undefined,
 			envelope_id:
 				envelopeId && envelopeId !== "" ? Number(envelopeId) : undefined,
+			bill_id: billId && billId !== "" ? Number(billId) : undefined,
 		} as Transaction);
 	};
 
@@ -401,6 +407,37 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 								}
 							/>
 						</>
+					)}
+					{selectedTransactionType === "Expense" && bills.length > 0 && (
+						<Dropdown
+							label={"Bill (optional)"}
+							value={billId}
+							onSelect={(v) => {
+								setBillId(v ?? "");
+								// Auto-fill amount from selected bill
+								const bill = bills.find((b) => b.id.toString() === v);
+								if (bill) {
+									setAmount(bill.amount.toString());
+								}
+							}}
+							options={[
+								{ label: "None", value: "" },
+								...bills.map((bill) => ({
+									label: `${bill.name} (${bill.amount.toLocaleString()})`,
+									value: bill.id.toString(),
+								})),
+							]}
+							error={!!error}
+							CustomMenuHeader={() => null}
+							CustomDropdownInput={(props) =>
+								renderDropdownInput(
+									props,
+									bills.find((bill) => bill.id.toString() === billId)?.name ||
+										"None",
+									"Bill (optional)"
+								)
+							}
+						/>
 					)}
 					<HelperText type="error" visible={!!error}>
 						{error}

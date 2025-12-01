@@ -63,16 +63,39 @@ const AssetListItem: React.FC<AssetListItemProps> = ({
 					) : null}
 				</View>
 				<View style={styles.value}>
+				<Text variant="bodySmall" style={{ color: theme.colors.outline }}>
+					Initial: {formatAmount(asset.initial_value, asset.currency)}
+				</Text>
+				<Text
+					variant="titleMedium"
+					style={{
+						fontWeight: "bold",
+						color:
+							asset.current_value >= asset.initial_value
+								? theme.colors.primary
+								: theme.colors.error,
+					}}
+				>
+					{formatAmount(asset.current_value, asset.currency)}
+				</Text>
+				{asset.current_value !== asset.initial_value && (
 					<Text
-						variant="titleMedium"
+						variant="bodySmall"
 						style={{
-							fontWeight: "bold",
-							color: theme.colors.primary,
+							color:
+								asset.current_value >= asset.initial_value
+									? theme.colors.primary
+									: theme.colors.error,
 						}}
 					>
-						{formatAmount(asset.current_value, asset.currency)}
+						{asset.current_value >= asset.initial_value ? "+" : "-"}
+						{formatAmount(
+							asset.current_value - asset.initial_value,
+							asset.currency
+						)}
 					</Text>
-				</View>
+				)}
+			</View>
 			</View>
 		</SwipeableListItem>
 	);

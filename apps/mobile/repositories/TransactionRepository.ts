@@ -1,6 +1,7 @@
 import { SQLiteDatabase } from "expo-sqlite";
 import { Transaction, TransactionFilter } from "../types";
 import { emitEvent, EVENTS } from "../utils/events";
+import { BillsRepository } from "./BillsRepository";
 
 export const TransactionRepository = {
 	async getAll(
@@ -45,7 +46,7 @@ export const TransactionRepository = {
 	async create(
 		db: SQLiteDatabase,
 		transaction: Omit<Transaction, "id">
-	): Promise<void> {
+	): Promise<number> {
 		const {
 			description = "",
 			amount = 0,
@@ -57,11 +58,12 @@ export const TransactionRepository = {
 			from_account_id = null,
 			to_account_id = null,
 			envelope_id = null,
+			bill_id = null,
 		} = transaction;
 
 		// Insert transaction
-		await db.runAsync(
-			`INSERT INTO transactions (description, amount, transaction_type_id, date, category_id, asset_id, liability_id, from_account_id, to_account_id, envelope_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		const result = await db.runAsync(
+			`INSERT INTO transactions (description, amount, transaction_type_id, date, category_id, asset_id, liability_id, from_account_id, to_account_id, envelope_id, bill_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			[
 				description,
 				amount,
@@ -73,6 +75,7 @@ export const TransactionRepository = {
 				from_account_id,
 				to_account_id,
 				envelope_id,
+				bill_id,
 			]
 		);
 
@@ -110,7 +113,7 @@ export const TransactionRepository = {
 		}
 
 		// update liability balance if applicable
-		if (liability_id) {
+		if (liability_id && transactionTypeName === "Expense") {
 			await db.runAsync(
 				"UPDATE liabilities SET current_balance = current_balance - ? WHERE id = ?",
 				[amount, liability_id]
@@ -118,15 +121,21 @@ export const TransactionRepository = {
 		}
 
 		// update envelope balance if applicable
-		if (envelope_id) {
+		if (envelope_id && transactionTypeName === "Expense") {
 			await db.runAsync(
 				"UPDATE envelopes SET current_balance = current_balance - ? WHERE id = ?",
 				[amount, envelope_id]
 			);
 		}
 
+		// Mark bill as paid if bill_id is provided
+		if (bill_id && transactionTypeName === "Expense") {
+			await BillsRepository.markAsPaid(db, bill_id, result.lastInsertRowId);
+		}
+
 		// Notify the app that data has changed so UI can update
 		emitEvent(EVENTS.DATA_CHANGED);
+		return result.lastInsertRowId;
 	},
 
 	async update(

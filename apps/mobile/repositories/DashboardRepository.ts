@@ -3,7 +3,6 @@ import type {
 	DashboardTotals,
 	GroupedByType,
 	CategoryTotal,
-	Envelope,
 	EnvelopeTotal,
 } from "../types";
 
@@ -30,6 +29,10 @@ export const DashboardRepository = {
 			`SELECT a.currency, SUM(t.amount) as totalExpenses FROM transactions t JOIN accounts a ON t.from_account_id = a.id WHERE t.transaction_type_id = 2 GROUP BY a.currency`
 		);
 
+		const unpaidBills = await db.getAllAsync(
+			`SELECT SUM(bills.amount) as totalUnpaidBills, bill_rules.currency as currency FROM bills JOIN bill_rules ON bills.bill_rule_id = bill_rules.id WHERE bills.status != 'Paid' GROUP BY bill_rules.currency`
+		);
+
 		// Merge all by currency
 		const currencies = [
 			...new Set([
@@ -38,6 +41,7 @@ export const DashboardRepository = {
 				...liabilities.map((l: any) => l.currency),
 				...income.map((i: any) => i.currency),
 				...expenses.map((e: any) => e.currency),
+				...unpaidBills.map((b: any) => b.currency),
 			]),
 		];
 
@@ -47,6 +51,7 @@ export const DashboardRepository = {
 			const liab = liabilities.find((l: any) => l.currency === currency);
 			const inc = income.find((i: any) => i.currency === currency);
 			const exp = expenses.find((e: any) => e.currency === currency);
+			const unpaid = unpaidBills.find((b: any) => b.currency === currency);
 
 			const accountBalance =
 				acc && (acc as any)["accountBalance"]
@@ -68,12 +73,18 @@ export const DashboardRepository = {
 				exp && (exp as any)["totalExpenses"]
 					? Number((exp as any)["totalExpenses"])
 					: 0;
+			const totalUnpaidBills =
+				unpaid && (unpaid as any)["totalUnpaidBills"]
+					? Number((unpaid as any)["totalUnpaidBills"])
+					: 0;
+
 			const netWorth = accountBalance + assetValue - liabilityValue;
 
 			const returnValue = {
 				currency,
 				totalIncome,
 				totalExpenses,
+				totalUnpaidBills,
 				accountBalance,
 				assetValue,
 				liabilityValue,

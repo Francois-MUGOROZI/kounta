@@ -3,6 +3,7 @@ export interface DashboardTotals {
 	currency: string;
 	totalIncome: number;
 	totalExpenses: number;
+	totalUnpaidBills: number;
 	accountBalance: number;
 	assetValue: number;
 	liabilityValue: number;
@@ -134,6 +135,7 @@ export interface Transaction {
 	from_account_id?: number | null;
 	to_account_id?: number | null;
 	envelope_id?: number | null;
+	bill_id?: number | null; // Foreign key to Bill (optional)
 }
 
 /** Envelope
@@ -148,6 +150,55 @@ export interface Envelope {
 	currency: string;
 	purpose?: string | null;
 	created_at?: string; // ISO date string
+}
+
+/**
+ * Bill Frequency enum for recurring bills
+ */
+export type BillFrequency =
+	| "Monthly"
+	| "Yearly"
+	| "OneTime"
+	| "Weekly"
+	| "Quarterly";
+
+/**
+ * Bill Status enum
+ */
+export type BillStatus = "Pending" | "Paid" | "Overdue";
+
+/**
+ * Represents a bill rule (master template) for recurring or one-time bills.
+ * Corresponds to the 'bill_rules' table/model.
+ */
+export interface BillRule {
+	id: number;
+	name: string;
+	amount: number;
+	frequency: BillFrequency;
+	category_id: number; // Foreign key to Category (MANDATORY)
+	is_active: boolean;
+	start_date: string; // ISO date string
+	auto_next: boolean; // Auto-generate next bill when current is paid/overdue
+	currency: string; // Currency code (e.g., 'RWF', 'USD')
+	created_at: string; // ISO date string
+}
+
+/**
+ * Represents a specific bill instance (obligation event).
+ * Corresponds to the 'bills' table/model.
+ */
+export interface Bill {
+	id: number;
+	name?: string; // Populated from bill_rule.name via JOIN
+	currency?: string; // Populated from bill_rule.currency via JOIN
+	bill_rule_id: number; // Foreign key to BillRule
+	due_date: string; // ISO date string
+	amount: number;
+	status: BillStatus;
+	transaction_id?: number | null; // Foreign key to Transaction (when paid)
+	paid_at?: string | null; // ISO date string
+	created_at: string; // ISO date string
 }
 
 /**

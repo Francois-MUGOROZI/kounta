@@ -5,7 +5,7 @@ import { IconButton, useTheme, TouchableRipple } from "react-native-paper";
 
 interface SwipeableListItemProps {
 	onEdit: () => void;
-	onDelete: () => void;
+	onDelete?: () => void;
 	children: React.ReactNode;
 	style?: ViewStyle;
 }
@@ -18,17 +18,20 @@ const SwipeableListItem: React.FC<SwipeableListItemProps> = ({
 }) => {
 	const theme = useTheme();
 
-	const renderRightActions = () => (
-		<RectButton
-			style={[styles.deleteButton, { backgroundColor: theme.colors.error }]}
-			onPress={onDelete}
-		>
-			<IconButton icon="delete" iconColor={theme.colors.onError} size={24} />
-		</RectButton>
-	);
+	const renderRightActions = () => {
+		if (!onDelete) return null;
+		return (
+			<RectButton
+				style={[styles.deleteButton, { backgroundColor: theme.colors.error }]}
+				onPress={onDelete}
+			>
+				<IconButton icon="delete" iconColor={theme.colors.onError} size={24} />
+			</RectButton>
+		);
+	};
 
 	return (
-		<Swipeable renderRightActions={renderRightActions}>
+		<Swipeable renderRightActions={onDelete ? renderRightActions : undefined}>
 			<View style={style}>
 				<View style={{ flex: 1 }}>
 					<TouchableRipple

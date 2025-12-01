@@ -27,6 +27,7 @@ import type {
 } from "../types";
 import { formatAmount } from "../utils/currency";
 import { useGetEnvelopes } from "@/hooks/envelope/useGetEnvelope";
+import { useGetBills } from "../hooks/bill/useGetBills";
 
 const TransactionsScreen = () => {
 	const theme = useTheme();
@@ -90,6 +91,8 @@ const TransactionsScreen = () => {
 		loading: loadingEnvelopes,
 		error: errorEnvelopes,
 	} = useGetEnvelopes();
+
+	const { bills, loading: loadingBills, error: errorBills } = useGetBills("Pending");
 
 	const [modalVisible, setModalVisible] = useState(false);
 	const [editingTransaction, setEditingTransaction] =
@@ -327,7 +330,8 @@ const TransactionsScreen = () => {
 		loadingCategories ||
 		loadingAssets ||
 		loadingLiabilities ||
-		loadingEnvelopes;
+		loadingEnvelopes ||
+		loadingBills;
 	const anyError =
 		error ||
 		createError ||
@@ -338,7 +342,8 @@ const TransactionsScreen = () => {
 		errorCategories ||
 		errorAssets ||
 		errorLiabilities ||
-		errorEnvelopes;
+		errorEnvelopes ||
+		errorBills;
 
 	return (
 		<View
@@ -409,6 +414,7 @@ const TransactionsScreen = () => {
 				liabilities={liabilities}
 				initialTransaction={editingTransaction}
 				envelopes={envelopes}
+				bills={bills as any}
 			/>
 			<Snackbar
 				visible={snackbar.visible}

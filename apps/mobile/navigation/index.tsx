@@ -22,6 +22,7 @@ import AppBottomSheet from "../components/AppBottomSheet";
 import MoreActionsContent from "../components/MoreActionsContent";
 import AppBar from "@/components/AppBar";
 import EnvelopeScreen from "@/screens/EnvelopeScreen";
+import BillsScreen from "../screens/BillsScreen";
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -148,6 +149,11 @@ const AppNavigator: React.FC = () => {
 				name="BackupRestore"
 				options={{ title: "Backup & Restore" }}
 				component={BackupRestoreScreen}
+			/>
+			<Stack.Screen
+				name="Bills"
+				options={{ title: "Bills" }}
+				component={BillsScreen}
 			/>
 		</Stack.Navigator>
 	);

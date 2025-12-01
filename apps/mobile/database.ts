@@ -106,15 +106,18 @@ export async function initDatabase(db: any) {
 			from_account_id INTEGER,
 			to_account_id INTEGER,
 			envelope_id INTEGER,
+			bill_id INTEGER,
 			FOREIGN KEY (transaction_type_id) REFERENCES transaction_types(id),
 			FOREIGN KEY (category_id) REFERENCES categories(id),
 			FOREIGN KEY (asset_id) REFERENCES assets(id),
 			FOREIGN KEY (liability_id) REFERENCES liabilities(id),
 			FOREIGN KEY (from_account_id) REFERENCES accounts(id),
 			FOREIGN KEY (to_account_id) REFERENCES accounts(id),
-			FOREIGN KEY (envelope_id) REFERENCES envelopes(id)
+			FOREIGN KEY (envelope_id) REFERENCES envelopes(id),
+			FOREIGN KEY (bill_id) REFERENCES bills(id)
 		);
 	`);
+
 	await db.execAsync(`
 		CREATE TABLE IF NOT EXISTS budgets (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -136,6 +139,39 @@ export async function initDatabase(db: any) {
 		);
 	`);
 
+	// Bill Rules table (Master template)
+	await db.execAsync(`
+		CREATE TABLE IF NOT EXISTS bill_rules (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			name TEXT NOT NULL,
+			amount REAL NOT NULL,
+			currency TEXT NOT NULL DEFAULT 'RWF',
+			frequency TEXT NOT NULL,
+			category_id INTEGER NOT NULL,
+			is_active INTEGER NOT NULL DEFAULT 1,
+			start_date TEXT NOT NULL,
+			auto_next INTEGER NOT NULL DEFAULT 1,
+			created_at TEXT NOT NULL,
+			FOREIGN KEY (category_id) REFERENCES categories(id)
+		);
+	`);
+
+	// Bills table (Instance)
+	await db.execAsync(`
+		CREATE TABLE IF NOT EXISTS bills (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			bill_rule_id INTEGER NOT NULL,
+			due_date TEXT NOT NULL,
+			amount REAL NOT NULL,
+			status TEXT NOT NULL DEFAULT 'Pending',
+			transaction_id INTEGER,
+			paid_at TEXT,
+			created_at TEXT NOT NULL,
+			FOREIGN KEY (bill_rule_id) REFERENCES bill_rules(id),
+			FOREIGN KEY (transaction_id) REFERENCES transactions(id)
+		);
+	`);
+
 	// Run migrations
 	await runMigrations(db);
 
@@ -147,6 +183,26 @@ export async function initDatabase(db: any) {
 async function runMigrations(db: any) {
 	try {
 		// Write migrations here
+
+		// Check if transactions table has 'bill_id' column using PRAGMA table_info (SQLite compatible)
+		const txnColumns = await db.getAllAsync("PRAGMA table_info(transactions);");
+		const hasBillId = txnColumns.some((col: any) => col.name === "bill_id");
+		if (!hasBillId) {
+			await db.runAsync(
+				"ALTER TABLE transactions ADD COLUMN bill_id INTEGER DEFAULT NULL;"
+			);
+			// Note: SQLite does not support adding a foreign key via ALTER TABLE after table creation.
+			// Foreign key constraint for bill_id must be ensured in schema definition/migration if rebuilt.
+		}
+
+		// Check if bill_rules table has 'currency' column
+		const billRuleColumns = await db.getAllAsync("PRAGMA table_info(bill_rules);");
+		const hasCurrency = billRuleColumns.some((col: any) => col.name === "currency");
+		if (!hasCurrency) {
+			await db.runAsync(
+				"ALTER TABLE bill_rules ADD COLUMN currency TEXT NOT NULL DEFAULT 'RWF';"
+			);
+		}
 	} catch (error) {
 		console.log("Migration error:", error);
 	}
