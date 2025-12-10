@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
 	View,
 	StyleSheet,
-	Alert,
 	FlatList,
 	ScrollView,
 	TouchableOpacity,
@@ -28,46 +27,60 @@ import BillRuleListItem from "../components/BillRuleListItem";
 import BillForm from "../components/BillForm";
 import BillListItem from "../components/BillListItem";
 import type { Bill, BillRule, BillStatus } from "../types";
-import { useDatabase } from "../database";
-import { BillsRepository } from "../repositories/BillsRepository";
 import { useCreateBillRule } from "@/hooks/bill/useCreateBillRule";
 
 const BillsScreen = () => {
 	const theme = useTheme();
-	const db = useDatabase();
 	const [activeTab, setActiveTab] = useState<number>(0);
 	const [billStatusFilter, setBillStatusFilter] = useState<
 		BillStatus | undefined
 	>("Pending");
 
-	const { billRules, loading: loadingRules, error: errorRules, refresh: refreshRules } = useGetBillRules();
-	const { createBillRule, loading: creatingRule, error: createRuleError } = useCreateBillRule();
-	const { updateBillRule, loading: updatingRule, error: updateRuleError } = useUpdateBillRule();
+	const {
+		billRules,
+		loading: loadingRules,
+		error: errorRules,
+		refresh: refreshRules,
+	} = useGetBillRules();
+	const {
+		createBillRule,
+		loading: creatingRule,
+		error: createRuleError,
+	} = useCreateBillRule();
+	const {
+		updateBillRule,
+		loading: updatingRule,
+		error: updateRuleError,
+	} = useUpdateBillRule();
 
-	const { bills, loading: loadingBills, error: errorBills, refresh: refreshBills } = useGetBills(billStatusFilter);
-	const { createBill, loading: creatingBill, error: createBillError } = useCreateBill();
-	const { updateBill, loading: updatingBill, error: updateBillError } = useUpdateBill();
+	const {
+		bills,
+		loading: loadingBills,
+		error: errorBills,
+		refresh: refreshBills,
+	} = useGetBills(billStatusFilter);
+	const {
+		createBill,
+		loading: creatingBill,
+		error: createBillError,
+	} = useCreateBill();
+	const {
+		updateBill,
+		loading: updatingBill,
+		error: updateBillError,
+	} = useUpdateBill();
 
-	const { categories, loading: loadingCategories, error: errorCategories } = useGetCategories();
+	const {
+		categories,
+		loading: loadingCategories,
+		error: errorCategories,
+	} = useGetCategories();
 
 	const [ruleModalVisible, setRuleModalVisible] = useState(false);
 	const [billModalVisible, setBillModalVisible] = useState(false);
 	const [editingRule, setEditingRule] = useState<BillRule | null>(null);
 	const [editingBill, setEditingBill] = useState<Bill | null>(null);
 	const [snackbar, setSnackbar] = useState({ visible: false, message: "" });
-
-	// Check for overdue bills on mount
-	useEffect(() => {
-		const checkOverdue = async () => {
-			try {
-				await BillsRepository.checkOverdueBills(db);
-				refreshBills();
-			} catch (e) {
-				console.error("Error checking overdue bills:", e);
-			}
-		};
-		checkOverdue();
-	}, []);
 
 	// Bill Rule handlers
 	const openAddRuleModal = () => {
@@ -153,16 +166,21 @@ const BillsScreen = () => {
 		}
 	};
 
-	const getRuleName = (ruleId: number) => {
-		return billRules.find((r) => r.id === ruleId)?.name || "Unknown";
-	};
-
 	const getCategoryName = (categoryId: number) => {
 		return categories.find((c) => c.id === categoryId)?.name || "Unknown";
 	};
 
-	const getCategoryIdFromRule = (ruleId: number) => {
-		return billRules.find((r) => r.id === ruleId)?.category_id || 0;
+	const getCategoryIdFromBill = (bill: Bill) => {
+		// For one-time bills, use bill.category_id directly
+		if (bill.bill_rule_id === null) {
+			return bill.category_id;
+		}
+		// For recurring bills, get category from rule
+		return (
+			billRules.find((r) => r.id === bill.bill_rule_id)?.category_id ||
+			bill.category_id ||
+			0
+		);
 	};
 
 	const anyLoading =
@@ -329,10 +347,7 @@ const BillsScreen = () => {
 							renderItem={({ item }) => (
 								<BillListItem
 									bill={item}
-									billRuleName={getRuleName(item.bill_rule_id)}
-									categoryName={getCategoryName(
-										getCategoryIdFromRule(item.bill_rule_id)
-									)}
+									categoryName={getCategoryName(getCategoryIdFromBill(item))}
 									onEdit={() => openEditBillModal(item)}
 								/>
 							)}
@@ -364,6 +379,7 @@ const BillsScreen = () => {
 				onClose={closeBillModal}
 				onSubmit={handleBillSubmit}
 				billRules={billRules.filter((r) => r.is_active)}
+				categories={categories}
 				initialBill={editingBill}
 			/>
 

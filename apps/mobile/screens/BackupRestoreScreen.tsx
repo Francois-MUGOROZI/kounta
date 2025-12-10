@@ -4,14 +4,21 @@ import { Text, Button, useTheme } from "react-native-paper";
 import * as FileSystem from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import * as DocumentPicker from "expo-document-picker";
+import { useClearDatabase } from "../hooks/useDatabase";
 
 const DB_PATH = FileSystem.documentDirectory + "SQLite/kounta.db";
 const BACKUP_DIR = FileSystem.documentDirectory + "Backup/";
-const BACKUP_PATH = BACKUP_DIR + "kounta-backup.db";
+const BACKUP_PATH =
+	BACKUP_DIR + new Date().toISOString().substring(0, 10) + "-kounta-backup.db";
 
 const BackupRestoreScreen: React.FC = () => {
 	const theme = useTheme();
 	const [loading, setLoading] = useState(false);
+	const {
+		clear,
+		loading: clearLoading,
+		error: clearError,
+	} = useClearDatabase();
 
 	const handleBackupAndExport = async () => {
 		setLoading(true);
@@ -48,11 +55,23 @@ const BackupRestoreScreen: React.FC = () => {
 		}
 	};
 
+	// Handle clear with confirmation
+	const handleClear = async () => {
+		Alert.alert(
+			"Clear Database",
+			"Are you sure you want to clear the database? All data will be lost, make sure you have a backup. Please restart the app after clearing the database.",
+			[
+				{ text: "Cancel", style: "cancel" },
+				{ text: "Clear", onPress: clear },
+			]
+		);
+	};
+
 	return (
 		<View
 			style={[styles.container, { backgroundColor: theme.colors.background }]}
 		>
-			<Text variant="headlineMedium" style={{ marginBottom: 24 }}>
+			<Text variant="headlineSmall" style={{ marginBottom: 24 }}>
 				Backup & Restore
 			</Text>
 			<Button
@@ -65,6 +84,14 @@ const BackupRestoreScreen: React.FC = () => {
 			</Button>
 			<Button mode="outlined" onPress={handleRestore} loading={loading}>
 				Restore from File
+			</Button>
+			<Button
+				mode="text"
+				onPress={handleClear}
+				loading={clearLoading}
+				style={{ marginTop: 16 }}
+			>
+				Clear Database
 			</Button>
 			{/* Export button removed, now combined with backup */}
 			<Text style={{ marginTop: 32, color: theme.colors.onSurfaceVariant }}>

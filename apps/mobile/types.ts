@@ -190,13 +190,14 @@ export interface BillRule {
  */
 export interface Bill {
 	id: number;
-	name?: string; // Populated from bill_rule.name via JOIN
-	currency?: string; // Populated from bill_rule.currency via JOIN
-	bill_rule_id: number; // Foreign key to BillRule
+	name: string; // Populated from bill_rule.name via JOIN or user-provided for one-time bills
+	currency: string; // Populated from bill_rule.currency via JOIN or user-provided for one-time bills
+	bill_rule_id: number | null; // Foreign key to BillRule (null for one-time bills)
 	due_date: string; // ISO date string
 	amount: number;
 	status: BillStatus;
 	transaction_id?: number | null; // Foreign key to Transaction (when paid)
+	category_id: number; // Foreign key to Category
 	paid_at?: string | null; // ISO date string
 	created_at: string; // ISO date string
 }

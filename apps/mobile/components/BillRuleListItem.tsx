@@ -4,6 +4,7 @@ import { Text, useTheme, Avatar, Switch } from "react-native-paper";
 import SwipeableListItem from "./SwipeableListItem";
 import { BillRule } from "../types";
 import { formatAmount } from "@/utils/currency";
+import { format } from "date-fns";
 
 interface BillRuleListItemProps {
 	billRule: BillRule;
@@ -21,10 +22,7 @@ const BillRuleListItem: React.FC<BillRuleListItemProps> = ({
 	const theme = useTheme();
 
 	return (
-		<SwipeableListItem
-			onEdit={onEdit}
-			style={styles.container}
-		>
+		<SwipeableListItem onEdit={onEdit} style={styles.container}>
 			<View style={[styles.content, { backgroundColor: theme.colors.surface }]}>
 				<Avatar.Icon
 					size={36}
@@ -43,6 +41,9 @@ const BillRuleListItem: React.FC<BillRuleListItemProps> = ({
 					</Text>
 					<Text variant="bodySmall" style={{ color: theme.colors.outline }}>
 						{categoryName} • {billRule.frequency}
+					</Text>
+					<Text variant="bodySmall" style={{ color: theme.colors.outline }}>
+						Start Date: {format(billRule.start_date, "MMM dd, yyyy")}
 					</Text>
 				</View>
 				<View style={styles.rightSection}>

@@ -30,7 +30,7 @@ export const DashboardRepository = {
 		);
 
 		const unpaidBills = await db.getAllAsync(
-			`SELECT SUM(bills.amount) as totalUnpaidBills, bill_rules.currency as currency FROM bills JOIN bill_rules ON bills.bill_rule_id = bill_rules.id WHERE bills.status != 'Paid' GROUP BY bill_rules.currency`
+			`SELECT SUM(bills.amount) as totalUnpaidBills, bills.currency as currency FROM bills WHERE bills.status != 'Paid' GROUP BY bills.currency`
 		);
 
 		// Merge all by currency

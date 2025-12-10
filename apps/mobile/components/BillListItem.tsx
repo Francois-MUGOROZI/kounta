@@ -7,7 +7,6 @@ import { formatAmount } from "@/utils/currency";
 
 interface BillListItemProps {
 	bill: Bill;
-	billRuleName: string;
 	categoryName: string;
 	onEdit: () => void;
 	onMarkAsPaid?: () => void;
@@ -15,7 +14,6 @@ interface BillListItemProps {
 
 const BillListItem: React.FC<BillListItemProps> = ({
 	bill,
-	billRuleName,
 	categoryName,
 	onEdit,
 	onMarkAsPaid,
@@ -53,7 +51,7 @@ const BillListItem: React.FC<BillListItemProps> = ({
 				/>
 				<View style={styles.info}>
 					<Text variant="titleMedium" style={{ fontWeight: "600" }}>
-						{billRuleName}
+						{bill.name}
 					</Text>
 					<Text variant="bodySmall" style={{ color: theme.colors.outline }}>
 						{categoryName} • Due: {formatDate(bill.due_date)}
@@ -70,15 +68,15 @@ const BillListItem: React.FC<BillListItemProps> = ({
 					>
 						{formatAmount(bill.amount, bill.currency ?? "RWF")}
 					</Text>
-					<Chip
-						mode="flat"
+					<Text
+						variant="bodySmall"
 						style={{
-							backgroundColor: getStatusColor(bill.status),
+							color: getStatusColor(bill.status),
+							fontSize: 10,
 						}}
-						textStyle={{ fontSize: 10, color: theme.colors.onPrimary }}
 					>
 						{bill.status}
-					</Chip>
+					</Text>
 				</View>
 			</View>
 		</SwipeableListItem>

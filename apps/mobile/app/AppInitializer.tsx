@@ -1,14 +1,22 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Text, ActivityIndicator } from "react-native-paper";
 import { View } from "react-native";
 import { useAppTheme } from "../contexts/ThemeContext";
 // ...existing code...
 import { useDatabaseInitialization } from "../database";
 import AppNavigator from "@/navigation";
+import { useCheckOverdueBills } from "@/hooks/useDatabase";
 
 const AppInitializer: React.FC = () => {
 	const { theme } = useAppTheme();
 	const { isInitialized, isInitializing, error } = useDatabaseInitialization();
+	const { checkOverdueBills } = useCheckOverdueBills();
+
+	useEffect(() => {
+		if (isInitialized) {
+			checkOverdueBills();
+		}
+	}, [isInitialized, checkOverdueBills]);
 
 	if (isInitializing) {
 		return (

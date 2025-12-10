@@ -1,6 +1,8 @@
 import { SQLiteDatabase } from "expo-sqlite";
 import { Bill, BillRule, BillStatus } from "../types";
 import { emitEvent, EVENTS } from "../utils/events";
+import { format } from "date-fns";
+import { generateBillName, getNextDueDate } from "../utils/bills";
 
 export const BillsRepository = {
 	// ============ BILL RULES (Master) ============
@@ -90,19 +92,11 @@ export const BillsRepository = {
 		emitEvent(EVENTS.DATA_CHANGED);
 	},
 
-
-
 	// ============ BILLS (Instance) ============
 
 	async getAllBills(db: SQLiteDatabase): Promise<Bill[]> {
 		return await db.getAllAsync<Bill>(
-			`SELECT 
-				bills.*, 
-				bill_rules.name as name,
-				bill_rules.currency as currency
-			FROM bills 
-			JOIN bill_rules ON bills.bill_rule_id = bill_rules.id 
-			ORDER BY bills.due_date ASC`
+			`SELECT * FROM bills ORDER BY due_date ASC`
 		);
 	},
 
@@ -117,14 +111,7 @@ export const BillsRepository = {
 		status: BillStatus
 	): Promise<Bill[]> {
 		return await db.getAllAsync<Bill>(
-			`SELECT 
-				bills.*, 
-				bill_rules.name as name,
-				bill_rules.currency as currency
-			FROM bills
-			JOIN bill_rules ON bills.bill_rule_id = bill_rules.id
-			WHERE bills.status = ?
-			ORDER BY bills.due_date ASC`,
+			`SELECT * FROM bills WHERE status = ? ORDER BY due_date ASC`,
 			[status]
 		);
 	},
@@ -141,17 +128,41 @@ export const BillsRepository = {
 		db: SQLiteDatabase,
 		bill: Omit<Bill, "id">
 	): Promise<number> {
-		const bill_rule_id: number =
-			typeof bill.bill_rule_id === "number" ? bill.bill_rule_id : 0;
-		const due_date: string = bill.due_date ?? new Date().toISOString();
+		const bill_rule_id: number | null = bill.bill_rule_id ?? null;
+		const due_date: string = bill.due_date;
 		const amount: number = typeof bill.amount === "number" ? bill.amount : 0;
 		const status: string = bill.status ?? "Pending";
 		const transaction_id: number | null = bill.transaction_id ?? null;
 		const paid_at: string | null = bill.paid_at ?? null;
-		const created_at: string = bill.created_at ?? new Date().toISOString();
+		const created_at: string =
+			bill.created_at ?? format(new Date(), "yyyy-MM-dd");
+		const category_id: number =
+			typeof bill.category_id === "number" ? bill.category_id : 0;
+		const name: string = bill.name;
+		const currency: string = bill.currency;
+
+		// Check for duplicate bills - handle NULL bill_rule_id properly
+		let existingBill: Bill | null = null;
+		if (bill_rule_id === null) {
+			// For one-time bills, check by name and due_date
+			existingBill = await db.getFirstAsync<Bill>(
+				"SELECT * FROM bills WHERE bill_rule_id IS NULL AND due_date = ? AND name = ?",
+				[due_date, name]
+			);
+		} else {
+			// For recurring bills, check by bill_rule_id and due_date
+			existingBill = await db.getFirstAsync<Bill>(
+				"SELECT * FROM bills WHERE bill_rule_id = ? AND due_date = ?",
+				[bill_rule_id, due_date]
+			);
+		}
+
+		if (existingBill) {
+			throw new Error("Bill already exists with the same due date");
+		}
 
 		const result = await db.runAsync(
-			`INSERT INTO bills (bill_rule_id, due_date, amount, status, transaction_id, paid_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+			`INSERT INTO bills (bill_rule_id, due_date, amount, status, transaction_id, paid_at, created_at, category_id, name, currency) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			[
 				bill_rule_id,
 				due_date,
@@ -160,6 +171,9 @@ export const BillsRepository = {
 				transaction_id,
 				paid_at,
 				created_at,
+				category_id,
+				name,
+				currency,
 			]
 		);
 
@@ -218,11 +232,17 @@ export const BillsRepository = {
 
 		await this.updateBill(db, billId, updates);
 
-		// Check if we need to generate the next bill
+		// Check if we need to generate the next bill (only for recurring bills with auto_next enabled)
 		const bill = await this.getBillById(db, billId);
-		if (bill) {
+		if (bill && bill.bill_rule_id !== null) {
 			const rule = await this.getRuleById(db, bill.bill_rule_id);
-			if (rule && rule.is_active && rule.auto_next) {
+			// Only generate next bill for recurring rules (not OneTime) with auto_next enabled
+			if (
+				rule &&
+				rule.is_active &&
+				rule.auto_next &&
+				rule.frequency !== "OneTime"
+			) {
 				await this.generateNextBill(db, rule.id);
 			}
 		}
@@ -241,7 +261,7 @@ export const BillsRepository = {
 		if (!rule || !rule.is_active) return null;
 
 		// Check if there's already a pending bill that's not yet overdue
-		const today = new Date().toISOString().split("T")[0]; // Get YYYY-MM-DD
+		const today = format(new Date(), "yyyy-MM-dd"); // Get YYYY-MM-DD
 		const existingPendingBills = await db.getAllAsync<Bill>(
 			"SELECT * FROM bills WHERE bill_rule_id = ? AND date(due_date) >= date(?) ORDER BY due_date DESC LIMIT 1",
 			[ruleId, today]
@@ -258,55 +278,47 @@ export const BillsRepository = {
 			[ruleId]
 		);
 
+		// If no bills exist yet, create the first bill from start_date (for all frequencies including OneTime)
 		let nextDueDate: Date;
-		const baseDate = lastBill
-			? new Date(lastBill.due_date)
-			: new Date(rule.start_date);
+		let nextDueDateString: string;
 
-		switch (rule.frequency) {
-			case "Weekly":
-				nextDueDate = new Date(baseDate);
-				nextDueDate.setDate(baseDate.getDate() + 7);
-				break;
-			case "Monthly":
-				nextDueDate = new Date(baseDate);
-				nextDueDate.setDate(baseDate.getDate() + 30);
-				break;
-			case "Quarterly":
-				nextDueDate = new Date(baseDate);
-				nextDueDate.setMonth(baseDate.getMonth() + 3);
-				break;
-			case "Yearly":
-				nextDueDate = new Date(baseDate);
-				nextDueDate.setFullYear(baseDate.getFullYear() + 1);
-				break;
-			case "OneTime":
-				// For one-time bills, use the start date if no bill exists
-				if (lastBill) return null;
-				nextDueDate = new Date(rule.start_date);
-				break;
-			default:
-				nextDueDate = new Date(baseDate);
+		if (!lastBill) {
+			// Create first bill from rule's start_date (works for all frequencies)
+			nextDueDate = new Date(rule.start_date);
+			nextDueDateString = format(nextDueDate, "yyyy-MM-dd");
+		} else {
+			// For OneTime frequency rules, don't generate subsequent bills
+			if (rule.frequency === "OneTime") {
+				return null;
+			}
+			// Calculate next due date from last bill (for recurring rules)
+			nextDueDate = getNextDueDate(lastBill.due_date, rule.frequency);
+			nextDueDateString = format(nextDueDate, "yyyy-MM-dd");
 		}
 
 		// Robust duplication check: Ensure no bill exists with the exact same due date for this rule
 		const existingWithSameDate = await db.getAllAsync<Bill>(
 			"SELECT * FROM bills WHERE bill_rule_id = ? AND date(due_date) = date(?)",
-			[ruleId, nextDueDate.toISOString()]
+			[ruleId, nextDueDateString]
 		);
 
 		if (existingWithSameDate.length > 0) {
 			return null;
 		}
 
-		// Create the new bill
-		const billId = await this.createBill(db, {
+		const newBill: Omit<Bill, "id"> = {
 			bill_rule_id: ruleId,
-			due_date: nextDueDate.toISOString(),
+			due_date: nextDueDateString,
 			amount: rule.amount,
 			status: "Pending",
-			created_at: new Date().toISOString(),
-		});
+			name: generateBillName(nextDueDateString, rule.name, rule.frequency),
+			currency: rule.currency,
+			category_id: rule.category_id,
+			created_at: format(new Date(), "yyyy-MM-dd"),
+		};
+
+		// Create the new bill
+		const billId = await this.createBill(db, newBill);
 
 		return billId;
 	},
@@ -317,11 +329,11 @@ export const BillsRepository = {
 	 * @param db Database instance
 	 */
 	async checkOverdueBills(db: SQLiteDatabase): Promise<void> {
-		const today = new Date().toISOString().split("T")[0]; // Get YYYY-MM-DD
+		const today = format(new Date(), "yyyy-MM-dd"); // Get YYYY-MM-DD
 
 		// Get all pending bills that are past due
 		const overdueBills = await db.getAllAsync<Bill>(
-			"SELECT * FROM bills WHERE status = 'Pending' AND date(due_date) < date(?)",
+			"SELECT * FROM bills WHERE status != 'Paid' AND date(due_date) < date(?)",
 			[today]
 		);
 
@@ -329,10 +341,18 @@ export const BillsRepository = {
 		for (const bill of overdueBills) {
 			await this.updateBill(db, bill.id, { status: "Overdue" });
 
-			// If auto_next is enabled, generate the next bill
-			const rule = await this.getRuleById(db, bill.bill_rule_id);
-			if (rule && rule.is_active && rule.auto_next) {
-				await this.generateNextBill(db, rule.id);
+			// If auto_next is enabled, generate the next bill (only for recurring bills, not OneTime)
+			if (bill.bill_rule_id !== null) {
+				const rule = await this.getRuleById(db, bill.bill_rule_id);
+				// Only generate next bill for recurring rules (not OneTime) with auto_next enabled
+				if (
+					rule &&
+					rule.is_active &&
+					rule.auto_next &&
+					rule.frequency !== "OneTime"
+				) {
+					await this.generateNextBill(db, rule.id);
+				}
 			}
 		}
 	},

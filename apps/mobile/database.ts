@@ -160,15 +160,19 @@ export async function initDatabase(db: any) {
 	await db.execAsync(`
 		CREATE TABLE IF NOT EXISTS bills (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			bill_rule_id INTEGER NOT NULL,
+			name TEXT NOT NULL,
+			currency TEXT NOT NULL DEFAULT 'RWF',
+			bill_rule_id INTEGER,
 			due_date TEXT NOT NULL,
 			amount REAL NOT NULL,
 			status TEXT NOT NULL DEFAULT 'Pending',
 			transaction_id INTEGER,
+			category_id INTEGER,
 			paid_at TEXT,
 			created_at TEXT NOT NULL,
 			FOREIGN KEY (bill_rule_id) REFERENCES bill_rules(id),
-			FOREIGN KEY (transaction_id) REFERENCES transactions(id)
+			FOREIGN KEY (transaction_id) REFERENCES transactions(id),
+			FOREIGN KEY (category_id) REFERENCES categories(id)
 		);
 	`);
 
@@ -183,26 +187,21 @@ export async function initDatabase(db: any) {
 async function runMigrations(db: any) {
 	try {
 		// Write migrations here
-
 		// Check if transactions table has 'bill_id' column using PRAGMA table_info (SQLite compatible)
-		const txnColumns = await db.getAllAsync("PRAGMA table_info(transactions);");
-		const hasBillId = txnColumns.some((col: any) => col.name === "bill_id");
-		if (!hasBillId) {
-			await db.runAsync(
-				"ALTER TABLE transactions ADD COLUMN bill_id INTEGER DEFAULT NULL;"
-			);
-			// Note: SQLite does not support adding a foreign key via ALTER TABLE after table creation.
-			// Foreign key constraint for bill_id must be ensured in schema definition/migration if rebuilt.
-		}
-
-		// Check if bill_rules table has 'currency' column
-		const billRuleColumns = await db.getAllAsync("PRAGMA table_info(bill_rules);");
-		const hasCurrency = billRuleColumns.some((col: any) => col.name === "currency");
-		if (!hasCurrency) {
-			await db.runAsync(
-				"ALTER TABLE bill_rules ADD COLUMN currency TEXT NOT NULL DEFAULT 'RWF';"
-			);
-		}
+		// const txnColumns = await db.getAllAsync("PRAGMA table_info(transactions);");
+		// const hasBillId = txnColumns.some((col: any) => col.name === "bill_id");
+		// if (!hasBillId) {
+		// 	await db.runAsync(
+		// 		"ALTER TABLE transactions ADD COLUMN bill_id INTEGER DEFAULT NULL;"
+		// 	);
+		// 	// Note: SQLite does not support adding a foreign key via ALTER TABLE after table creation.
+		// 	// Foreign key constraint for bill_id must be ensured in schema definition/migration if rebuilt.
+		// }
+		// Delete bills table if it has data
+		// const bills = await db.getAllAsync("SELECT COUNT(*) as count FROM bills");
+		// if (bills[0]?.count > 0) {
+		// 	await db.runAsync("DROP TABLE IF EXISTS bills");
+		// }
 	} catch (error) {
 		console.log("Migration error:", error);
 	}
@@ -347,6 +346,7 @@ export function useDatabaseInitialization() {
 				setIsInitializing(true);
 				setError(null);
 				await initDatabase(db);
+
 				if (isMounted) {
 					setIsInitialized(true);
 				}
@@ -369,4 +369,23 @@ export function useDatabaseInitialization() {
 	}, [db]);
 
 	return { isInitialized, isInitializing, error };
+}
+
+// Clear database and reset to initial state
+export async function clearDatabase(db: any) {
+	try {
+		// Get all table names
+		// Only get user tables, exclude SQLite internal tables (names starting with 'sqlite_')
+		const tableNames = await db.getAllAsync(
+			"SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';"
+		);
+		const tables = tableNames.map((table: any) => table.name);
+		for (const table of tables) {
+			await db.runAsync(`DROP TABLE IF EXISTS ${table}`);
+		}
+		// Re-initialize database
+		await initDatabase(db);
+	} catch (error) {
+		console.log("Clear database error:", error);
+	}
 }

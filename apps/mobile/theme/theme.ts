@@ -166,7 +166,7 @@ export const DarkTheme = {
 		onSecondaryContainer: "#FFFFFF",
 		tertiary: "#4DD0E1",
 		onTertiary: "#00363A",
-		error: "#f71313ff", // Vibrant Red (Red A200)
+		// error: "#f71313ff", // Vibrant Red (Red A200)
 		background: "#0F172A", // Navy/Slate Blue Dark
 		surface: "#1E293B", // Lighter Slate
 		surfaceVariant: "#334155",

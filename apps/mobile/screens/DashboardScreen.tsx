@@ -42,7 +42,7 @@ const STAT_CONFIG: {
 	{ key: "accountBalance", label: "Account Balance", icon: "bank" },
 	{
 		key: "totalUnpaidBills",
-		label: "Unpaid Bills",
+		label: "Bills Due",
 		icon: "receipt",
 		warning: true,
 	},
