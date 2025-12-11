@@ -5,10 +5,12 @@ import type {
 	CategoryTotal,
 	EnvelopeTotal,
 } from "../types";
+import { format, endOfMonth } from "date-fns";
 
 export const DashboardRepository = {
 	// Get all top-level stats grouped by currency
 	async getTotalsByCurrency(db: SQLiteDatabase): Promise<DashboardTotals[]> {
+		const thisMonthLastDate = format(endOfMonth(new Date()), "yyyy-MM-dd");
 		// Accounts
 		const accounts = await db.getAllAsync(
 			`SELECT currency, SUM(current_balance) as accountBalance FROM accounts GROUP BY currency`
@@ -30,7 +32,8 @@ export const DashboardRepository = {
 		);
 
 		const unpaidBills = await db.getAllAsync(
-			`SELECT SUM(bills.amount) as totalUnpaidBills, bills.currency as currency FROM bills WHERE bills.status != 'Paid' GROUP BY bills.currency`
+			`SELECT SUM(bills.amount) as totalUnpaidBills, bills.currency as currency FROM bills WHERE bills.status != 'Paid' AND date(bills.due_date) <= date(?) GROUP BY bills.currency`,
+			[thisMonthLastDate]
 		);
 
 		// Merge all by currency

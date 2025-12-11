@@ -4,7 +4,7 @@ import { BillsRepository } from "../../repositories/BillsRepository";
 import { Bill, BillStatus } from "../../types";
 import { addEventListener, EVENTS } from "../../utils/events";
 
-export function useGetBills(status?: BillStatus) {
+export function useGetBills(status?: BillStatus, unpaid?: boolean) {
 	const db = useDatabase();
 	const [bills, setBills] = useState<Bill[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -17,6 +17,8 @@ export function useGetBills(status?: BillStatus) {
 			let data: Bill[];
 			if (status) {
 				data = await BillsRepository.getBillsByStatus(db, status);
+			} else if (unpaid) {
+				data = await BillsRepository.getUnpaidBills(db);
 			} else {
 				data = await BillsRepository.getAllBills(db);
 			}
@@ -26,7 +28,7 @@ export function useGetBills(status?: BillStatus) {
 		} finally {
 			setLoading(false);
 		}
-	}, [db, status]);
+	}, [db, status, unpaid]);
 
 	useEffect(() => {
 		fetchBills();

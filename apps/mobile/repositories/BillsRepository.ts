@@ -1,8 +1,10 @@
 import { SQLiteDatabase } from "expo-sqlite";
 import { Bill, BillRule, BillStatus } from "../types";
 import { emitEvent, EVENTS } from "../utils/events";
-import { format } from "date-fns";
+import { format, endOfMonth } from "date-fns";
 import { generateBillName, getNextDueDate } from "../utils/bills";
+
+const thisMonthLastDate = format(endOfMonth(new Date()), "yyyy-MM-dd");
 
 export const BillsRepository = {
 	// ============ BILL RULES (Master) ============
@@ -96,7 +98,8 @@ export const BillsRepository = {
 
 	async getAllBills(db: SQLiteDatabase): Promise<Bill[]> {
 		return await db.getAllAsync<Bill>(
-			`SELECT * FROM bills ORDER BY due_date ASC`
+			`SELECT * FROM bills WHERE date(due_date) <= date(?) ORDER BY due_date ASC`,
+			[thisMonthLastDate]
 		);
 	},
 
@@ -111,8 +114,14 @@ export const BillsRepository = {
 		status: BillStatus
 	): Promise<Bill[]> {
 		return await db.getAllAsync<Bill>(
-			`SELECT * FROM bills WHERE status = ? ORDER BY due_date ASC`,
-			[status]
+			`SELECT * FROM bills WHERE status = ? AND date(due_date) <= date(?) ORDER BY due_date ASC`,
+			[status, thisMonthLastDate]
+		);
+	},
+	async getUnpaidBills(db: SQLiteDatabase): Promise<Bill[]> {
+		return await db.getAllAsync<Bill>(
+			`SELECT * FROM bills WHERE status != 'Paid' AND date(due_date) <= date(?) ORDER BY due_date ASC`,
+			[thisMonthLastDate]
 		);
 	},
 

@@ -92,7 +92,11 @@ const TransactionsScreen = () => {
 		error: errorEnvelopes,
 	} = useGetEnvelopes();
 
-	const { bills, loading: loadingBills, error: errorBills } = useGetBills("Pending");
+	const {
+		bills,
+		loading: loadingBills,
+		error: errorBills,
+	} = useGetBills(undefined, true);
 
 	const [modalVisible, setModalVisible] = useState(false);
 	const [editingTransaction, setEditingTransaction] =
