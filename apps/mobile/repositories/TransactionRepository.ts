@@ -128,9 +128,14 @@ export const TransactionRepository = {
 			);
 		}
 
-		// Mark bill as paid if bill_id is provided
+		// Record bill payment if bill_id is provided
 		if (bill_id && transactionTypeName === "Expense") {
-			await BillsRepository.markAsPaid(db, bill_id, result.lastInsertRowId);
+			await BillsRepository.recordPayment(
+				db,
+				bill_id,
+				amount,
+				result.lastInsertRowId
+			);
 		}
 
 		// Notify the app that data has changed so UI can update
@@ -255,6 +260,30 @@ export const TransactionRepository = {
 				[updatedTransaction.amount, updatedTransaction.liability_id]
 			);
 		}
+		// update bill balance if applicable
+		if (originalTransaction.bill_id) {
+			// Decrement paid_amount and possibly reset status if it was 'Paid'
+			const bill = await BillsRepository.getBillById(
+				db,
+				originalTransaction.bill_id
+			);
+			if (bill) {
+				const newPaidAmount = bill.paid_amount - originalTransaction.amount;
+				const updates: any = { paid_amount: newPaidAmount };
+				if (newPaidAmount < bill.amount) {
+					updates.status = "Pending"; // or check if it's Overdue based on date
+				}
+				await BillsRepository.updateBill(db, bill.id, updates);
+			}
+		}
+		if (updatedTransaction.bill_id) {
+			await BillsRepository.recordPayment(
+				db,
+				updatedTransaction.bill_id,
+				updatedTransaction.amount,
+				id
+			);
+		}
 
 		emitEvent(EVENTS.DATA_CHANGED);
 	},
@@ -306,6 +335,19 @@ export const TransactionRepository = {
 				"UPDATE liabilities SET current_balance = current_balance + ? WHERE id = ?",
 				[transaction.amount, transaction.liability_id]
 			);
+		}
+
+		// update bill balance if applicable
+		if (transaction.bill_id) {
+			const bill = await BillsRepository.getBillById(db, transaction.bill_id);
+			if (bill) {
+				const newPaidAmount = bill.paid_amount - transaction.amount;
+				const updates: any = { paid_amount: newPaidAmount };
+				if (newPaidAmount < bill.amount) {
+					updates.status = "Pending";
+				}
+				await BillsRepository.updateBill(db, bill.id, updates);
+			}
 		}
 
 		await db.runAsync("DELETE FROM transactions WHERE id = ?", [id]);

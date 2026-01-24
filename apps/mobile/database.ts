@@ -165,6 +165,7 @@ export async function initDatabase(db: any) {
 			bill_rule_id INTEGER,
 			due_date TEXT NOT NULL,
 			amount REAL NOT NULL,
+			paid_amount REAL NOT NULL DEFAULT 0,
 			status TEXT NOT NULL DEFAULT 'Pending',
 			transaction_id INTEGER,
 			category_id INTEGER,
@@ -186,21 +187,16 @@ export async function initDatabase(db: any) {
 // Run database migrations
 async function runMigrations(db: any) {
 	try {
-		// Write migrations here
-		// Check if transactions table has 'bill_id' column using PRAGMA table_info (SQLite compatible)
-		// const txnColumns = await db.getAllAsync("PRAGMA table_info(transactions);");
-		// const hasBillId = txnColumns.some((col: any) => col.name === "bill_id");
-		// if (!hasBillId) {
+		// Check if bills table has 'paid_amount' column
+		// const billColumns = await db.getAllAsync("PRAGMA table_info(bills);");
+		// const hasPaidAmount = billColumns.some(
+		// 	(col: any) => col.name === "paid_amount"
+		// );
+		// if (!hasPaidAmount) {
 		// 	await db.runAsync(
-		// 		"ALTER TABLE transactions ADD COLUMN bill_id INTEGER DEFAULT NULL;"
+		// 		"ALTER TABLE bills ADD COLUMN paid_amount REAL DEFAULT 0; " +
+		// 			"UPDATE bills SET paid_amount = amount WHERE status = 'Paid';"
 		// 	);
-		// 	// Note: SQLite does not support adding a foreign key via ALTER TABLE after table creation.
-		// 	// Foreign key constraint for bill_id must be ensured in schema definition/migration if rebuilt.
-		// }
-		// Delete bills table if it has data
-		// const bills = await db.getAllAsync("SELECT COUNT(*) as count FROM bills");
-		// if (bills[0]?.count > 0) {
-		// 	await db.runAsync("DROP TABLE IF EXISTS bills");
 		// }
 	} catch (error) {
 		console.log("Migration error:", error);

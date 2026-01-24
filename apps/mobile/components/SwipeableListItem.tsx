@@ -6,6 +6,7 @@ import { IconButton, useTheme, TouchableRipple } from "react-native-paper";
 interface SwipeableListItemProps {
 	onEdit: () => void;
 	onDelete?: () => void;
+	onComplete?: () => void;
 	children: React.ReactNode;
 	style?: ViewStyle;
 }
@@ -13,25 +14,55 @@ interface SwipeableListItemProps {
 const SwipeableListItem: React.FC<SwipeableListItemProps> = ({
 	onEdit,
 	onDelete,
+	onComplete,
 	children,
 	style,
 }) => {
 	const theme = useTheme();
 
 	const renderRightActions = () => {
-		if (!onDelete) return null;
 		return (
-			<RectButton
-				style={[styles.deleteButton, { backgroundColor: theme.colors.error }]}
-				onPress={onDelete}
-			>
-				<IconButton icon="delete" iconColor={theme.colors.onError} size={24} />
-			</RectButton>
+			<View style={{ flexDirection: "row" }}>
+				{onComplete && (
+					<RectButton
+						style={[
+							styles.actionButton,
+							{ backgroundColor: theme.colors.primary },
+						]}
+						onPress={onComplete}
+					>
+						<IconButton
+							icon="check-circle"
+							iconColor={theme.colors.onPrimary}
+							size={24}
+						/>
+					</RectButton>
+				)}
+				{onDelete && (
+					<RectButton
+						style={[
+							styles.actionButton,
+							{ backgroundColor: theme.colors.error },
+						]}
+						onPress={onDelete}
+					>
+						<IconButton
+							icon="delete"
+							iconColor={theme.colors.onError}
+							size={24}
+						/>
+					</RectButton>
+				)}
+			</View>
 		);
 	};
 
 	return (
-		<Swipeable renderRightActions={onDelete ? renderRightActions : undefined}>
+		<Swipeable
+			renderRightActions={
+				onDelete || onComplete ? renderRightActions : undefined
+			}
+		>
 			<View style={style}>
 				<View style={{ flex: 1 }}>
 					<TouchableRipple
@@ -47,7 +78,7 @@ const SwipeableListItem: React.FC<SwipeableListItemProps> = ({
 };
 
 const styles = StyleSheet.create({
-	deleteButton: {
+	actionButton: {
 		justifyContent: "center",
 		alignItems: "center",
 		width: 64,

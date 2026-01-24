@@ -414,11 +414,6 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 							value={billId}
 							onSelect={(v) => {
 								setBillId(v ?? "");
-								// Auto-fill amount from selected bill
-								const bill = bills.find((b) => b.id.toString() === v);
-								if (bill) {
-									setAmount(bill.amount.toString());
-								}
 							}}
 							options={[
 								{ label: "None", value: "" },

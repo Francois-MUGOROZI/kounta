@@ -15,6 +15,7 @@ import {
 	Chip,
 	Surface,
 	Divider,
+	Button,
 } from "react-native-paper";
 import { useGetBillRules } from "../hooks/bill/useGetBillRules";
 import { useUpdateBillRule } from "../hooks/bill/useUpdateBillRule";
@@ -26,6 +27,7 @@ import BillRuleForm from "../components/BillRuleForm";
 import BillRuleListItem from "../components/BillRuleListItem";
 import BillForm from "../components/BillForm";
 import BillListItem from "../components/BillListItem";
+import AppDialog from "../components/AppDialog";
 import type { Bill, BillRule, BillStatus } from "../types";
 import { useCreateBillRule } from "@/hooks/bill/useCreateBillRule";
 
@@ -66,6 +68,7 @@ const BillsScreen = () => {
 	} = useCreateBill();
 	const {
 		updateBill,
+		markAsPaid,
 		loading: updatingBill,
 		error: updateBillError,
 	} = useUpdateBill();
@@ -80,6 +83,8 @@ const BillsScreen = () => {
 	const [billModalVisible, setBillModalVisible] = useState(false);
 	const [editingRule, setEditingRule] = useState<BillRule | null>(null);
 	const [editingBill, setEditingBill] = useState<Bill | null>(null);
+	const [confirmPaidVisible, setConfirmPaidVisible] = useState(false);
+	const [billToPay, setBillToPay] = useState<number | null>(null);
 	const [snackbar, setSnackbar] = useState({ visible: false, message: "" });
 
 	// Bill Rule handlers
@@ -163,6 +168,33 @@ const BillsScreen = () => {
 				visible: true,
 				message: e.message || "Error saving bill",
 			});
+		}
+	};
+
+	const openConfirmPaid = (billId: number) => {
+		setBillToPay(billId);
+		setConfirmPaidVisible(true);
+	};
+
+	const closeConfirmPaid = () => {
+		setBillToPay(null);
+		setConfirmPaidVisible(false);
+	};
+
+	const handleConfirmMarkAsPaid = async () => {
+		if (billToPay) {
+			try {
+				await markAsPaid(billToPay);
+				setSnackbar({ visible: true, message: "Bill marked as paid" });
+				refreshBills();
+			} catch (e: any) {
+				setSnackbar({
+					visible: true,
+					message: e.message || "Error marking bill as paid",
+				});
+			} finally {
+				closeConfirmPaid();
+			}
 		}
 	};
 
@@ -349,6 +381,7 @@ const BillsScreen = () => {
 									bill={item}
 									categoryName={getCategoryName(getCategoryIdFromBill(item))}
 									onEdit={() => openEditBillModal(item)}
+									onMarkAsPaid={() => openConfirmPaid(item.id)}
 								/>
 							)}
 							contentContainerStyle={{ paddingBottom: 80 }}
@@ -382,6 +415,25 @@ const BillsScreen = () => {
 				categories={categories}
 				initialBill={editingBill}
 			/>
+
+			<AppDialog
+				visible={confirmPaidVisible}
+				onDismiss={closeConfirmPaid}
+				title="Mark as Paid?"
+				actions={
+					<>
+						<Button onPress={closeConfirmPaid}>Cancel</Button>
+						<Button mode="contained" onPress={handleConfirmMarkAsPaid}>
+							Confirm
+						</Button>
+					</>
+				}
+			>
+				<Text variant="bodyMedium">
+					Are you sure you want to mark this bill as paid? This will record the
+					full payment and update your account balance.
+				</Text>
+			</AppDialog>
 
 			<Snackbar
 				visible={snackbar.visible}

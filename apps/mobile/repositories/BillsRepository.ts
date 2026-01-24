@@ -220,7 +220,7 @@ export const BillsRepository = {
 	// ============ BUSINESS LOGIC ============
 
 	/**
-	 * Mark a bill as paid
+	 * Mark a bill as paid (manually or fully)
 	 * @param db Database instance
 	 * @param billId Bill ID
 	 * @param transactionId Transaction ID (optional)
@@ -230,8 +230,12 @@ export const BillsRepository = {
 		billId: number,
 		transactionId?: number
 	): Promise<void> {
+		const bill = await this.getBillById(db, billId);
+		if (!bill) return;
+
 		const updates: Partial<Bill> = {
 			status: "Paid",
+			paid_amount: bill.amount,
 			paid_at: new Date().toISOString(),
 		};
 
@@ -242,10 +246,56 @@ export const BillsRepository = {
 		await this.updateBill(db, billId, updates);
 
 		// Check if we need to generate the next bill (only for recurring bills with auto_next enabled)
-		const bill = await this.getBillById(db, billId);
-		if (bill && bill.bill_rule_id !== null) {
+		if (bill.bill_rule_id !== null) {
 			const rule = await this.getRuleById(db, bill.bill_rule_id);
 			// Only generate next bill for recurring rules (not OneTime) with auto_next enabled
+			if (
+				rule &&
+				rule.is_active &&
+				rule.auto_next &&
+				rule.frequency !== "OneTime"
+			) {
+				await this.generateNextBill(db, rule.id);
+			}
+		}
+	},
+
+	/**
+	 * Record a payment for a bill
+	 * @param db Database instance
+	 * @param billId Bill ID
+	 * @param paymentAmount Amount paid
+	 * @param transactionId Transaction ID (optional)
+	 */
+	async recordPayment(
+		db: SQLiteDatabase,
+		billId: number,
+		paymentAmount: number,
+		transactionId?: number
+	): Promise<void> {
+		const bill = await this.getBillById(db, billId);
+		if (!bill) return;
+
+		const newPaidAmount = (bill.paid_amount || 0) + paymentAmount;
+		const updates: Partial<Bill> = {
+			paid_amount: newPaidAmount,
+		};
+
+		if (transactionId) {
+			updates.transaction_id = transactionId;
+		}
+
+		// If fully paid, update status and paid_at
+		if (newPaidAmount >= bill.amount) {
+			updates.status = "Paid";
+			updates.paid_at = new Date().toISOString();
+		}
+
+		await this.updateBill(db, billId, updates);
+
+		// If it's now paid, check if we need to generate the next bill
+		if (updates.status === "Paid" && bill.bill_rule_id !== null) {
+			const rule = await this.getRuleById(db, bill.bill_rule_id);
 			if (
 				rule &&
 				rule.is_active &&
@@ -319,6 +369,7 @@ export const BillsRepository = {
 			bill_rule_id: ruleId,
 			due_date: nextDueDateString,
 			amount: rule.amount,
+			paid_amount: 0,
 			status: "Pending",
 			name: generateBillName(nextDueDateString, rule.name, rule.frequency),
 			currency: rule.currency,

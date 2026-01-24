@@ -195,6 +195,7 @@ export interface Bill {
 	bill_rule_id: number | null; // Foreign key to BillRule (null for one-time bills)
 	due_date: string; // ISO date string
 	amount: number;
+	paid_amount: number;
 	status: BillStatus;
 	transaction_id?: number | null; // Foreign key to Transaction (when paid)
 	category_id: number; // Foreign key to Category

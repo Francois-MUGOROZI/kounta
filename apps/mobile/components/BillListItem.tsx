@@ -1,9 +1,9 @@
 import React from "react";
 import { View, StyleSheet } from "react-native";
-import { Text, useTheme, Avatar, Chip } from "react-native-paper";
+import { Text, useTheme, Avatar } from "react-native-paper";
 import SwipeableListItem from "./SwipeableListItem";
 import { Bill, BillStatus } from "../types";
-import { formatAmount } from "@/utils/currency";
+import { formatAmount } from "../utils/currency";
 
 interface BillListItemProps {
 	bill: Bill;
@@ -38,7 +38,11 @@ const BillListItem: React.FC<BillListItemProps> = ({
 	};
 
 	return (
-		<SwipeableListItem onEdit={onEdit} style={styles.container}>
+		<SwipeableListItem
+			onEdit={onEdit}
+			onComplete={bill.status !== "Paid" ? onMarkAsPaid : undefined}
+			style={styles.container}
+		>
 			<View style={[styles.content, { backgroundColor: theme.colors.surface }]}>
 				<Avatar.Icon
 					size={36}
@@ -56,6 +60,15 @@ const BillListItem: React.FC<BillListItemProps> = ({
 					<Text variant="bodySmall" style={{ color: theme.colors.outline }}>
 						{categoryName} • Due: {formatDate(bill.due_date)}
 					</Text>
+					{bill.paid_amount > 0 && bill.status !== "Paid" && (
+						<Text
+							variant="bodySmall"
+							style={{ color: theme.colors.primary, marginTop: 2 }}
+						>
+							Paid: {formatAmount(bill.paid_amount, bill.currency)} /{" "}
+							{formatAmount(bill.amount, bill.currency)}
+						</Text>
+					)}
 				</View>
 				<View style={styles.rightSection}>
 					<Text
@@ -68,15 +81,17 @@ const BillListItem: React.FC<BillListItemProps> = ({
 					>
 						{formatAmount(bill.amount, bill.currency ?? "RWF")}
 					</Text>
-					<Text
-						variant="bodySmall"
-						style={{
-							color: getStatusColor(bill.status),
-							fontSize: 10,
-						}}
-					>
-						{bill.status}
-					</Text>
+					<View style={{ flexDirection: "row", alignItems: "center" }}>
+						<Text
+							variant="bodySmall"
+							style={{
+								color: getStatusColor(bill.status),
+								fontSize: 10,
+							}}
+						>
+							{bill.status}
+						</Text>
+					</View>
 				</View>
 			</View>
 		</SwipeableListItem>

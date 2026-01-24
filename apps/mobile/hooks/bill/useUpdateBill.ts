@@ -23,5 +23,20 @@ export function useUpdateBill() {
 		[db]
 	);
 
-	return { updateBill, loading, error };
+	const markAsPaid = useCallback(
+		async (id: number) => {
+			setLoading(true);
+			setError(null);
+			try {
+				await BillsRepository.markAsPaid(db, id);
+			} catch (e: any) {
+				setError(e.message || "Failed to mark bill as paid");
+			} finally {
+				setLoading(false);
+			}
+		},
+		[db]
+	);
+
+	return { updateBill, markAsPaid, loading, error };
 }

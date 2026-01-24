@@ -32,7 +32,7 @@ export const DashboardRepository = {
 		);
 
 		const unpaidBills = await db.getAllAsync(
-			`SELECT SUM(bills.amount) as totalUnpaidBills, bills.currency as currency FROM bills WHERE bills.status != 'Paid' AND date(bills.due_date) <= date(?) GROUP BY bills.currency`,
+			`SELECT SUM(bills.amount - bills.paid_amount) as totalUnpaidBills, bills.currency as currency FROM bills WHERE bills.status != 'Paid' AND date(bills.due_date) <= date(?) GROUP BY bills.currency`,
 			[thisMonthLastDate]
 		);
 
