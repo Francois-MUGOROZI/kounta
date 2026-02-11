@@ -7,14 +7,11 @@ import {
 	Divider,
 	Chip,
 	IconButton,
-	useTheme,
-	TextInput,
 } from "react-native-paper";
 import { DatePickerModal } from "react-native-paper-dates";
-import { Dropdown } from "react-native-paper-dropdown";
 import { TransactionFilter as TransactionFilterType } from "../types";
 import AppDialog from "./AppDialog";
-import AppTextInput from "./AppTextInput";
+import AppDropdown from "./AppDropdown";
 
 interface TransactionFilterProps {
 	transactionTypes: { label: string; value: number }[];
@@ -46,7 +43,6 @@ export const TransactionFilter: React.FC<TransactionFilterProps> = ({
 	onClear,
 	initialFilters = {},
 }) => {
-	const theme = useTheme();
 	const [open, setOpen] = useState(false);
 	const [transactionTypeId, setTransactionTypeId] = useState<
 		number | undefined
@@ -139,25 +135,6 @@ export const TransactionFilter: React.FC<TransactionFilterProps> = ({
 			? `${dateRange.startDate.toLocaleDateString()} - ${dateRange.endDate.toLocaleDateString()}`
 			: "";
 
-	// Helper to render dropdown input with premium styling
-	const renderDropdownInput = (props: any, value: string, label: string) => (
-		<TextInput
-			{...props}
-			value={value}
-			label={label}
-			dense
-			style={{
-				backgroundColor: theme.colors.surfaceVariant,
-				marginBottom: 8,
-				fontSize: 14,
-			}}
-			mode="outlined"
-			theme={{ roundness: 8 }}
-			right={<TextInput.Icon icon="chevron-down" />}
-			contentStyle={{ paddingVertical: 0 }}
-		/>
-	);
-
 	return (
 		<View style={{ zIndex: 100 }}>
 			{/* Filter trigger button */}
@@ -230,10 +207,12 @@ export const TransactionFilter: React.FC<TransactionFilterProps> = ({
 				}
 			>
 				<View>
-					<Dropdown
-						label={"Transaction Type"}
+					<AppDropdown
+						label="Transaction Type"
 						value={
-							transactionTypeId !== undefined ? transactionTypeId.toString() : ""
+							transactionTypeId !== undefined
+								? transactionTypeId.toString()
+								: ""
 						}
 						onSelect={(v) =>
 							setTransactionTypeId(v ? parseInt(v, 10) : undefined)
@@ -242,41 +221,17 @@ export const TransactionFilter: React.FC<TransactionFilterProps> = ({
 							label: type.label,
 							value: type.value.toString(),
 						}))}
-						CustomMenuHeader={() => null}
-						CustomDropdownInput={(props) =>
-							renderDropdownInput(
-								props,
-								transactionTypes.find(
-									(type) =>
-										type.value.toString() ===
-										(transactionTypeId !== undefined
-											? transactionTypeId.toString()
-											: "")
-								)?.label || "",
-								"Transaction Type"
-							)
-						}
+						placeholder="All Types"
 					/>
-					<Dropdown
-						label={"Category"}
+					<AppDropdown
+						label="Category"
 						value={categoryId !== undefined ? categoryId.toString() : ""}
 						onSelect={(v) => setCategoryId(v ? parseInt(v, 10) : undefined)}
 						options={filteredCategories.map((cat) => ({
 							label: cat.label,
 							value: cat.value.toString(),
 						}))}
-						CustomMenuHeader={() => null}
-						CustomDropdownInput={(props) =>
-							renderDropdownInput(
-								props,
-								filteredCategories.find(
-									(cat) =>
-										cat.value.toString() ===
-										(categoryId !== undefined ? categoryId.toString() : "")
-								)?.label || "",
-								"Category"
-							)
-						}
+						placeholder="All Categories"
 					/>
 					<Divider style={{ marginVertical: 16 }} />
 					<Text variant="labelLarge" style={{ marginBottom: 8 }}>

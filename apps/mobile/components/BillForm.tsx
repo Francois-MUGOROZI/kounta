@@ -1,17 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { View } from "react-native";
-import {
-	TextInput,
-	Button,
-	HelperText,
-	useTheme,
-	Switch,
-	Text,
-} from "react-native-paper";
-import { Dropdown } from "react-native-paper-dropdown";
+import { Button, HelperText, Switch, Text, useTheme } from "react-native-paper";
 import AppDialog from "./AppDialog";
 import AppTextInput from "./AppTextInput";
 import AppNumberInput from "./AppNumberInput";
+import AppDropdown from "./AppDropdown";
 import { Bill, BillRule, Category } from "../types";
 import { generateBillName } from "../utils/bills";
 
@@ -162,25 +155,6 @@ const BillForm: React.FC<BillFormProps> = ({
 		}
 	};
 
-	// Helper to render dropdown input with app styling
-	const renderDropdownInput = (props: any, value: string, label: string) => (
-		<TextInput
-			{...props}
-			value={value}
-			label={label}
-			dense
-			style={{
-				backgroundColor: theme.colors.surfaceVariant,
-				marginBottom: 8,
-				fontSize: 14,
-			}}
-			mode="outlined"
-			theme={{ roundness: 8 }}
-			right={<TextInput.Icon icon="chevron-down" />}
-			contentStyle={{ paddingVertical: 0 }}
-		/>
-	);
-
 	return (
 		<AppDialog
 			visible={visible}
@@ -222,7 +196,7 @@ const BillForm: React.FC<BillFormProps> = ({
 								: undefined
 						}
 					/>
-					<Dropdown
+					<AppDropdown
 						label="Category"
 						value={categoryId}
 						onSelect={(v) => setCategoryId(v ?? "")}
@@ -230,26 +204,13 @@ const BillForm: React.FC<BillFormProps> = ({
 							label: cat.name,
 							value: cat.id.toString(),
 						}))}
-						error={!!error && !categoryId}
-						CustomMenuHeader={() => null}
-						CustomDropdownInput={(props) =>
-							renderDropdownInput(
-								props,
-								expenseCategories.find((c) => c.id.toString() === categoryId)
-									?.name || "",
-								"Category"
-							)
-						}
+						error={error && !categoryId ? "Category is required" : undefined}
 					/>
-					<Dropdown
+					<AppDropdown
 						label="Currency"
 						value={currency}
 						onSelect={(v) => setCurrency(v ?? "RWF")}
 						options={currencyOptions}
-						CustomMenuHeader={() => null}
-						CustomDropdownInput={(props) =>
-							renderDropdownInput(props, currency, "Currency")
-						}
 					/>
 					<AppTextInput
 						label="Due Date"
@@ -271,8 +232,8 @@ const BillForm: React.FC<BillFormProps> = ({
 				</>
 			) : (
 				<>
-					<Dropdown
-						label={"Bill Rule"}
+					<AppDropdown
+						label="Bill Rule"
 						value={billRuleId}
 						onSelect={(v) => {
 							setBillRuleId(v ?? "");
@@ -286,16 +247,7 @@ const BillForm: React.FC<BillFormProps> = ({
 							label: rule.name,
 							value: rule.id.toString(),
 						}))}
-						error={!!error && !billRuleId}
-						CustomMenuHeader={() => null}
-						CustomDropdownInput={(props) =>
-							renderDropdownInput(
-								props,
-								billRules.find((r) => r.id.toString() === billRuleId)?.name ||
-									"",
-								"Bill Rule"
-							)
-						}
+						error={error && !billRuleId ? "Bill rule is required" : undefined}
 					/>
 					<AppTextInput
 						label="Due Date"

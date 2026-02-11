@@ -1,4 +1,10 @@
-import React from "react";
+import React, {
+	useMemo,
+	useCallback,
+	useState,
+	useEffect,
+	useRef,
+} from "react";
 import { StyleSheet, View } from "react-native";
 import { TextInput, HelperText, useTheme } from "react-native-paper";
 import MaskInput, { createNumberMask } from "react-native-mask-input";
@@ -27,27 +33,58 @@ const AppNumberInput: React.FC<AppNumberInputProps> = ({
 	editable = true,
 }) => {
 	const theme = useTheme();
+	const [localValue, setLocalValue] = useState(value ?? "");
+	const lastSentValueRef = useRef<string>(value ?? "");
 
-	const numberMask = createNumberMask({
-		prefix: [],
-		delimiter: ",",
-		separator: ".",
-		precision: 0, // Adjust based on currency if needed, RWF usually 0
-	});
+	// Memoize number mask - only recreate if currency changes
+	const numberMask = useMemo(
+		() =>
+			createNumberMask({
+				prefix: [],
+				delimiter: ",",
+				separator: ".",
+				precision: 0, // Adjust based on currency if needed, RWF usually 0
+			}),
+		[currency]
+	);
+
+	// Sync local value with prop when it changes externally (not from user typing)
+	useEffect(() => {
+		if (value !== lastSentValueRef.current) {
+			setLocalValue(value ?? "");
+			lastSentValueRef.current = value ?? "";
+		}
+	}, [value]);
+
+	// Memoize input style to prevent recreation on every render
+	const inputStyle = useMemo(
+		() => [
+			styles.input,
+			{ backgroundColor: theme.colors.surfaceVariant },
+			style,
+		],
+		[theme.colors.surfaceVariant, style]
+	);
+
+	// Memoize onChangeText handler to prevent MaskInput recreation
+	const handleChangeText = useCallback(
+		(masked: string, unmasked: string) => {
+			setLocalValue(unmasked); // Track unmasked value for MaskInput
+			lastSentValueRef.current = unmasked;
+			onChangeText(unmasked);
+		},
+		[onChangeText]
+	);
 
 	return (
 		<View style={styles.container}>
 			<TextInput
 				mode="outlined"
 				label={label}
-				value={value}
+				value={localValue}
 				dense
 				error={!!error}
-				style={[
-					styles.input,
-					{ backgroundColor: theme.colors.surfaceVariant },
-					style,
-				]}
+				style={inputStyle}
 				theme={{ roundness: 8 }}
 				placeholder={placeholder}
 				right={right}
@@ -56,10 +93,8 @@ const AppNumberInput: React.FC<AppNumberInputProps> = ({
 				render={(props) => (
 					<MaskInput
 						{...props}
-						value={value}
-						onChangeText={(masked, unmasked) => {
-							onChangeText(unmasked);
-						}}
+						value={localValue}
+						onChangeText={handleChangeText}
 						mask={numberMask}
 						keyboardType="numeric"
 					/>

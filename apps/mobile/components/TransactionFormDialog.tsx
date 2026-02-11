@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { StyleSheet, View, ScrollView } from "react-native";
-import { Button, HelperText, useTheme, TextInput } from "react-native-paper";
-import { Dropdown } from "react-native-paper-dropdown";
+import { View, ScrollView } from "react-native";
+import { Button, HelperText } from "react-native-paper";
 import { Category, Transaction, TransactionType } from "../types";
 import AppDialog from "./AppDialog";
 import AppTextInput from "./AppTextInput";
 import AppNumberInput from "./AppNumberInput";
+import AppDropdown from "./AppDropdown";
 
 interface TransactionFormDialogProps {
 	visible: boolean;
@@ -34,7 +34,6 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 	bills,
 	initialTransaction,
 }) => {
-	const theme = useTheme();
 	const [description, setDescription] = useState("");
 	const [amount, setAmount] = useState("");
 	const [typeId, setTypeId] = useState<string>("");
@@ -152,25 +151,6 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 		}
 	}, [typeId, categories]);
 
-	// Helper to render dropdown input with premium styling
-	const renderDropdownInput = (props: any, value: string, label: string) => (
-		<TextInput
-			{...props}
-			value={value}
-			label={label}
-			dense
-			style={{
-				backgroundColor: theme.colors.surfaceVariant,
-				marginBottom: 8,
-				fontSize: 14,
-			}}
-			mode="outlined"
-			theme={{ roundness: 8 }}
-			right={<TextInput.Icon icon="chevron-down" />}
-			contentStyle={{ paddingVertical: 0 }}
-		/>
-	);
-
 	return (
 		<AppDialog
 			visible={visible}
@@ -203,73 +183,44 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 						value={amount}
 						onChangeText={setAmount}
 					/>
-					<Dropdown
-						label={"Type"}
+					<AppDropdown
+						label="Type"
 						value={typeId}
 						onSelect={(v) => setTypeId(v ?? "")}
 						options={transactionTypes.map((type) => ({
 							label: type.name,
 							value: type.id.toString(),
 						}))}
-						error={!!error}
-						CustomMenuHeader={() => null}
-						CustomDropdownInput={(props) =>
-							renderDropdownInput(
-								props,
-								transactionTypes.find((type) => type.id.toString() === typeId)
-									?.name || "",
-								"Type"
-							)
-						}
+						error={error ? "Type is required" : undefined}
 					/>
 
 					{selectedTransactionType === "Transfer" ? (
 						<View>
-							<Dropdown
-								label={"From Account"}
+							<AppDropdown
+								label="From Account"
 								value={fromAccountId}
 								onSelect={(v) => setFromAccountId(v ?? "")}
 								options={accounts.map((account) => ({
 									label: account.name,
 									value: account.id.toString(),
 								}))}
-								error={!!error}
-								CustomMenuHeader={() => null}
-								CustomDropdownInput={(props) =>
-									renderDropdownInput(
-										props,
-										accounts.find(
-											(account) => account.id.toString() === fromAccountId
-										)?.name || "",
-										"From Account"
-									)
-								}
+								error={error ? "From account is required" : undefined}
 							/>
-							<Dropdown
-								label={"To Account"}
+							<AppDropdown
+								label="To Account"
 								value={toAccountId}
 								onSelect={(v) => setToAccountId(v ?? "")}
 								options={accounts.map((account) => ({
 									label: account.name,
 									value: account.id.toString(),
 								}))}
-								error={!!error}
-								CustomMenuHeader={() => null}
-								CustomDropdownInput={(props) =>
-									renderDropdownInput(
-										props,
-										accounts.find(
-											(account) => account.id.toString() === toAccountId
-										)?.name || "",
-										"To Account"
-									)
-								}
+								error={error ? "To account is required" : undefined}
 							/>
 						</View>
 					) : (
 						<View>
-							<Dropdown
-								label={"Account"}
+							<AppDropdown
+								label="Account"
 								value={
 									selectedTransactionType === "Income"
 										? toAccountId
@@ -288,41 +239,17 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 									label: account.name,
 									value: account.id.toString(),
 								}))}
-								error={!!error}
-								CustomMenuHeader={() => null}
-								CustomDropdownInput={(props) =>
-									renderDropdownInput(
-										props,
-										accounts.find(
-											(account) =>
-												account.id.toString() ===
-												(selectedTransactionType === "Income"
-													? toAccountId
-													: fromAccountId)
-										)?.name || "",
-										"Account"
-									)
-								}
+								error={error ? "Account is required" : undefined}
 							/>
-							<Dropdown
-								label={"Category"}
+							<AppDropdown
+								label="Category"
 								value={categoryId}
 								onSelect={(v) => setCategoryId(v ?? "")}
 								options={filteredCategories.map((category) => ({
 									label: category.name,
 									value: category.id.toString(),
 								}))}
-								error={!!error}
-								CustomMenuHeader={() => null}
-								CustomDropdownInput={(props) =>
-									renderDropdownInput(
-										props,
-										categories.find(
-											(category) => category.id.toString() === categoryId
-										)?.name || "",
-										"Category"
-									)
-								}
+								error={error ? "Category is required" : undefined}
 							/>
 						</View>
 					)}
@@ -335,8 +262,8 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 					/>
 
 					{selectedTransactionType !== "Transfer" && (
-						<Dropdown
-							label={"Asset (optional)"}
+						<AppDropdown
+							label="Asset (optional)"
 							value={assetId}
 							onSelect={(v) => setAssetId(v ?? "")}
 							options={[
@@ -346,22 +273,13 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 									value: asset.id.toString(),
 								})),
 							]}
-							error={!!error}
-							CustomMenuHeader={() => null}
-							CustomDropdownInput={(props) =>
-								renderDropdownInput(
-									props,
-									assets.find((asset) => asset.id.toString() === assetId)
-										?.name || "None",
-									"Asset (optional)"
-								)
-							}
+							placeholder="None"
 						/>
 					)}
 					{selectedTransactionType === "Expense" && (
 						<>
-							<Dropdown
-								label={"Envelope (optional)"}
+							<AppDropdown
+								label="Envelope (optional)"
 								value={envelopeId}
 								onSelect={(v) => setEnvelopeId(v ?? "")}
 								options={[
@@ -371,20 +289,10 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 										value: envelope.id.toString(),
 									})),
 								]}
-								error={!!error}
-								CustomMenuHeader={() => null}
-								CustomDropdownInput={(props) =>
-									renderDropdownInput(
-										props,
-										envelopes.find(
-											(envelope) => envelope.id.toString() === envelopeId
-										)?.name || "None",
-										"Envelope (optional)"
-									)
-								}
+								placeholder="None"
 							/>
-							<Dropdown
-								label={"Liability (optional)"}
+							<AppDropdown
+								label="Liability (optional)"
 								value={liabilityId}
 								onSelect={(v) => setLiabilityId(v ?? "")}
 								options={[
@@ -394,23 +302,13 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 										value: liability.id.toString(),
 									})),
 								]}
-								error={!!error}
-								CustomMenuHeader={() => null}
-								CustomDropdownInput={(props) =>
-									renderDropdownInput(
-										props,
-										liabilities.find(
-											(liability) => liability.id.toString() === liabilityId
-										)?.name || "None",
-										"Liability (optional)"
-									)
-								}
+								placeholder="None"
 							/>
 						</>
 					)}
 					{selectedTransactionType === "Expense" && bills.length > 0 && (
-						<Dropdown
-							label={"Bill (optional)"}
+						<AppDropdown
+							label="Bill (optional)"
 							value={billId}
 							onSelect={(v) => {
 								setBillId(v ?? "");
@@ -422,16 +320,7 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 									value: bill.id.toString(),
 								})),
 							]}
-							error={!!error}
-							CustomMenuHeader={() => null}
-							CustomDropdownInput={(props) =>
-								renderDropdownInput(
-									props,
-									bills.find((bill) => bill.id.toString() === billId)?.name ||
-										"None",
-									"Bill (optional)"
-								)
-							}
+							placeholder="None"
 						/>
 					)}
 					<HelperText type="error" visible={!!error}>
@@ -442,9 +331,5 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 		</AppDialog>
 	);
 };
-
-const styles = StyleSheet.create({
-	// Styles handled by Premium components
-});
 
 export default TransactionFormDialog;

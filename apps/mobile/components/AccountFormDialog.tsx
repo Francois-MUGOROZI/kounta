@@ -1,18 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { StyleSheet } from "react-native";
-import {
-	Portal,
-	Dialog,
-	TextInput,
-	Button,
-	HelperText,
-	useTheme,
-} from "react-native-paper";
-import { Dropdown } from "react-native-paper-dropdown";
+import { Button, HelperText } from "react-native-paper";
 import { getPopularCurrencyOptions } from "../constants/currencies";
 import AppDialog from "./AppDialog";
 import AppTextInput from "./AppTextInput";
 import AppNumberInput from "./AppNumberInput";
+import AppDropdown from "./AppDropdown";
 
 interface AccountFormDialogProps {
 	visible: boolean;
@@ -42,7 +34,6 @@ const AccountFormDialog: React.FC<AccountFormDialogProps> = ({
 	accountTypes,
 	initialAccount,
 }) => {
-	const theme = useTheme();
 	const [name, setName] = useState("");
 	const [accountNumber, setAccountNumber] = useState("");
 	const [accountTypeId, setAccountTypeId] = useState<string>("");
@@ -93,29 +84,6 @@ const AccountFormDialog: React.FC<AccountFormDialogProps> = ({
 		});
 	};
 
-	const selectedTypeLabel =
-		accountTypes.find((type) => type.id.toString() === accountTypeId)?.name ||
-		"";
-
-	// Helper to render dropdown input with app styling
-	const renderDropdownInput = (props: any, value: string, label: string) => (
-		<TextInput
-			{...props}
-			value={value}
-			label={label}
-			dense
-			style={{
-				backgroundColor: theme.colors.surfaceVariant,
-				marginBottom: 8,
-				fontSize: 14,
-			}}
-			mode="outlined"
-			theme={{ roundness: 8 }}
-			right={<TextInput.Icon icon="chevron-down" />}
-			contentStyle={{ paddingVertical: 0 }}
-		/>
-	);
-
 	return (
 		<AppDialog
 			visible={visible}
@@ -144,30 +112,22 @@ const AccountFormDialog: React.FC<AccountFormDialogProps> = ({
 				onChangeText={setAccountNumber}
 			/>
 
-			<Dropdown
-				label={"Account Type"}
+			<AppDropdown
+				label="Account Type"
 				value={accountTypeId}
 				onSelect={(v) => setAccountTypeId(v ?? "")}
 				options={accountTypes.map((type) => ({
 					label: type.name,
 					value: type.id.toString(),
 				}))}
-				error={!!error && !accountTypeId}
-				CustomMenuHeader={() => null}
-				CustomDropdownInput={(props) =>
-					renderDropdownInput(props, selectedTypeLabel, "Account Type")
-				}
+				error={error && !accountTypeId ? "Type is required" : undefined}
 			/>
-			<Dropdown
-				label={"Currency"}
+			<AppDropdown
+				label="Currency"
 				value={currency}
 				onSelect={(v) => setCurrency(v ?? "")}
 				options={getPopularCurrencyOptions()}
-				error={!!error && !currency}
-				CustomMenuHeader={() => null}
-				CustomDropdownInput={(props) =>
-					renderDropdownInput(props, currency, "Currency")
-				}
+				error={error && !currency ? "Currency is required" : undefined}
 			/>
 			<AppNumberInput
 				label="Opening Balance"
@@ -186,11 +146,5 @@ const AccountFormDialog: React.FC<AccountFormDialogProps> = ({
 		</AppDialog>
 	);
 };
-
-const styles = StyleSheet.create({
-	input: {
-		marginBottom: 8,
-	},
-});
 
 export default AccountFormDialog;

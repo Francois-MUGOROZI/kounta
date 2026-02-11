@@ -1,15 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { StyleSheet } from "react-native";
-import {
-	TextInput,
-	Button,
-	HelperText,
-	useTheme,
-} from "react-native-paper";
-import { Dropdown } from "react-native-paper-dropdown";
+import { Button, HelperText } from "react-native-paper";
 import AppDialog from "./AppDialog";
 import AppTextInput from "./AppTextInput";
 import AppNumberInput from "./AppNumberInput";
+import AppDropdown from "./AppDropdown";
 import { getPopularCurrencyOptions } from "../constants/currencies";
 import { Envelope } from "@/types";
 
@@ -26,7 +20,6 @@ const EnvelopeFormDialog: React.FC<EnvelopeFormDialogProps> = ({
 	onSubmit,
 	initialEnvelope,
 }) => {
-	const theme = useTheme();
 	const [name, setName] = useState("");
 	const [totalAmount, setTotalAmount] = useState("");
 	const [currency, setCurrency] = useState("");
@@ -75,25 +68,6 @@ const EnvelopeFormDialog: React.FC<EnvelopeFormDialogProps> = ({
 		} as Envelope);
 	};
 
-	// Helper to render dropdown input with app styling
-	const renderDropdownInput = (props: any, value: string, label: string) => (
-		<TextInput
-			{...props}
-			value={value}
-			label={label}
-			dense
-			style={{
-				backgroundColor: theme.colors.surfaceVariant,
-				marginBottom: 8,
-				fontSize: 14,
-			}}
-			mode="outlined"
-			theme={{ roundness: 8 }}
-			right={<TextInput.Icon icon="chevron-down" />}
-			contentStyle={{ paddingVertical: 0 }}
-		/>
-	);
-
 	return (
 		<AppDialog
 			visible={visible}
@@ -114,17 +88,21 @@ const EnvelopeFormDialog: React.FC<EnvelopeFormDialogProps> = ({
 				label="Name"
 				value={name}
 				onChangeText={setName}
-				error={error && (!name.trim() || name.length < 3) ? "Name is required (min 3 chars)" : undefined}
+				error={
+					error && (!name.trim() || name.length < 3)
+						? "Name is required (min 3 chars)"
+						: undefined
+				}
 			/>
-			<Dropdown
-				label={"Currency"}
+			<AppDropdown
+				label="Currency"
 				value={currency}
 				onSelect={(v) => setCurrency(v ?? "")}
 				options={getPopularCurrencyOptions()}
-				error={!!error && (!currency || currency.length < 3)}
-				CustomMenuHeader={() => null}
-				CustomDropdownInput={(props) =>
-					renderDropdownInput(props, currency, "Currency")
+				error={
+					error && (!currency || currency.length < 3)
+						? "Currency is required"
+						: undefined
 				}
 			/>
 			<AppNumberInput
@@ -161,11 +139,5 @@ const EnvelopeFormDialog: React.FC<EnvelopeFormDialogProps> = ({
 		</AppDialog>
 	);
 };
-
-const styles = StyleSheet.create({
-	input: {
-		marginBottom: 8,
-	},
-});
 
 export default EnvelopeFormDialog;

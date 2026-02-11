@@ -1,17 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { StyleSheet } from "react-native";
-import {
-	TextInput,
-	Button,
-	HelperText,
-	Text,
-	useTheme,
-} from "react-native-paper";
-import { Dropdown } from "react-native-paper-dropdown";
+import { Button, HelperText } from "react-native-paper";
 import { getPopularCurrencyOptions } from "../constants/currencies";
 import AppDialog from "./AppDialog";
 import AppTextInput from "./AppTextInput";
 import AppNumberInput from "./AppNumberInput";
+import AppDropdown from "./AppDropdown";
 import { Liability } from "../types";
 
 interface LiabilityFormDialogProps {
@@ -36,7 +29,6 @@ const LiabilityFormDialog: React.FC<LiabilityFormDialogProps> = ({
 	liabilityTypes,
 	initialLiability,
 }) => {
-	const theme = useTheme();
 	const [name, setName] = useState("");
 	const [typeId, setTypeId] = useState<string>("");
 	const [currency, setCurrency] = useState("");
@@ -99,28 +91,6 @@ const LiabilityFormDialog: React.FC<LiabilityFormDialogProps> = ({
 		});
 	};
 
-	// Helper to render dropdown input with app styling
-	const renderDropdownInput = (props: any, value: string, label: string) => (
-		<TextInput
-			{...props}
-			value={value}
-			label={label}
-			dense
-			style={{
-				backgroundColor: theme.colors.surfaceVariant,
-				marginBottom: 8,
-				fontSize: 14,
-			}}
-			mode="outlined"
-			theme={{ roundness: 8 }}
-			right={<TextInput.Icon icon="chevron-down" />}
-			contentStyle={{ paddingVertical: 0 }}
-		/>
-	);
-
-	const selectedTypeLabel =
-		liabilityTypes.find((type) => type.id.toString() === typeId)?.name || "";
-
 	return (
 		<AppDialog
 			visible={visible}
@@ -143,30 +113,22 @@ const LiabilityFormDialog: React.FC<LiabilityFormDialogProps> = ({
 				onChangeText={setName}
 				error={error && !name.trim() ? "Name is required" : undefined}
 			/>
-			<Dropdown
-				label={"Liability Type"}
+			<AppDropdown
+				label="Liability Type"
 				value={typeId}
 				onSelect={(v) => setTypeId(v ?? "")}
 				options={liabilityTypes.map((type) => ({
 					label: type.name,
 					value: type.id.toString(),
 				}))}
-				error={!!error && !typeId}
-				CustomMenuHeader={() => null}
-				CustomDropdownInput={(props) =>
-					renderDropdownInput(props, selectedTypeLabel, "Liability Type")
-				}
+				error={error && !typeId ? "Type is required" : undefined}
 			/>
-			<Dropdown
-				label={"Currency"}
+			<AppDropdown
+				label="Currency"
 				value={currency}
 				onSelect={(v) => setCurrency(v ?? "")}
 				options={getPopularCurrencyOptions()}
-				error={!!error && !currency}
-				CustomMenuHeader={() => null}
-				CustomDropdownInput={(props) =>
-					renderDropdownInput(props, currency, "Currency")
-				}
+				error={error && !currency ? "Currency is required" : undefined}
 			/>
 			<AppNumberInput
 				label="Total Amount"
@@ -202,11 +164,5 @@ const LiabilityFormDialog: React.FC<LiabilityFormDialogProps> = ({
 		</AppDialog>
 	);
 };
-
-const styles = StyleSheet.create({
-	input: {
-		marginBottom: 8,
-	},
-});
 
 export default LiabilityFormDialog;
