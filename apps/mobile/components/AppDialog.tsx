@@ -1,5 +1,5 @@
 import React from "react";
-import { StyleSheet, View } from "react-native";
+import { StyleSheet } from "react-native";
 import { Dialog, Portal, Text, useTheme } from "react-native-paper";
 
 interface AppDialogProps {
@@ -55,7 +55,7 @@ const styles = StyleSheet.create({
 		marginBottom: 8, // Reduced margin
 	},
 	content: {
-		paddingHorizontal: 24,
+		paddingHorizontal: 12,
 		paddingBottom: 8, // Reduced padding
 	},
 });

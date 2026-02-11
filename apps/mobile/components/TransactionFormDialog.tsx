@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { View, ScrollView } from "react-native";
 import { Button, HelperText } from "react-native-paper";
 import { Category, Transaction, TransactionType } from "../types";
@@ -6,6 +6,7 @@ import AppDialog from "./AppDialog";
 import AppTextInput from "./AppTextInput";
 import AppNumberInput from "./AppNumberInput";
 import AppDropdown from "./AppDropdown";
+import CollapsibleSection from "./CollapsibleSection";
 
 interface TransactionFormDialogProps {
 	visible: boolean;
@@ -52,6 +53,12 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 		(t) => t.id.toString() === typeId
 	)?.name;
 
+	// Find Expense type ID for default
+	const expenseTypeId = useMemo(() => {
+		const expenseType = transactionTypes.find((t) => t.name === "Expense");
+		return expenseType?.id.toString() || "";
+	}, [transactionTypes]);
+
 	useEffect(() => {
 		if (initialTransaction) {
 			setDescription(initialTransaction.description);
@@ -68,7 +75,7 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 		} else {
 			setDescription("");
 			setAmount("");
-			setTypeId("");
+			setTypeId(expenseTypeId); // Default to Expense type
 			setFromAccountId("");
 			setToAccountId("");
 			setCategoryId("");
@@ -79,7 +86,14 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 			setBillId("");
 		}
 		setError("");
-	}, [visible, initialTransaction, transactionTypes, accounts, categories]);
+	}, [
+		visible,
+		initialTransaction,
+		transactionTypes,
+		accounts,
+		categories,
+		expenseTypeId,
+	]);
 
 	const handleSave = () => {
 		if (!description.trim()) {
@@ -151,6 +165,16 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 		}
 	}, [typeId, categories]);
 
+	// Calculate count of selected associations for collapsible header
+	const associationCount = useMemo(() => {
+		let count = 0;
+		if (assetId && assetId !== "") count++;
+		if (envelopeId && envelopeId !== "") count++;
+		if (liabilityId && liabilityId !== "") count++;
+		if (billId && billId !== "") count++;
+		return count;
+	}, [assetId, envelopeId, liabilityId, billId]);
+
 	return (
 		<AppDialog
 			visible={visible}
@@ -173,16 +197,7 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 				contentContainerStyle={{ paddingBottom: 16 }}
 			>
 				<View style={{ gap: 8 }}>
-					<AppTextInput
-						label="Description"
-						value={description}
-						onChangeText={setDescription}
-					/>
-					<AppNumberInput
-						label="Amount"
-						value={amount}
-						onChangeText={setAmount}
-					/>
+					{/* 1. Type */}
 					<AppDropdown
 						label="Type"
 						value={typeId}
@@ -191,11 +206,42 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 							label: type.name,
 							value: type.id.toString(),
 						}))}
-						error={error ? "Type is required" : undefined}
+						error={error && !typeId ? "Type is required" : undefined}
 					/>
 
+					{/* 2. Category - Only show for Income/Expense */}
+					{selectedTransactionType !== "Transfer" && (
+						<AppDropdown
+							label="Category"
+							value={categoryId}
+							onSelect={(v) => setCategoryId(v ?? "")}
+							options={filteredCategories.map((category) => ({
+								label: category.name,
+								value: category.id.toString(),
+							}))}
+							error={
+								error && !categoryId && selectedTransactionType !== "Transfer"
+									? "Category is required"
+									: undefined
+							}
+						/>
+					)}
+
+					{/* 3. Amount */}
+					<AppNumberInput
+						label="Amount"
+						value={amount}
+						onChangeText={setAmount}
+						error={
+							error && (!amount || isNaN(Number(amount)) || Number(amount) <= 0)
+								? "Amount must be a positive number"
+								: undefined
+						}
+					/>
+
+					{/* 4. Account(s) */}
 					{selectedTransactionType === "Transfer" ? (
-						<View>
+						<View style={{ gap: 8 }}>
 							<AppDropdown
 								label="From Account"
 								value={fromAccountId}
@@ -204,7 +250,13 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 									label: account.name,
 									value: account.id.toString(),
 								}))}
-								error={error ? "From account is required" : undefined}
+								error={
+									error &&
+									selectedTransactionType === "Transfer" &&
+									!fromAccountId
+										? "From account is required"
+										: undefined
+								}
 							/>
 							<AppDropdown
 								label="To Account"
@@ -214,115 +266,145 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 									label: account.name,
 									value: account.id.toString(),
 								}))}
-								error={error ? "To account is required" : undefined}
+								error={
+									error &&
+									selectedTransactionType === "Transfer" &&
+									!toAccountId
+										? "To account is required"
+										: undefined
+								}
 							/>
 						</View>
 					) : (
-						<View>
-							<AppDropdown
-								label="Account"
-								value={
-									selectedTransactionType === "Income"
-										? toAccountId
-										: fromAccountId
+						<AppDropdown
+							label="Account"
+							value={
+								selectedTransactionType === "Income"
+									? toAccountId
+									: fromAccountId
+							}
+							onSelect={(v) => {
+								if (selectedTransactionType === "Income") {
+									setToAccountId(v ?? "");
+									setFromAccountId("");
+								} else {
+									setFromAccountId(v ?? "");
+									setToAccountId("");
 								}
-								onSelect={(v) => {
-									if (selectedTransactionType === "Income") {
-										setToAccountId(v ?? "");
-										setFromAccountId("");
-									} else {
-										setFromAccountId(v ?? "");
-										setToAccountId("");
-									}
-								}}
-								options={accounts.map((account) => ({
-									label: account.name,
-									value: account.id.toString(),
-								}))}
-								error={error ? "Account is required" : undefined}
-							/>
-							<AppDropdown
-								label="Category"
-								value={categoryId}
-								onSelect={(v) => setCategoryId(v ?? "")}
-								options={filteredCategories.map((category) => ({
-									label: category.name,
-									value: category.id.toString(),
-								}))}
-								error={error ? "Category is required" : undefined}
-							/>
-						</View>
+							}}
+							options={accounts.map((account) => ({
+								label: account.name,
+								value: account.id.toString(),
+							}))}
+							error={
+								error &&
+								selectedTransactionType !== "Transfer" &&
+								!fromAccountId &&
+								!toAccountId
+									? "Account is required"
+									: undefined
+							}
+						/>
 					)}
 
+					{/* 5. Description */}
+					<AppTextInput
+						label="Description"
+						value={description}
+						onChangeText={setDescription}
+						error={
+							error && !description.trim()
+								? "Description is required"
+								: undefined
+						}
+					/>
+
+					{/* 6. Date */}
 					<AppTextInput
 						label="Date"
 						value={date}
 						onChangeText={setDate}
 						type="date"
+						error={error && !date.trim() ? "Date is required" : undefined}
 					/>
 
-					{selectedTransactionType !== "Transfer" && (
-						<AppDropdown
-							label="Asset (optional)"
-							value={assetId}
-							onSelect={(v) => setAssetId(v ?? "")}
-							options={[
-								{ label: "None", value: "" },
-								...assets.map((asset) => ({
-									label: asset.name,
-									value: asset.id.toString(),
-								})),
-							]}
-							placeholder="None"
-						/>
-					)}
-					{selectedTransactionType === "Expense" && (
-						<>
-							<AppDropdown
-								label="Envelope (optional)"
-								value={envelopeId}
-								onSelect={(v) => setEnvelopeId(v ?? "")}
-								options={[
-									{ label: "None", value: "" },
-									...envelopes.map((envelope) => ({
-										label: envelope.name,
-										value: envelope.id.toString(),
-									})),
-								]}
-								placeholder="None"
-							/>
-							<AppDropdown
-								label="Liability (optional)"
-								value={liabilityId}
-								onSelect={(v) => setLiabilityId(v ?? "")}
-								options={[
-									{ label: "None", value: "" },
-									...liabilities.map((liability) => ({
-										label: liability.name,
-										value: liability.id.toString(),
-									})),
-								]}
-								placeholder="None"
-							/>
-						</>
-					)}
-					{selectedTransactionType === "Expense" && bills.length > 0 && (
-						<AppDropdown
-							label="Bill (optional)"
-							value={billId}
-							onSelect={(v) => {
-								setBillId(v ?? "");
-							}}
-							options={[
-								{ label: "None", value: "" },
-								...bills.map((bill) => ({
-									label: `${bill.name} (${bill.amount.toLocaleString()})`,
-									value: bill.id.toString(),
-								})),
-							]}
-							placeholder="None"
-						/>
-					)}
+					{/* 7. Associations (Collapsible) */}
+					{selectedTransactionType &&
+						selectedTransactionType !== "Transfer" && (
+							<CollapsibleSection
+								title="Associations (Optional)"
+								showCount={associationCount}
+							>
+								<View style={{ gap: 8 }}>
+									{/* Asset - Show for Income/Expense (not Transfer) */}
+									<AppDropdown
+										label="Asset (optional)"
+										value={assetId}
+										onSelect={(v) => setAssetId(v ?? "")}
+										options={[
+											{ label: "None", value: "" },
+											...assets.map((asset) => ({
+												label: asset.name,
+												value: asset.id.toString(),
+											})),
+										]}
+										placeholder="None"
+									/>
+
+									{/* Envelope, Liability, Bill - Show only for Expense */}
+									{selectedTransactionType === "Expense" && (
+										<>
+											<AppDropdown
+												label="Envelope (optional)"
+												value={envelopeId}
+												onSelect={(v) => setEnvelopeId(v ?? "")}
+												options={[
+													{ label: "None", value: "" },
+													...envelopes.map((envelope) => ({
+														label: envelope.name,
+														value: envelope.id.toString(),
+													})),
+												]}
+												placeholder="None"
+											/>
+											<AppDropdown
+												label="Liability (optional)"
+												value={liabilityId}
+												onSelect={(v) => setLiabilityId(v ?? "")}
+												options={[
+													{ label: "None", value: "" },
+													...liabilities.map((liability) => ({
+														label: liability.name,
+														value: liability.id.toString(),
+													})),
+												]}
+												placeholder="None"
+											/>
+											{bills.length > 0 && (
+												<AppDropdown
+													label="Bill (optional)"
+													value={billId}
+													onSelect={(v) => {
+														setBillId(v ?? "");
+													}}
+													options={[
+														{ label: "None", value: "" },
+														...bills.map((bill) => ({
+															label: `${
+																bill.name
+															} (${bill.amount.toLocaleString()})`,
+															value: bill.id.toString(),
+														})),
+													]}
+													placeholder="None"
+												/>
+											)}
+										</>
+									)}
+								</View>
+							</CollapsibleSection>
+						)}
+
 					<HelperText type="error" visible={!!error}>
 						{error}
 					</HelperText>
