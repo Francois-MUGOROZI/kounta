@@ -247,4 +247,25 @@ export type TransactionFilter = {
 	startDate?: string;
 	endDate?: string;
 	period?: string;
+	accountId?: number;
+	assetId?: number;
+	liabilityId?: number;
+	envelopeId?: number;
+	billId?: number;
+};
+
+// React Navigation root stack param list
+export type RootStackParamList = {
+	Main: undefined;
+	Categories: undefined;
+	Assets: undefined;
+	Liabilities: undefined;
+	Types: undefined;
+	BackupRestore: undefined;
+	Bills: undefined;
+	TransactionDetail: { transactionId: number };
+	AccountDetail: { accountId: number };
+	AssetDetail: { assetId: number };
+	LiabilityDetail: { liabilityId: number };
+	EnvelopeDetail: { envelopeId: number };
 };

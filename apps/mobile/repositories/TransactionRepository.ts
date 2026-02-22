@@ -28,11 +28,31 @@ export const TransactionRepository = {
 				where.push("date <= ?");
 				params.push(filter.endDate);
 			}
+			if (filter.accountId) {
+				where.push("(from_account_id = ? OR to_account_id = ?)");
+				params.push(filter.accountId, filter.accountId);
+			}
+			if (filter.assetId) {
+				where.push("asset_id = ?");
+				params.push(filter.assetId);
+			}
+			if (filter.liabilityId) {
+				where.push("liability_id = ?");
+				params.push(filter.liabilityId);
+			}
+			if (filter.envelopeId) {
+				where.push("envelope_id = ?");
+				params.push(filter.envelopeId);
+			}
+			if (filter.billId) {
+				where.push("bill_id = ?");
+				params.push(filter.billId);
+			}
 		}
 		if (where.length > 0) {
 			query += " WHERE " + where.join(" AND ");
 		}
-		query += " ORDER BY date DESC";
+		query += " ORDER BY date DESC, id DESC";
 		return await db.getAllAsync<Transaction>(query, params);
 	},
 

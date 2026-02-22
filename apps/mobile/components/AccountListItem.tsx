@@ -9,6 +9,7 @@ interface AccountListItemProps {
 	typeName: string;
 	onEdit: () => void;
 	onDelete: () => void;
+	onPress?: () => void;
 }
 
 const AccountListItem: React.FC<AccountListItemProps> = ({
@@ -16,6 +17,7 @@ const AccountListItem: React.FC<AccountListItemProps> = ({
 	typeName,
 	onEdit,
 	onDelete,
+	onPress,
 }) => {
 	const theme = useTheme();
 	const getIcon = (type: string) => {
@@ -35,6 +37,7 @@ const AccountListItem: React.FC<AccountListItemProps> = ({
 		<SwipeableListItem
 			onEdit={onEdit}
 			onDelete={onDelete}
+			onPress={onPress}
 			style={styles.container}
 		>
 			<View style={styles.content}>

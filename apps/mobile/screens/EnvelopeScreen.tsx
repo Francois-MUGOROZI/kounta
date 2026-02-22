@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo } from "react";
 import { View, StyleSheet, Alert, FlatList } from "react-native";
 import {
 	FAB,
@@ -13,11 +13,16 @@ import { useGetEnvelopes } from "../hooks/envelope/useGetEnvelope";
 import { useCreateEnvelope } from "../hooks/envelope/useCreateEnvelope";
 import { useUpdateEnvelope } from "../hooks/envelope/useUpdateEnvelope";
 import { useDeleteEnvelope } from "../hooks/envelope/useDeleteEnvelope";
-import { Envelope } from "../types";
+import { Envelope, RootStackParamList } from "../types";
 import EnvelopeFormDialog from "@/components/EnvelopeFormDialog";
 import EnvelopeListItem from "@/components/EnvelopeListItem";
+import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 const EnvelopeScreen = () => {
+	const navigation = useNavigation<NavigationProp>();
 	const theme = useTheme();
 	const { envelopes, loading, error, refresh } = useGetEnvelopes();
 	const {
@@ -186,8 +191,7 @@ const EnvelopeScreen = () => {
 								<EnvelopeListItem
 									envelope={envelope}
 									onEdit={() => openEditModal(envelope)}
-									onDelete={() => handleDelete(envelope)}
-									onEnvelopeUpdated={refresh}
+									onDelete={() => handleDelete(envelope)}								onPress={() => navigation.navigate("EnvelopeDetail", { envelopeId: envelope.id })}									onEnvelopeUpdated={refresh}
 								/>
 							);
 						}

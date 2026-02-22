@@ -34,6 +34,7 @@ const AccountFormDialog: React.FC<AccountFormDialogProps> = ({
 	accountTypes,
 	initialAccount,
 }) => {
+	const isEditing = !!initialAccount;
 	const [name, setName] = useState("");
 	const [accountNumber, setAccountNumber] = useState("");
 	const [accountTypeId, setAccountTypeId] = useState<string>("");
@@ -65,6 +66,16 @@ const AccountFormDialog: React.FC<AccountFormDialogProps> = ({
 		}
 		if (!accountTypeId) {
 			setError("Type is required");
+			return;
+		}
+		if (isEditing) {
+			onSubmit({
+				name: name.trim(),
+				account_number: accountNumber.trim() || undefined,
+				account_type_id: Number(accountTypeId),
+				currency: initialAccount!.currency,
+				opening_balance: initialAccount!.opening_balance,
+			});
 			return;
 		}
 		if (!currency.trim()) {
@@ -122,24 +133,28 @@ const AccountFormDialog: React.FC<AccountFormDialogProps> = ({
 				}))}
 				error={error && !accountTypeId ? "Type is required" : undefined}
 			/>
-			<AppDropdown
-				label="Currency"
-				value={currency}
-				onSelect={(v) => setCurrency(v ?? "")}
-				options={getPopularCurrencyOptions()}
-				error={error && !currency ? "Currency is required" : undefined}
-			/>
-			<AppNumberInput
-				label="Opening Balance"
-				value={openingBalance}
-				onChangeText={setOpeningBalance}
-				currency={currency || "RWF"}
-				error={
-					error && (!openingBalance || isNaN(Number(openingBalance)))
-						? "Valid opening balance required"
-						: undefined
-				}
-			/>
+			{!isEditing && (
+				<AppDropdown
+					label="Currency"
+					value={currency}
+					onSelect={(v) => setCurrency(v ?? "")}
+					options={getPopularCurrencyOptions()}
+					error={error && !currency ? "Currency is required" : undefined}
+				/>
+			)}
+			{!isEditing && (
+				<AppNumberInput
+					label="Opening Balance"
+					value={openingBalance}
+					onChangeText={setOpeningBalance}
+					currency={currency || "RWF"}
+					error={
+						error && (!openingBalance || isNaN(Number(openingBalance)))
+							? "Valid opening balance required"
+							: undefined
+					}
+				/>
+			)}
 			<HelperText type="error" visible={!!error}>
 				{error}
 			</HelperText>

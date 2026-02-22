@@ -29,6 +29,7 @@ const LiabilityFormDialog: React.FC<LiabilityFormDialogProps> = ({
 	liabilityTypes,
 	initialLiability,
 }) => {
+	const isEditing = !!initialLiability;
 	const [name, setName] = useState("");
 	const [typeId, setTypeId] = useState<string>("");
 	const [currency, setCurrency] = useState("");
@@ -63,6 +64,17 @@ const LiabilityFormDialog: React.FC<LiabilityFormDialogProps> = ({
 		}
 		if (!typeId) {
 			setError("Type is required");
+			return;
+		}
+		if (isEditing) {
+			onSubmit({
+				name: name.trim(),
+				liability_type_id: Number(typeId),
+				currency: initialLiability!.currency,
+				total_amount: initialLiability!.total_amount,
+				current_balance: initialLiability!.current_balance,
+				notes: notes.trim() || undefined,
+			});
 			return;
 		}
 		if (!currency.trim()) {
@@ -123,35 +135,41 @@ const LiabilityFormDialog: React.FC<LiabilityFormDialogProps> = ({
 				}))}
 				error={error && !typeId ? "Type is required" : undefined}
 			/>
-			<AppDropdown
-				label="Currency"
-				value={currency}
-				onSelect={(v) => setCurrency(v ?? "")}
-				options={getPopularCurrencyOptions()}
-				error={error && !currency ? "Currency is required" : undefined}
-			/>
-			<AppNumberInput
-				label="Total Amount"
-				value={totalAmount}
-				onChangeText={setTotalAmount}
-				currency={currency || "RWF"}
-				error={
-					error && (!totalAmount || isNaN(Number(totalAmount)))
-						? "Valid total amount required"
-						: undefined
-				}
-			/>
-			<AppNumberInput
-				label="Current Balance"
-				value={currentBalance}
-				onChangeText={setCurrentBalance}
-				currency={currency || "RWF"}
-				error={
-					error && (!currentBalance || isNaN(Number(currentBalance)))
-						? "Valid current balance required"
-						: undefined
-				}
-			/>
+			{!isEditing && (
+				<AppDropdown
+					label="Currency"
+					value={currency}
+					onSelect={(v) => setCurrency(v ?? "")}
+					options={getPopularCurrencyOptions()}
+					error={error && !currency ? "Currency is required" : undefined}
+				/>
+			)}
+			{!isEditing && (
+				<AppNumberInput
+					label="Total Amount"
+					value={totalAmount}
+					onChangeText={setTotalAmount}
+					currency={currency || "RWF"}
+					error={
+						error && (!totalAmount || isNaN(Number(totalAmount)))
+							? "Valid total amount required"
+							: undefined
+					}
+				/>
+			)}
+			{!isEditing && (
+				<AppNumberInput
+					label="Current Balance"
+					value={currentBalance}
+					onChangeText={setCurrentBalance}
+					currency={currency || "RWF"}
+					error={
+						error && (!currentBalance || isNaN(Number(currentBalance)))
+							? "Valid current balance required"
+							: undefined
+					}
+				/>
+			)}
 			<AppTextInput
 				label="Notes (optional)"
 				value={notes}

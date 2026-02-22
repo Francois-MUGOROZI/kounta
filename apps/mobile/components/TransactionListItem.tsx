@@ -1,6 +1,7 @@
 import React from "react";
 import { View, StyleSheet } from "react-native";
 import { Text, useTheme, Avatar } from "react-native-paper";
+import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
 import SwipeableListItem from "./SwipeableListItem";
 import { Transaction } from "../types";
 import { formatTransactionAmount } from "../utils/currency";
@@ -13,6 +14,8 @@ interface TransactionListItemProps {
 	transactionTypeName: string;
 	onEdit?: () => void;
 	onDelete?: () => void;
+	onPress?: () => void;
+	associationCount?: number;
 	index?: number;
 }
 
@@ -24,6 +27,8 @@ const TransactionListItem: React.FC<TransactionListItemProps> = ({
 	transactionTypeName,
 	onEdit,
 	onDelete,
+	onPress,
+	associationCount = 0,
 	index = 0,
 }) => {
 	const theme = useTheme();
@@ -47,6 +52,7 @@ const TransactionListItem: React.FC<TransactionListItemProps> = ({
 			<SwipeableListItem
 				onEdit={onEdit}
 				onDelete={onDelete}
+				onPress={onPress}
 				style={styles.swipeable}
 			>
 				<View
@@ -67,9 +73,30 @@ const TransactionListItem: React.FC<TransactionListItemProps> = ({
 						<Text variant="bodySmall" style={{ color: theme.colors.outline }}>
 							{categoryName} • {accountName}
 						</Text>
-						<Text variant="bodySmall" style={{ color: theme.colors.outline }}>
-							{new Date(transaction.date).toLocaleDateString()}
-						</Text>
+						<View style={styles.dateLine}>
+							<Text variant="bodySmall" style={{ color: theme.colors.outline }}>
+								{new Date(transaction.date).toLocaleDateString()}
+							</Text>
+							{associationCount > 0 && (
+								<View style={styles.associationBadge}>
+									<MaterialCommunityIcons
+										name="link-variant"
+										size={12}
+										color={theme.colors.outline}
+									/>
+									<Text
+										variant="labelSmall"
+										style={{
+											color: theme.colors.outline,
+											marginLeft: 2,
+											fontSize: 11,
+										}}
+									>
+										{associationCount}
+									</Text>
+								</View>
+							)}
+						</View>
 					</View>
 					<View style={styles.amount}>
 						<Text
@@ -125,6 +152,15 @@ const styles = StyleSheet.create({
 	amount: {
 		marginLeft: 16,
 		alignItems: "flex-end",
+	},
+	dateLine: {
+		flexDirection: "row",
+		alignItems: "center",
+	},
+	associationBadge: {
+		flexDirection: "row",
+		alignItems: "center",
+		marginLeft: 8,
 	},
 });
 

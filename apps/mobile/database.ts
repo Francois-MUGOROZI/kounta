@@ -187,20 +187,20 @@ export async function initDatabase(db: any) {
 // Run database migrations
 async function runMigrations(db: any) {
 	try {
-		await db.runAsync(
-			"UPDATE liabilities SET current_balance = 0 WHERE current_balance < 0",
-		);
-		// Check if bills table has 'paid_amount' column
-		const billColumns = await db.getAllAsync("PRAGMA table_info(bills);");
-		const hasPaidAmount = billColumns.some(
-			(col: any) => col.name === "paid_amount",
-		);
-		if (!hasPaidAmount) {
-			await db.runAsync(
-				"ALTER TABLE bills ADD COLUMN paid_amount REAL DEFAULT 0; " +
-					"UPDATE bills SET paid_amount = amount WHERE status = 'Paid';",
-			);
-		}
+		// await db.runAsync(
+		// 	"UPDATE liabilities SET current_balance = 0 WHERE current_balance < 0",
+		// );
+		// // Check if bills table has 'paid_amount' column
+		// const billColumns = await db.getAllAsync("PRAGMA table_info(bills);");
+		// const hasPaidAmount = billColumns.some(
+		// 	(col: any) => col.name === "paid_amount",
+		// );
+		// if (!hasPaidAmount) {
+		// 	await db.runAsync(
+		// 		"ALTER TABLE bills ADD COLUMN paid_amount REAL DEFAULT 0; " +
+		// 			"UPDATE bills SET paid_amount = amount WHERE status = 'Paid';",
+		// 	);
+		// }
 	} catch (error) {
 		console.log("Migration error:", error);
 	}

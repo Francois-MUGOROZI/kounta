@@ -10,6 +10,7 @@ interface AssetListItemProps {
 	typeName: string;
 	onEdit: () => void;
 	onDelete: () => void;
+	onPress?: () => void;
 }
 
 const AssetListItem: React.FC<AssetListItemProps> = ({
@@ -17,6 +18,7 @@ const AssetListItem: React.FC<AssetListItemProps> = ({
 	typeName,
 	onEdit,
 	onDelete,
+	onPress,
 }) => {
 	const theme = useTheme();
 	const getIcon = (type: string) => {
@@ -40,6 +42,7 @@ const AssetListItem: React.FC<AssetListItemProps> = ({
 		<SwipeableListItem
 			onEdit={onEdit}
 			onDelete={onDelete}
+			onPress={onPress}
 			style={styles.container}
 		>
 			<View style={[styles.content, { backgroundColor: theme.colors.surface }]}>

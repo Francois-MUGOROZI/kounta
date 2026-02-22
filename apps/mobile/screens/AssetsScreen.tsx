@@ -16,10 +16,15 @@ import { useDeleteAsset } from "../hooks/asset/useDeleteAsset";
 import { useGetAssetTypes } from "../hooks/assetType/useGetAssetTypes";
 import AssetListItem from "../components/AssetListItem";
 import AssetFormDialog from "../components/AssetFormDialog";
-import { Asset } from "../types";
+import { Asset, RootStackParamList } from "../types";
 import { formatAmount } from "../utils/currency";
+import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 const AssetsScreen = () => {
+	const navigation = useNavigation<NavigationProp>();
 	const theme = useTheme();
 	const { assets, loading, error, refresh } = useGetAssets();
 	const {
@@ -214,8 +219,7 @@ const AssetsScreen = () => {
 									asset={asset}
 									typeName={getTypeName(asset.asset_type_id)}
 									onEdit={() => openEditModal(asset)}
-									onDelete={() => handleDelete(asset)}
-								/>
+									onDelete={() => handleDelete(asset)}								onPress={() => navigation.navigate("AssetDetail", { assetId: asset.id })}								/>
 							);
 						}
 					}}

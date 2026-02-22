@@ -23,9 +23,15 @@ import MoreActionsContent from "../components/MoreActionsContent";
 import AppBar from "@/components/AppBar";
 import EnvelopeScreen from "@/screens/EnvelopeScreen";
 import BillsScreen from "../screens/BillsScreen";
+import TransactionDetailScreen from "../screens/TransactionDetailScreen";
+import AccountDetailScreen from "../screens/AccountDetailScreen";
+import AssetDetailScreen from "../screens/AssetDetailScreen";
+import LiabilityDetailScreen from "../screens/LiabilityDetailScreen";
+import EnvelopeDetailScreen from "../screens/EnvelopeDetailScreen";
+import { RootStackParamList } from "../types";
 
 const Tab = createBottomTabNavigator();
-const Stack = createNativeStackNavigator();
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
 const MainTabNavigator: React.FC = () => {
 	const theme = useTheme();
@@ -154,6 +160,31 @@ const AppNavigator: React.FC = () => {
 				name="Bills"
 				options={{ title: "Bills" }}
 				component={BillsScreen}
+			/>
+			<Stack.Screen
+				name="TransactionDetail"
+				options={{ title: "Transaction Detail" }}
+				component={TransactionDetailScreen}
+			/>
+			<Stack.Screen
+				name="AccountDetail"
+				options={{ title: "Account Detail" }}
+				component={AccountDetailScreen}
+			/>
+			<Stack.Screen
+				name="AssetDetail"
+				options={{ title: "Asset Detail" }}
+				component={AssetDetailScreen}
+			/>
+			<Stack.Screen
+				name="LiabilityDetail"
+				options={{ title: "Liability Detail" }}
+				component={LiabilityDetailScreen}
+			/>
+			<Stack.Screen
+				name="EnvelopeDetail"
+				options={{ title: "Envelope Detail" }}
+				component={EnvelopeDetailScreen}
 			/>
 		</Stack.Navigator>
 	);

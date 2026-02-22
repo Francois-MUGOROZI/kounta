@@ -7,6 +7,7 @@ interface SwipeableListItemProps {
 	onEdit?: () => void;
 	onDelete?: () => void;
 	onComplete?: () => void;
+	onPress?: () => void;
 	children: React.ReactNode;
 	style?: ViewStyle;
 }
@@ -15,11 +16,13 @@ const SwipeableListItem: React.FC<SwipeableListItemProps> = ({
 	onEdit,
 	onDelete,
 	onComplete,
+	onPress,
 	children,
 	style,
 }) => {
 	const theme = useTheme();
 	const hasActions = Boolean(onEdit || onDelete || onComplete);
+	const hasInteraction = hasActions || Boolean(onPress);
 
 	const renderRightActions = () => {
 		return (
@@ -58,7 +61,7 @@ const SwipeableListItem: React.FC<SwipeableListItemProps> = ({
 		);
 	};
 
-	if (!hasActions) {
+	if (!hasInteraction) {
 		return <View style={style}>{children}</View>;
 	}
 
@@ -71,6 +74,7 @@ const SwipeableListItem: React.FC<SwipeableListItemProps> = ({
 			<View style={style}>
 				<View style={{ flex: 1 }}>
 					<TouchableRipple
+						onPress={onPress}
 						onLongPress={onEdit}
 						rippleColor={theme.colors.primary + "22"}
 					>

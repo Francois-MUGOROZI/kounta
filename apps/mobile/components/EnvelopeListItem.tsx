@@ -10,6 +10,7 @@ interface EnvelopeListItemProps {
 	envelope: Envelope;
 	onEdit: () => void;
 	onDelete: () => void;
+	onPress?: () => void;
 	onEnvelopeUpdated?: () => void;
 }
 
@@ -17,6 +18,7 @@ const EnvelopeListItem: React.FC<EnvelopeListItemProps> = ({
 	envelope,
 	onEdit,
 	onDelete,
+	onPress,
 	onEnvelopeUpdated,
 }) => {
 	const theme = useTheme();
@@ -34,6 +36,7 @@ const EnvelopeListItem: React.FC<EnvelopeListItemProps> = ({
 			<SwipeableListItem
 				onEdit={onEdit}
 				onDelete={onDelete}
+				onPress={onPress}
 				style={styles.container}
 			>
 				<View style={[styles.content, { backgroundColor: theme.colors.surface }]}>

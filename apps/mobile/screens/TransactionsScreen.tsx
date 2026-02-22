@@ -22,12 +22,18 @@ import { TransactionFilter } from "../components/TransactionFilter";
 import type {
 	Transaction,
 	TransactionFilter as FilterTransaction,
+	RootStackParamList,
 } from "../types";
 import { formatAmount } from "../utils/currency";
 import { useGetEnvelopes } from "@/hooks/envelope/useGetEnvelope";
 import { useGetBills } from "../hooks/bill/useGetBills";
+import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 const TransactionsScreen = () => {
+	const navigation = useNavigation<NavigationProp>();
 	const theme = useTheme();
 	const getInitialMonthFilter = () => {
 		const now = new Date();
@@ -126,6 +132,9 @@ const TransactionsScreen = () => {
 	const getTransactionTypeName = (typeId: number) => {
 		return transactionTypes.find((t) => t.id === typeId)?.name || "";
 	};
+
+	const getAssociationCount = (t: Transaction) =>
+		[t.asset_id, t.liability_id, t.envelope_id, t.bill_id].filter(Boolean).length;
 
 	// Group transactions by currency and calculate totals
 	const currencyGroups = useMemo(() => {
@@ -261,6 +270,8 @@ const TransactionsScreen = () => {
 								transactionTypeName={getTransactionTypeName(
 									item.transaction_type_id
 								)}
+								associationCount={getAssociationCount(item)}
+								onPress={() => navigation.navigate("TransactionDetail", { transactionId: item.id })}
 								index={index}
 							/>
 						);

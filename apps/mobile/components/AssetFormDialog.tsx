@@ -29,6 +29,7 @@ const AssetFormDialog: React.FC<AssetFormDialogProps> = ({
 	assetTypes,
 	initialAsset,
 }) => {
+	const isEditing = !!initialAsset;
 	const [name, setName] = useState("");
 	const [typeId, setTypeId] = useState<string>("");
 	const [currency, setCurrency] = useState("");
@@ -63,6 +64,17 @@ const AssetFormDialog: React.FC<AssetFormDialogProps> = ({
 		}
 		if (!typeId) {
 			setError("Type is required");
+			return;
+		}
+		if (isEditing) {
+			onSubmit({
+				name: name.trim(),
+				asset_type_id: Number(typeId),
+				currency: initialAsset!.currency,
+				initial_value: initialAsset!.initial_value,
+				current_value: initialAsset!.current_value,
+				notes: notes.trim() || undefined,
+			});
 			return;
 		}
 		if (!currency.trim()) {
@@ -119,35 +131,41 @@ const AssetFormDialog: React.FC<AssetFormDialogProps> = ({
 				}))}
 				error={error && !typeId ? "Type is required" : undefined}
 			/>
-			<AppDropdown
-				label="Currency"
-				value={currency}
-				onSelect={(v) => setCurrency(v ?? "")}
-				options={getPopularCurrencyOptions()}
-				error={error && !currency ? "Currency is required" : undefined}
-			/>
-			<AppNumberInput
-				label="Initial Value"
-				value={initialValue}
-				onChangeText={setInitialValue}
-				currency={currency || "RWF"}
-				error={
-					error && (!initialValue || isNaN(Number(initialValue)))
-						? "Valid initial value required"
-						: undefined
-				}
-			/>
-			<AppNumberInput
-				label="Current Value"
-				value={currentValue}
-				onChangeText={setCurrentValue}
-				currency={currency || "RWF"}
-				error={
-					error && (!currentValue || isNaN(Number(currentValue)))
-						? "Valid current value required"
-						: undefined
-				}
-			/>
+			{!isEditing && (
+				<AppDropdown
+					label="Currency"
+					value={currency}
+					onSelect={(v) => setCurrency(v ?? "")}
+					options={getPopularCurrencyOptions()}
+					error={error && !currency ? "Currency is required" : undefined}
+				/>
+			)}
+			{!isEditing && (
+				<AppNumberInput
+					label="Initial Value"
+					value={initialValue}
+					onChangeText={setInitialValue}
+					currency={currency || "RWF"}
+					error={
+						error && (!initialValue || isNaN(Number(initialValue)))
+							? "Valid initial value required"
+							: undefined
+					}
+				/>
+			)}
+			{!isEditing && (
+				<AppNumberInput
+					label="Current Value"
+					value={currentValue}
+					onChangeText={setCurrentValue}
+					currency={currency || "RWF"}
+					error={
+						error && (!currentValue || isNaN(Number(currentValue)))
+							? "Valid current value required"
+							: undefined
+					}
+				/>
+			)}
 			<AppTextInput
 				label="Notes (optional)"
 				value={notes}

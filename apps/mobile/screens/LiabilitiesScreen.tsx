@@ -16,10 +16,15 @@ import { useDeleteLiability } from "../hooks/liability/useDeleteLiability";
 import { useGetLiabilityTypes } from "../hooks/liabilityType/useGetLiabilityTypes";
 import LiabilityListItem from "../components/LiabilityListItem";
 import LiabilityFormDialog from "../components/LiabilityFormDialog";
-import { Liability } from "../types";
+import { Liability, RootStackParamList } from "../types";
 import { formatAmount } from "../utils/currency";
+import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 const LiabilitiesScreen = () => {
+	const navigation = useNavigation<NavigationProp>();
 	const theme = useTheme();
 	const { liabilities, loading, error, refresh } = useGetLiabilities();
 	const {
@@ -216,8 +221,7 @@ const LiabilitiesScreen = () => {
 									liability={liability}
 									typeName={getTypeName(liability.liability_type_id)}
 									onEdit={() => openEditModal(liability)}
-									onDelete={() => handleDelete(liability)}
-								/>
+									onDelete={() => handleDelete(liability)}								onPress={() => navigation.navigate("LiabilityDetail", { liabilityId: liability.id })}								/>
 							);
 						}
 					}}

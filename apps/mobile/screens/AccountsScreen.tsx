@@ -16,9 +16,14 @@ import { useDeleteAccount } from "../hooks/account/useDeleteAccount";
 import { useGetAccountTypes } from "../hooks/accountType/useGetAccountTypes";
 import AccountListItem from "../components/AccountListItem";
 import AccountFormDialog from "../components/AccountFormDialog";
-import { Account } from "../types";
+import { Account, RootStackParamList } from "../types";
+import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 const AccountsScreen = () => {
+	const navigation = useNavigation<NavigationProp>();
 	const theme = useTheme();
 	const { accounts, loading, error, refresh } = useGetAccounts();
 	const {
@@ -214,8 +219,7 @@ const AccountsScreen = () => {
 									account={account}
 									typeName={getTypeName(account.account_type_id)}
 									onEdit={() => openEditModal(account)}
-									onDelete={() => handleDelete(account)}
-								/>
+									onDelete={() => handleDelete(account)}								onPress={() => navigation.navigate("AccountDetail", { accountId: account.id })}								/>
 							);
 						}
 					}}

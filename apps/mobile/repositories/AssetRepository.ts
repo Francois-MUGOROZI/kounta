@@ -72,4 +72,16 @@ export const AssetRepository = {
 		// Notify the app that data has changed so UI can update
 		emitEvent(EVENTS.DATA_CHANGED);
 	},
+
+	async addToAsset(
+		db: SQLiteDatabase,
+		assetId: number,
+		amount: number
+	): Promise<void> {
+		await db.runAsync(
+			`UPDATE assets SET current_value = current_value + ? WHERE id = ?`,
+			[amount, assetId]
+		);
+		emitEvent(EVENTS.DATA_CHANGED);
+	},
 };
