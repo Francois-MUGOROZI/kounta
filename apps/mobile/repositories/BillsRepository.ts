@@ -1,10 +1,8 @@
 import { SQLiteDatabase } from "expo-sqlite";
 import { Bill, BillRule, BillStatus } from "../types";
 import { emitEvent, EVENTS } from "../utils/events";
-import { format, endOfMonth } from "date-fns";
+import { format } from "date-fns";
 import { generateBillName, getNextDueDate } from "../utils/bills";
-
-const thisMonthLastDate = format(endOfMonth(new Date()), "yyyy-MM-dd");
 
 export const BillsRepository = {
 	// ============ BILL RULES (Master) ============
@@ -98,8 +96,7 @@ export const BillsRepository = {
 
 	async getAllBills(db: SQLiteDatabase): Promise<Bill[]> {
 		return await db.getAllAsync<Bill>(
-			`SELECT * FROM bills WHERE date(due_date) <= date(?) ORDER BY due_date ASC`,
-			[thisMonthLastDate]
+			`SELECT * FROM bills ORDER BY CASE status WHEN 'Overdue' THEN 0 WHEN 'Pending' THEN 1 WHEN 'Paid' THEN 2 ELSE 3 END, CASE WHEN status = 'Paid' THEN date(due_date) END DESC, CASE WHEN status != 'Paid' THEN date(due_date) END ASC`
 		);
 	},
 
@@ -113,15 +110,18 @@ export const BillsRepository = {
 		db: SQLiteDatabase,
 		status: BillStatus
 	): Promise<Bill[]> {
+		const orderBy =
+			status === "Paid"
+				? "ORDER BY date(due_date) DESC"
+				: "ORDER BY date(due_date) ASC";
 		return await db.getAllAsync<Bill>(
-			`SELECT * FROM bills WHERE status = ? AND date(due_date) <= date(?) ORDER BY due_date ASC`,
-			[status, thisMonthLastDate]
+			`SELECT * FROM bills WHERE status = ? ${orderBy}`,
+			[status]
 		);
 	},
 	async getUnpaidBills(db: SQLiteDatabase): Promise<Bill[]> {
 		return await db.getAllAsync<Bill>(
-			`SELECT * FROM bills WHERE status != 'Paid' AND date(due_date) <= date(?) ORDER BY due_date ASC`,
-			[thisMonthLastDate]
+			`SELECT * FROM bills WHERE status != 'Paid' ORDER BY CASE status WHEN 'Overdue' THEN 0 WHEN 'Pending' THEN 1 ELSE 2 END, date(due_date) ASC`
 		);
 	},
 
@@ -276,9 +276,14 @@ export const BillsRepository = {
 		const bill = await this.getBillById(db, billId);
 		if (!bill) return;
 
-		const newPaidAmount = (bill.paid_amount || 0) + paymentAmount;
+		const currentPaid = bill.paid_amount || 0;
+		const rawPaidAmount = currentPaid + paymentAmount;
+		const clampedPaidAmount = Math.min(
+			Math.max(rawPaidAmount, 0),
+			bill.amount
+		);
 		const updates: Partial<Bill> = {
-			paid_amount: newPaidAmount,
+			paid_amount: clampedPaidAmount,
 		};
 
 		if (transactionId) {
@@ -286,9 +291,12 @@ export const BillsRepository = {
 		}
 
 		// If fully paid, update status and paid_at
-		if (newPaidAmount >= bill.amount) {
+		if (clampedPaidAmount >= bill.amount) {
 			updates.status = "Paid";
 			updates.paid_at = new Date().toISOString();
+		} else {
+			updates.status = "Pending";
+			updates.paid_at = null;
 		}
 
 		await this.updateBill(db, billId, updates);

@@ -4,7 +4,7 @@ import { Swipeable, RectButton } from "react-native-gesture-handler";
 import { IconButton, useTheme, TouchableRipple } from "react-native-paper";
 
 interface SwipeableListItemProps {
-	onEdit: () => void;
+	onEdit?: () => void;
 	onDelete?: () => void;
 	onComplete?: () => void;
 	children: React.ReactNode;
@@ -19,6 +19,7 @@ const SwipeableListItem: React.FC<SwipeableListItemProps> = ({
 	style,
 }) => {
 	const theme = useTheme();
+	const hasActions = Boolean(onEdit || onDelete || onComplete);
 
 	const renderRightActions = () => {
 		return (
@@ -56,6 +57,10 @@ const SwipeableListItem: React.FC<SwipeableListItemProps> = ({
 			</View>
 		);
 	};
+
+	if (!hasActions) {
+		return <View style={style}>{children}</View>;
+	}
 
 	return (
 		<Swipeable

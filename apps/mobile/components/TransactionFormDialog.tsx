@@ -165,6 +165,20 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 		}
 	}, [typeId, categories]);
 
+	useEffect(() => {
+		if (!selectedTransactionType) {
+			return;
+		}
+		if (selectedTransactionType !== "Expense") {
+			setEnvelopeId("");
+			setLiabilityId("");
+			setBillId("");
+		}
+		if (selectedTransactionType === "Transfer") {
+			setAssetId("");
+		}
+	}, [selectedTransactionType]);
+
 	// Calculate count of selected associations for collapsible header
 	const associationCount = useMemo(() => {
 		let count = 0;

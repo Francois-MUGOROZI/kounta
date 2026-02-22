@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { View, StyleSheet, Alert, FlatList } from "react-native";
+import { View, StyleSheet, FlatList } from "react-native";
 import {
 	FAB,
 	ActivityIndicator,
@@ -11,8 +11,6 @@ import {
 } from "react-native-paper";
 import { useGetTransactions } from "../hooks/transaction/useGetTransactions";
 import { useCreateTransaction } from "../hooks/transaction/useCreateTransaction";
-import { useUpdateTransaction } from "../hooks/transaction/useUpdateTransaction";
-import { useDeleteTransaction } from "../hooks/transaction/useDeleteTransaction";
 import { useGetTransactionTypes } from "../hooks/transactionType/useGetTransactionTypes";
 import { useGetAccounts } from "../hooks/account/useGetAccounts";
 import { useGetCategories } from "../hooks/category/useGetCategories";
@@ -55,16 +53,6 @@ const TransactionsScreen = () => {
 		error: createError,
 	} = useCreateTransaction();
 	const {
-		updateTransaction,
-		loading: updating,
-		error: updateError,
-	} = useUpdateTransaction();
-	const {
-		deleteTransaction,
-		loading: deleting,
-		error: deleteError,
-	} = useDeleteTransaction();
-	const {
 		transactionTypes,
 		loading: loadingTypes,
 		error: errorTypes,
@@ -99,34 +87,20 @@ const TransactionsScreen = () => {
 	} = useGetBills(undefined, true);
 
 	const [modalVisible, setModalVisible] = useState(false);
-	const [editingTransaction, setEditingTransaction] =
-		useState<Transaction | null>(null);
 	const [snackbar, setSnackbar] = useState({ visible: false, message: "" });
 
 	const openAddModal = () => {
-		setEditingTransaction(null);
-		setModalVisible(true);
-	};
-
-	const openEditModal = (transaction: Transaction) => {
-		setEditingTransaction(transaction);
 		setModalVisible(true);
 	};
 
 	const closeModal = () => {
 		setModalVisible(false);
-		setEditingTransaction(null);
 	};
 
 	const handleSubmit = async (data: Transaction) => {
 		try {
-			if (editingTransaction) {
-				await updateTransaction(editingTransaction.id, data);
-				setSnackbar({ visible: true, message: "Transaction updated" });
-			} else {
-				await createTransaction(data);
-				setSnackbar({ visible: true, message: "Transaction created" });
-			}
+			await createTransaction(data);
+			setSnackbar({ visible: true, message: "Transaction created" });
 			closeModal();
 			refresh();
 		} catch (e: any) {
@@ -135,32 +109,6 @@ const TransactionsScreen = () => {
 				message: e.message || "Error saving transaction",
 			});
 		}
-	};
-
-	const handleDelete = (transaction: Transaction) => {
-		Alert.alert(
-			"Delete Transaction",
-			`Are you sure you want to delete "${transaction.description}"?`,
-			[
-				{ text: "Cancel", style: "cancel" },
-				{
-					text: "Delete",
-					style: "destructive",
-					onPress: async () => {
-						try {
-							await deleteTransaction(transaction.id);
-							setSnackbar({ visible: true, message: "Transaction deleted" });
-							refresh();
-						} catch (e: any) {
-							setSnackbar({
-								visible: true,
-								message: e.message || "Error deleting transaction",
-							});
-						}
-					},
-				},
-			]
-		);
 	};
 
 	const getAccountName = (accountId: number) => {
@@ -313,8 +261,6 @@ const TransactionsScreen = () => {
 								transactionTypeName={getTransactionTypeName(
 									item.transaction_type_id
 								)}
-								onEdit={() => openEditModal(item)}
-								onDelete={() => handleDelete(item)}
 								index={index}
 							/>
 						);
@@ -327,8 +273,6 @@ const TransactionsScreen = () => {
 	const anyLoading =
 		loading ||
 		creating ||
-		updating ||
-		deleting ||
 		loadingTypes ||
 		loadingAccounts ||
 		loadingCategories ||
@@ -339,8 +283,6 @@ const TransactionsScreen = () => {
 	const anyError =
 		error ||
 		createError ||
-		updateError ||
-		deleteError ||
 		errorTypes ||
 		errorAccounts ||
 		errorCategories ||
@@ -416,7 +358,6 @@ const TransactionsScreen = () => {
 				categories={categories}
 				assets={assets}
 				liabilities={liabilities}
-				initialTransaction={editingTransaction}
 				envelopes={envelopes}
 				bills={bills as any}
 			/>

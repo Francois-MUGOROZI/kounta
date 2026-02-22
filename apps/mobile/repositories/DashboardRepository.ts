@@ -5,12 +5,13 @@ import type {
 	CategoryTotal,
 	EnvelopeTotal,
 } from "../types";
-import { format, endOfMonth } from "date-fns";
+import { addDays, format } from "date-fns";
 
 export const DashboardRepository = {
 	// Get all top-level stats grouped by currency
 	async getTotalsByCurrency(db: SQLiteDatabase): Promise<DashboardTotals[]> {
-		const thisMonthLastDate = format(endOfMonth(new Date()), "yyyy-MM-dd");
+		const today = format(new Date(), "yyyy-MM-dd");
+		const nextThirtyDays = format(addDays(new Date(), 30), "yyyy-MM-dd");
 		// Accounts
 		const accounts = await db.getAllAsync(
 			`SELECT currency, SUM(current_balance) as accountBalance FROM accounts GROUP BY currency`
@@ -32,8 +33,8 @@ export const DashboardRepository = {
 		);
 
 		const unpaidBills = await db.getAllAsync(
-			`SELECT SUM(bills.amount - bills.paid_amount) as totalUnpaidBills, bills.currency as currency FROM bills WHERE bills.status != 'Paid' AND date(bills.due_date) <= date(?) GROUP BY bills.currency`,
-			[thisMonthLastDate]
+			`SELECT SUM(bills.amount - bills.paid_amount) as totalUnpaidBills, bills.currency as currency FROM bills WHERE bills.status != 'Paid' AND (date(bills.due_date) < date(?) OR (date(bills.due_date) >= date(?) AND date(bills.due_date) <= date(?))) GROUP BY bills.currency`,
+			[today, today, nextThirtyDays]
 		);
 
 		// Merge all by currency

@@ -19,7 +19,10 @@ const LiabilityListItem: React.FC<LiabilityListItemProps> = ({
 	onDelete,
 }) => {
 	const theme = useTheme();
+	const isPaidOff = liability.current_balance === 0;
+
 	const getIcon = (type: string) => {
+		if (isPaidOff) return "check-circle";
 		switch (type.toLowerCase()) {
 			case "credit card":
 				return "credit-card";
@@ -44,8 +47,11 @@ const LiabilityListItem: React.FC<LiabilityListItemProps> = ({
 				<Avatar.Icon
 					size={36}
 					icon={getIcon(typeName)}
-					style={{ backgroundColor: theme.colors.elevation.level3, marginRight: 16 }}
-					color={theme.colors.error}
+					style={{
+						backgroundColor: theme.colors.elevation.level3,
+						marginRight: 16,
+					}}
+					color={isPaidOff ? theme.colors.primary : theme.colors.error}
 				/>
 				<View style={styles.info}>
 					<Text variant="titleMedium" style={{ fontWeight: "600" }}>
@@ -65,7 +71,7 @@ const LiabilityListItem: React.FC<LiabilityListItemProps> = ({
 						variant="titleMedium"
 						style={{
 							fontWeight: "bold",
-							color: theme.colors.error,
+							color: isPaidOff ? theme.colors.primary : theme.colors.error,
 						}}
 					>
 						{formatAmount(liability.current_balance, liability.currency)}

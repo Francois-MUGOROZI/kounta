@@ -11,8 +11,8 @@ interface TransactionListItemProps {
 	accountCurrency: string;
 	categoryName: string;
 	transactionTypeName: string;
-	onEdit: () => void;
-	onDelete: () => void;
+	onEdit?: () => void;
+	onDelete?: () => void;
 	index?: number;
 }
 
