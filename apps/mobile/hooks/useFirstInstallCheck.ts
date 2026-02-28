@@ -9,7 +9,7 @@ export const useFirstInstallCheck = () => {
 		const checkFirstInstall = async () => {
 			try {
 				const flag = await AsyncStorage.getItem("hasInitialized");
-				setIsFirstInstall(!!flag);
+				setIsFirstInstall(!flag);
 			} finally {
 				setChecking(false);
 			}

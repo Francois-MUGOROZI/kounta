@@ -1,9 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { StyleSheet } from "react-native";
-import {
-	Button,
-	HelperText,
-} from "react-native-paper";
+import { Button, HelperText } from "react-native-paper";
 import AppDialog from "./AppDialog";
 import AppNumberInput from "./AppNumberInput";
 import { Envelope } from "@/types";
@@ -68,11 +64,5 @@ const AddToEnvelopeDialog: React.FC<AddToEnvelopeDialogProps> = ({
 		</AppDialog>
 	);
 };
-
-const styles = StyleSheet.create({
-	input: {
-		marginBottom: 8,
-	},
-});
 
 export default AddToEnvelopeDialog;

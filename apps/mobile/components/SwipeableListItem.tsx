@@ -5,7 +5,6 @@ import { IconButton, useTheme, TouchableRipple } from "react-native-paper";
 
 interface SwipeableListItemProps {
 	onEdit?: () => void;
-	onDelete?: () => void;
 	onComplete?: () => void;
 	onPress?: () => void;
 	children: React.ReactNode;
@@ -14,14 +13,13 @@ interface SwipeableListItemProps {
 
 const SwipeableListItem: React.FC<SwipeableListItemProps> = ({
 	onEdit,
-	onDelete,
 	onComplete,
 	onPress,
 	children,
 	style,
 }) => {
 	const theme = useTheme();
-	const hasActions = Boolean(onEdit || onDelete || onComplete);
+	const hasActions = Boolean(onEdit || onComplete);
 	const hasInteraction = hasActions || Boolean(onPress);
 
 	const renderRightActions = () => {
@@ -42,21 +40,6 @@ const SwipeableListItem: React.FC<SwipeableListItemProps> = ({
 						/>
 					</RectButton>
 				)}
-				{onDelete && (
-					<RectButton
-						style={[
-							styles.actionButton,
-							{ backgroundColor: theme.colors.error },
-						]}
-						onPress={onDelete}
-					>
-						<IconButton
-							icon="delete"
-							iconColor={theme.colors.onError}
-							size={24}
-						/>
-					</RectButton>
-				)}
 			</View>
 		);
 	};
@@ -66,11 +49,7 @@ const SwipeableListItem: React.FC<SwipeableListItemProps> = ({
 	}
 
 	return (
-		<Swipeable
-			renderRightActions={
-				onDelete || onComplete ? renderRightActions : undefined
-			}
-		>
+		<Swipeable renderRightActions={onComplete ? renderRightActions : undefined}>
 			<View style={style}>
 				<View style={{ flex: 1 }}>
 					<TouchableRipple

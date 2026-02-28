@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { AssetRepository } from "../../repositories/AssetRepository";
 import { useDatabase } from "../../database";
 import { Asset } from "../../types";
+import { addEventListener, EVENTS } from "../../utils/events";
 
 export const useGetAssets = () => {
 	const db = useDatabase();
@@ -9,7 +10,7 @@ export const useGetAssets = () => {
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 
-	const refresh = async () => {
+	const refresh = useCallback(async () => {
 		try {
 			setLoading(true);
 			setError(null);
@@ -20,11 +21,20 @@ export const useGetAssets = () => {
 		} finally {
 			setLoading(false);
 		}
-	};
+	}, [db]);
 
 	useEffect(() => {
 		refresh();
-	}, []);
+
+		// Subscribe to global data changes to keep the assets list in sync
+		const subscription = addEventListener(EVENTS.DATA_CHANGED, () => {
+			refresh();
+		});
+
+		return () => {
+			subscription.remove();
+		};
+	}, [refresh]);
 
 	return { assets, loading, error, refresh };
 };

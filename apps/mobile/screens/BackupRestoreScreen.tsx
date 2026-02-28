@@ -47,7 +47,10 @@ const BackupRestoreScreen: React.FC = () => {
 			const fileUri = result.assets?.[0]?.uri;
 			if (!fileUri) throw new Error("No file selected");
 			await FileSystem.copyAsync({ from: fileUri, to: DB_PATH });
-			Alert.alert("Restore Complete", "Database restored from selected file.");
+			Alert.alert(
+				"Restore Complete",
+				"Database restored from selected file. Please restart the app for changes to take effect."
+			);
 		} catch (e: any) {
 			Alert.alert("Restore Failed", e.message || "Unknown error");
 		} finally {

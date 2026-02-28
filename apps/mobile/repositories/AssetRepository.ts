@@ -50,9 +50,8 @@ export const AssetRepository = {
 	): Promise<void> {
 		const fields: string[] = [];
 		const values: (string | number | null)[] = [];
-		for (const key in updates) {
-			const value = updates[key as keyof Asset];
-			if (value !== undefined) {
+		for (const [key, value] of Object.entries(updates)) {
+			if (key !== "id" && value !== undefined) {
 				fields.push(`${key} = ?`);
 				values.push(value);
 			}
@@ -63,12 +62,6 @@ export const AssetRepository = {
 			`UPDATE assets SET ${fields.join(", ")} WHERE id = ?`,
 			values
 		);
-		// Notify the app that data has changed so UI can update
-		emitEvent(EVENTS.DATA_CHANGED);
-	},
-
-	async delete(db: SQLiteDatabase, id: number): Promise<void> {
-		await db.runAsync("DELETE FROM assets WHERE id = ?", [id]);
 		// Notify the app that data has changed so UI can update
 		emitEvent(EVENTS.DATA_CHANGED);
 	},

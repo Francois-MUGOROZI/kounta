@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { View, FlatList, StyleSheet, Alert } from "react-native";
+import { View, FlatList, StyleSheet } from "react-native";
 import {
 	FAB,
 	ActivityIndicator,
@@ -11,7 +11,6 @@ import {
 import { useGetCategories } from "../hooks/category/useGetCategories";
 import { useCreateCategory } from "../hooks/category/useCreateCategory";
 import { useUpdateCategory } from "../hooks/category/useUpdateCategory";
-import { useDeleteCategory } from "../hooks/category/useDeleteCategory";
 import { useGetTransactionTypes } from "../hooks/transactionType/useGetTransactionTypes";
 import CategoryListItem from "../components/CategoryListItem";
 import CategoryFormModal from "../components/CategoryFormModal";
@@ -30,11 +29,6 @@ const CategoriesScreen = () => {
 		loading: updating,
 		error: updateError,
 	} = useUpdateCategory();
-	const {
-		deleteCategory,
-		loading: deleting,
-		error: deleteError,
-	} = useDeleteCategory();
 	const { transactionTypes } = useGetTransactionTypes();
 	const [modalVisible, setModalVisible] = useState(false);
 	const [editingCategory, setEditingCategory] = useState<Category | null>(null);
@@ -77,32 +71,6 @@ const CategoriesScreen = () => {
 		}
 	};
 
-	const handleDelete = (category: Category) => {
-		Alert.alert(
-			"Delete Category",
-			`Are you sure you want to delete "${category.name}"?`,
-			[
-				{ text: "Cancel", style: "cancel" },
-				{
-					text: "Delete",
-					style: "destructive",
-					onPress: async () => {
-						try {
-							await deleteCategory(category.id);
-							setSnackbar({ visible: true, message: "Category deleted" });
-							refresh();
-						} catch (e: any) {
-							setSnackbar({
-								visible: true,
-								message: e.message || "Error deleting category",
-							});
-						}
-					},
-				},
-			]
-		);
-	};
-
 	const getTypeName = (typeId: number) => {
 		return transactionTypes.find((t) => t.id === typeId)?.name || "";
 	};
@@ -134,8 +102,8 @@ const CategoriesScreen = () => {
 		return data;
 	}, [groupedCategories]);
 
-	const anyLoading = loading || creating || updating || deleting;
-	const anyError = error || createError || updateError || deleteError;
+	const anyLoading = loading || creating || updating;
+	const anyError = error || createError || updateError;
 
 	return (
 		<View
@@ -183,7 +151,6 @@ const CategoriesScreen = () => {
 									category={category}
 									typeName={getTypeName(category.transaction_type_id)}
 									onEdit={() => openEditModal(category)}
-									onDelete={() => handleDelete(category)}
 								/>
 							);
 						}

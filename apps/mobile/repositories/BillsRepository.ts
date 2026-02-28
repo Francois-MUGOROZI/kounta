@@ -67,9 +67,8 @@ export const BillsRepository = {
 		const fields: string[] = [];
 		const values: (string | number | null)[] = [];
 
-		for (const key in updates) {
-			const value = updates[key as keyof BillRule];
-			if (value !== undefined) {
+		for (const [key, value] of Object.entries(updates)) {
+			if (key !== "id" && value !== undefined) {
 				// Convert boolean fields to integers for SQLite
 				if (key === "is_active" || key === "auto_next") {
 					fields.push(`${key} = ?`);
@@ -198,9 +197,8 @@ export const BillsRepository = {
 		const fields: string[] = [];
 		const values: (string | number | null)[] = [];
 
-		for (const key in updates) {
-			const value = updates[key as keyof Bill];
-			if (value !== undefined) {
+		for (const [key, value] of Object.entries(updates)) {
+			if (key !== "id" && value !== undefined) {
 				fields.push(`${key} = ?`);
 				values.push(value as string | number | null);
 			}
@@ -278,10 +276,7 @@ export const BillsRepository = {
 
 		const currentPaid = bill.paid_amount || 0;
 		const rawPaidAmount = currentPaid + paymentAmount;
-		const clampedPaidAmount = Math.min(
-			Math.max(rawPaidAmount, 0),
-			bill.amount
-		);
+		const clampedPaidAmount = Math.min(Math.max(rawPaidAmount, 0), bill.amount);
 		const updates: Partial<Bill> = {
 			paid_amount: clampedPaidAmount,
 		};

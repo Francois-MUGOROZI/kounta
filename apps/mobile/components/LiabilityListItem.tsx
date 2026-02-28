@@ -9,7 +9,6 @@ interface LiabilityListItemProps {
 	liability: Liability;
 	typeName: string;
 	onEdit: () => void;
-	onDelete: () => void;
 	onPress?: () => void;
 }
 
@@ -17,7 +16,6 @@ const LiabilityListItem: React.FC<LiabilityListItemProps> = ({
 	liability,
 	typeName,
 	onEdit,
-	onDelete,
 	onPress,
 }) => {
 	const theme = useTheme();
@@ -42,7 +40,6 @@ const LiabilityListItem: React.FC<LiabilityListItemProps> = ({
 	return (
 		<SwipeableListItem
 			onEdit={onEdit}
-			onDelete={onDelete}
 			onPress={onPress}
 			style={styles.container}
 		>

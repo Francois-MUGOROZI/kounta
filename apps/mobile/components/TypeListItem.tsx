@@ -6,26 +6,16 @@ import SwipeableListItem from "./SwipeableListItem";
 interface TypeListItemProps {
 	name: string;
 	onEdit: () => void;
-	onDelete: () => void;
 	style?: ViewStyle;
 }
 
-const TypeListItem: React.FC<TypeListItemProps> = ({
-	name,
-	onEdit,
-	onDelete,
-	style,
-}) => {
+const TypeListItem: React.FC<TypeListItemProps> = ({ name, onEdit, style }) => {
 	const theme = useTheme();
 	const combinedStyle = style
 		? StyleSheet.flatten([styles.container, style])
 		: styles.container;
 	return (
-		<SwipeableListItem
-			onEdit={onEdit}
-			onDelete={onDelete}
-			style={combinedStyle}
-		>
+		<SwipeableListItem onEdit={onEdit} style={combinedStyle}>
 			<View style={[styles.content, { backgroundColor: theme.colors.surface }]}>
 				<Avatar.Icon
 					size={36}

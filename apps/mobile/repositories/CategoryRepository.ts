@@ -40,9 +40,8 @@ export const CategoryRepository = {
 	): Promise<void> {
 		const fields: string[] = [];
 		const values: (string | number)[] = [];
-		for (const key in updates) {
-			const value = updates[key as keyof Category];
-			if (value !== undefined) {
+		for (const [key, value] of Object.entries(updates)) {
+			if (key !== "id" && value !== undefined) {
 				fields.push(`${key} = ?`);
 				values.push(value as string | number);
 			}
@@ -53,11 +52,6 @@ export const CategoryRepository = {
 			`UPDATE categories SET ${fields.join(", ")} WHERE id = ?`,
 			values
 		);
-		emitEvent(EVENTS.DATA_CHANGED);
-	},
-
-	async delete(db: SQLiteDatabase, id: number): Promise<void> {
-		await db.runAsync("DELETE FROM categories WHERE id = ?", [id]);
 		emitEvent(EVENTS.DATA_CHANGED);
 	},
 };

@@ -5,7 +5,7 @@ import AppDialog from "./AppDialog";
 import AppTextInput from "./AppTextInput";
 import AppNumberInput from "./AppNumberInput";
 import AppDropdown from "./AppDropdown";
-import { Bill, BillRule, Category } from "../types";
+import { Bill, BillRule, Category, TransactionType } from "../types";
 import { generateBillName } from "../utils/bills";
 
 interface BillFormProps {
@@ -14,6 +14,7 @@ interface BillFormProps {
 	onSubmit: (data: Bill) => void;
 	billRules: BillRule[];
 	categories: Category[];
+	transactionTypes: TransactionType[];
 	initialBill?: Bill | null;
 }
 
@@ -23,6 +24,7 @@ const BillForm: React.FC<BillFormProps> = ({
 	onSubmit,
 	billRules,
 	categories,
+	transactionTypes,
 	initialBill,
 }) => {
 	const theme = useTheme();
@@ -41,9 +43,10 @@ const BillForm: React.FC<BillFormProps> = ({
 		{ label: "EUR", value: "EUR" },
 	];
 
-	// Filter categories to only show Expense categories
+	// Filter categories to only show Expense categories (matched by name)
+	const expenseTypeId = transactionTypes.find((t) => t.name === "Expense")?.id;
 	const expenseCategories = categories.filter(
-		(cat) => cat.transaction_type_id === 2 // Assuming 2 is Expense
+		(cat) => cat.transaction_type_id === expenseTypeId
 	);
 
 	useEffect(() => {

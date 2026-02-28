@@ -26,10 +26,11 @@ export const EnvelopeRepository = {
 			current_balance,
 			purpose = "",
 			currency,
+			created_at = new Date().toISOString(),
 		} = envelope;
 		await db.runAsync(
-			`INSERT INTO envelopes (name, total_amount, current_balance, purpose, currency) VALUES (?, ?, ?, ?, ?)`,
-			[name, total_amount, current_balance, purpose, currency]
+			`INSERT INTO envelopes (name, total_amount, current_balance, purpose, currency, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
+			[name, total_amount, current_balance, purpose, currency, created_at]
 		);
 		emitEvent(EVENTS.DATA_CHANGED);
 	},
@@ -45,11 +46,6 @@ export const EnvelopeRepository = {
 		const values = fields.map((f) => (updates as any)[f]);
 		values.push(id);
 		await db.runAsync(`UPDATE envelopes SET ${setClause} WHERE id = ?`, values);
-		emitEvent(EVENTS.DATA_CHANGED);
-	},
-
-	async delete(db: SQLiteDatabase, id: number): Promise<void> {
-		await db.runAsync("DELETE FROM envelopes WHERE id = ?", [id]);
 		emitEvent(EVENTS.DATA_CHANGED);
 	},
 

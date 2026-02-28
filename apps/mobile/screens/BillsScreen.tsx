@@ -23,6 +23,7 @@ import { useGetBills } from "../hooks/bill/useGetBills";
 import { useCreateBill } from "../hooks/bill/useCreateBill";
 import { useUpdateBill } from "../hooks/bill/useUpdateBill";
 import { useGetCategories } from "../hooks/category/useGetCategories";
+import { useGetTransactionTypes } from "../hooks/transactionType/useGetTransactionTypes";
 import BillRuleForm from "../components/BillRuleForm";
 import BillRuleListItem from "../components/BillRuleListItem";
 import BillForm from "../components/BillForm";
@@ -78,6 +79,9 @@ const BillsScreen = () => {
 		loading: loadingCategories,
 		error: errorCategories,
 	} = useGetCategories();
+
+	const { transactionTypes, loading: loadingTransactionTypes } =
+		useGetTransactionTypes();
 
 	const [ruleModalVisible, setRuleModalVisible] = useState(false);
 	const [billModalVisible, setBillModalVisible] = useState(false);
@@ -223,7 +227,8 @@ const BillsScreen = () => {
 		loadingBills ||
 		creatingBill ||
 		updatingBill ||
-		loadingCategories;
+		loadingCategories ||
+		loadingTransactionTypes;
 
 	const anyError =
 		errorRules ||
@@ -404,6 +409,7 @@ const BillsScreen = () => {
 				onClose={closeRuleModal}
 				onSubmit={handleRuleSubmit}
 				categories={categories}
+				transactionTypes={transactionTypes}
 				initialBillRule={editingRule}
 			/>
 
@@ -413,6 +419,7 @@ const BillsScreen = () => {
 				onSubmit={handleBillSubmit}
 				billRules={billRules.filter((r) => r.is_active)}
 				categories={categories}
+				transactionTypes={transactionTypes}
 				initialBill={editingBill}
 			/>
 

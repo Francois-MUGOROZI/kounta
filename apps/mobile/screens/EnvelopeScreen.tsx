@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { View, StyleSheet, Alert, FlatList } from "react-native";
+import { View, StyleSheet, FlatList } from "react-native";
 import {
 	FAB,
 	ActivityIndicator,
@@ -12,7 +12,6 @@ import AppCard from "../components/AppCard";
 import { useGetEnvelopes } from "../hooks/envelope/useGetEnvelope";
 import { useCreateEnvelope } from "../hooks/envelope/useCreateEnvelope";
 import { useUpdateEnvelope } from "../hooks/envelope/useUpdateEnvelope";
-import { useDeleteEnvelope } from "../hooks/envelope/useDeleteEnvelope";
 import { Envelope, RootStackParamList } from "../types";
 import EnvelopeFormDialog from "@/components/EnvelopeFormDialog";
 import EnvelopeListItem from "@/components/EnvelopeListItem";
@@ -35,11 +34,6 @@ const EnvelopeScreen = () => {
 		loading: updating,
 		error: updateError,
 	} = useUpdateEnvelope();
-	const {
-		deleteEnvelope,
-		loading: deleting,
-		error: deleteError,
-	} = useDeleteEnvelope();
 
 	const [modalVisible, setModalVisible] = useState(false);
 	const [editingEnvelope, setEditingEnvelope] = useState<Envelope | null>(null);
@@ -82,32 +76,6 @@ const EnvelopeScreen = () => {
 		}
 	};
 
-	const handleDelete = (envelope: Envelope) => {
-		Alert.alert(
-			"Delete Envelope",
-			`Are you sure you want to delete "${envelope.name}"?`,
-			[
-				{ text: "Cancel", style: "cancel" },
-				{
-					text: "Delete",
-					style: "destructive",
-					onPress: async () => {
-						try {
-							await deleteEnvelope(envelope.id);
-							setSnackbar({ visible: true, message: "Envelope deleted" });
-							refresh();
-						} catch (e: any) {
-							setSnackbar({
-								visible: true,
-								message: e.message || "Error deleting envelope",
-							});
-						}
-					},
-				},
-			]
-		);
-	};
-
 	const flatListData = useMemo(() => {
 		const data: Array<{ type: "header" | "item"; content: Envelope }> = [];
 		envelopes.forEach((env) => {
@@ -132,8 +100,8 @@ const EnvelopeScreen = () => {
 		return map;
 	}, [envelopes]);
 
-	const anyLoading = loading || creating || updating || deleting;
-	const anyError = error || createError || updateError || deleteError;
+	const anyLoading = loading || creating || updating;
+	const anyError = error || createError || updateError;
 
 	return (
 		<View
@@ -146,7 +114,11 @@ const EnvelopeScreen = () => {
 			>
 				<Text variant="headlineSmall" style={styles.totalBalanceValue}>
 					{Object.entries(totalByCurrency).map(([cur, val], idx) => (
-						<Text variant="titleMedium" key={cur} style={{ fontWeight: "bold" }}>
+						<Text
+							variant="titleMedium"
+							key={cur}
+							style={{ fontWeight: "bold" }}
+						>
 							{cur}: {val.total.toLocaleString()} |{" "}
 							{val.balance.toLocaleString()}
 							{idx < Object.entries(totalByCurrency).length - 1 ? " | " : ""}
@@ -191,7 +163,12 @@ const EnvelopeScreen = () => {
 								<EnvelopeListItem
 									envelope={envelope}
 									onEdit={() => openEditModal(envelope)}
-									onDelete={() => handleDelete(envelope)}								onPress={() => navigation.navigate("EnvelopeDetail", { envelopeId: envelope.id })}									onEnvelopeUpdated={refresh}
+									onPress={() =>
+										navigation.navigate("EnvelopeDetail", {
+											envelopeId: envelope.id,
+										})
+									}
+									onEnvelopeUpdated={refresh}
 								/>
 							);
 						}

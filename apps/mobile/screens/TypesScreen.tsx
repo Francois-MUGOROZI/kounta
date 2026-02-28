@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, StyleSheet, FlatList, Alert } from "react-native";
+import { View, StyleSheet, FlatList } from "react-native";
 import {
 	Text,
 	FAB,
@@ -11,15 +11,12 @@ import {
 import { useGetAccountTypes } from "../hooks/accountType/useGetAccountTypes";
 import { useCreateAccountType } from "../hooks/accountType/useCreateAccountType";
 import { useUpdateAccountType } from "../hooks/accountType/useUpdateAccountType";
-import { useDeleteAccountType } from "../hooks/accountType/useDeleteAccountType";
 import { useGetAssetTypes } from "../hooks/assetType/useGetAssetTypes";
 import { useCreateAssetType } from "../hooks/assetType/useCreateAssetType";
 import { useUpdateAssetType } from "../hooks/assetType/useUpdateAssetType";
-import { useDeleteAssetType } from "../hooks/assetType/useDeleteAssetType";
 import { useGetLiabilityTypes } from "../hooks/liabilityType/useGetLiabilityTypes";
 import { useCreateLiabilityType } from "../hooks/liabilityType/useCreateLiabilityType";
 import { useUpdateLiabilityType } from "../hooks/liabilityType/useUpdateLiabilityType";
-import { useDeleteLiabilityType } from "../hooks/liabilityType/useDeleteLiabilityType";
 import TypeFormDialog from "../components/TypeFormDialog";
 import TypeListItem from "../components/TypeListItem";
 
@@ -44,7 +41,6 @@ const TypesScreen = () => {
 	} = useGetAccountTypes();
 	const { createAccountType } = useCreateAccountType();
 	const { updateAccountType } = useUpdateAccountType();
-	const { deleteAccountType } = useDeleteAccountType();
 
 	const {
 		assetTypes,
@@ -53,7 +49,6 @@ const TypesScreen = () => {
 	} = useGetAssetTypes();
 	const { createAssetType } = useCreateAssetType();
 	const { updateAssetType } = useUpdateAssetType();
-	const { deleteAssetType } = useDeleteAssetType();
 
 	const {
 		liabilityTypes,
@@ -62,7 +57,6 @@ const TypesScreen = () => {
 	} = useGetLiabilityTypes();
 	const { createLiabilityType } = useCreateLiabilityType();
 	const { updateLiabilityType } = useUpdateLiabilityType();
-	const { deleteLiabilityType } = useDeleteLiabilityType();
 
 	// State for dialog
 	const [dialogType, setDialogType] = useState<
@@ -119,40 +113,6 @@ const TypesScreen = () => {
 		}
 	};
 
-	const handleDelete = (type: any) => {
-		Alert.alert(
-			"Delete Type",
-			`Are you sure you want to delete "${type.name}"?`,
-			[
-				{ text: "Cancel", style: "cancel" },
-				{
-					text: "Delete",
-					style: "destructive",
-					onPress: async () => {
-						try {
-							if (tab === "account") {
-								await deleteAccountType(type.id);
-								refreshAccountTypes();
-							} else if (tab === "asset") {
-								await deleteAssetType(type.id);
-								refreshAssetTypes();
-							} else if (tab === "liability") {
-								await deleteLiabilityType(type.id);
-								refreshLiabilityTypes();
-							}
-							setSnackbar({ visible: true, message: "Type deleted" });
-						} catch (e: any) {
-							setSnackbar({
-								visible: true,
-								message: e.message || "Error deleting type",
-							});
-						}
-					},
-				},
-			]
-		);
-	};
-
 	// Data for current tab
 	let data: any[] = [];
 	let loading = false;
@@ -182,11 +142,7 @@ const TypesScreen = () => {
 				data={data}
 				keyExtractor={(item) => item.id.toString()}
 				renderItem={({ item }) => (
-					<TypeListItem
-						name={item.name}
-						onEdit={() => openEditDialog(item)}
-						onDelete={() => handleDelete(item)}
-					/>
+					<TypeListItem name={item.name} onEdit={() => openEditDialog(item)} />
 				)}
 				ListEmptyComponent={
 					loading ? (

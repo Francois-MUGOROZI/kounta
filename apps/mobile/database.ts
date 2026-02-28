@@ -3,6 +3,9 @@ import React from "react";
 
 // Database initialization and seeding
 export async function initDatabase(db: any) {
+	// Enable foreign key enforcement (SQLite does not enforce FKs by default)
+	await db.execAsync("PRAGMA foreign_keys = ON;");
+
 	// Type tables
 	await db.execAsync(`
 		CREATE TABLE IF NOT EXISTS account_types (
@@ -39,7 +42,8 @@ export async function initDatabase(db: any) {
 			currency TEXT NOT NULL,
 			total_amount REAL NOT NULL DEFAULT 0,
 			current_balance REAL NOT NULL DEFAULT 0,
-			purpose TEXT
+			purpose TEXT,
+			created_at TEXT
 		);
 	`);
 
@@ -187,19 +191,15 @@ export async function initDatabase(db: any) {
 // Run database migrations
 async function runMigrations(db: any) {
 	try {
-		// await db.runAsync(
-		// 	"UPDATE liabilities SET current_balance = 0 WHERE current_balance < 0",
+		// Add created_at column to envelopes if missing
+		// const envelopeColumns = await db.getAllAsync(
+		// 	"PRAGMA table_info(envelopes);"
 		// );
-		// // Check if bills table has 'paid_amount' column
-		// const billColumns = await db.getAllAsync("PRAGMA table_info(bills);");
-		// const hasPaidAmount = billColumns.some(
-		// 	(col: any) => col.name === "paid_amount",
+		// const hasCreatedAt = envelopeColumns.some(
+		// 	(col: any) => col.name === "created_at"
 		// );
-		// if (!hasPaidAmount) {
-		// 	await db.runAsync(
-		// 		"ALTER TABLE bills ADD COLUMN paid_amount REAL DEFAULT 0; " +
-		// 			"UPDATE bills SET paid_amount = amount WHERE status = 'Paid';",
-		// 	);
+		// if (!hasCreatedAt) {
+		// 	await db.runAsync("ALTER TABLE envelopes ADD COLUMN created_at TEXT;");
 		// }
 	} catch (error) {
 		console.log("Migration error:", error);
@@ -248,7 +248,7 @@ export async function seedTypeTables(db: any) {
 	for (const name of liabilityTypes) {
 		await db.runAsync(
 			"INSERT OR IGNORE INTO liability_types (name) VALUES (?)",
-			[name],
+			[name]
 		);
 	}
 	// Transaction Types
@@ -256,7 +256,7 @@ export async function seedTypeTables(db: any) {
 	for (const name of transactionTypes) {
 		await db.runAsync(
 			"INSERT OR IGNORE INTO transaction_types (name) VALUES (?)",
-			[name],
+			[name]
 		);
 	}
 }
@@ -265,14 +265,14 @@ export async function seedTypeTables(db: any) {
 export async function seedCategories(db: any) {
 	// First, check if categories table is empty
 	const existingCategories = await db.getAllAsync(
-		"SELECT COUNT(*) as count FROM categories",
+		"SELECT COUNT(*) as count FROM categories"
 	);
 	const count = existingCategories[0]?.count || 0;
 
 	if (count === 0) {
 		// Get transaction type IDs
 		const transactionTypes = await db.getAllAsync(
-			"SELECT * FROM transaction_types",
+			"SELECT * FROM transaction_types"
 		);
 		const incomeType = transactionTypes.find((t: any) => t.name === "Income");
 		const expenseType = transactionTypes.find((t: any) => t.name === "Expense");
@@ -318,7 +318,7 @@ export async function seedCategories(db: any) {
 						category.name,
 						category.transaction_type_id,
 						new Date().toISOString(),
-					],
+					]
 				);
 			}
 		}
@@ -376,7 +376,7 @@ export async function clearDatabase(db: any) {
 		// Get all table names
 		// Only get user tables, exclude SQLite internal tables (names starting with 'sqlite_')
 		const tableNames = await db.getAllAsync(
-			"SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';",
+			"SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';"
 		);
 		const tables = tableNames.map((table: any) => table.name);
 		for (const table of tables) {

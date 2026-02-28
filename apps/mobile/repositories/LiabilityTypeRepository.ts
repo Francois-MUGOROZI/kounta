@@ -28,9 +28,4 @@ export const LiabilityTypeRepository = {
 		]);
 		emitEvent(EVENTS.DATA_CHANGED);
 	},
-
-	async delete(db: SQLiteDatabase, id: number): Promise<void> {
-		await db.runAsync("DELETE FROM liability_types WHERE id = ?", [id]);
-		emitEvent(EVENTS.DATA_CHANGED);
-	},
 };

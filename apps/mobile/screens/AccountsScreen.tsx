@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { View, StyleSheet, Alert, FlatList } from "react-native";
+import { View, StyleSheet, FlatList } from "react-native";
 import {
 	FAB,
 	ActivityIndicator,
@@ -12,11 +12,11 @@ import AppCard from "../components/AppCard";
 import { useGetAccounts } from "../hooks/account/useGetAccounts";
 import { useCreateAccount } from "../hooks/account/useCreateAccount";
 import { useUpdateAccount } from "../hooks/account/useUpdateAccount";
-import { useDeleteAccount } from "../hooks/account/useDeleteAccount";
 import { useGetAccountTypes } from "../hooks/accountType/useGetAccountTypes";
 import AccountListItem from "../components/AccountListItem";
 import AccountFormDialog from "../components/AccountFormDialog";
 import { Account, RootStackParamList } from "../types";
+import { formatAmount } from "../utils/currency";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
@@ -36,11 +36,6 @@ const AccountsScreen = () => {
 		loading: updating,
 		error: updateError,
 	} = useUpdateAccount();
-	const {
-		deleteAccount,
-		loading: deleting,
-		error: deleteError,
-	} = useDeleteAccount();
 	const {
 		accountTypes,
 		loading: loadingTypes,
@@ -94,32 +89,6 @@ const AccountsScreen = () => {
 		}
 	};
 
-	const handleDelete = (account: Account) => {
-		Alert.alert(
-			"Delete Account",
-			`Are you sure you want to delete "${account.name}"?`,
-			[
-				{ text: "Cancel", style: "cancel" },
-				{
-					text: "Delete",
-					style: "destructive",
-					onPress: async () => {
-						try {
-							await deleteAccount(account.id);
-							setSnackbar({ visible: true, message: "Account deleted" });
-							refresh();
-						} catch (e: any) {
-							setSnackbar({
-								visible: true,
-								message: e.message || "Error deleting account",
-							});
-						}
-					},
-				},
-			]
-		);
-	};
-
 	const getTypeName = (typeId: number) => {
 		return accountTypes.find((t) => t.id === typeId)?.name || "";
 	};
@@ -158,10 +127,8 @@ const AccountsScreen = () => {
 		return map;
 	}, [accounts]);
 
-	const anyLoading =
-		loading || creating || updating || deleting || loadingTypes;
-	const anyError =
-		error || createError || updateError || deleteError || errorTypes;
+	const anyLoading = loading || creating || updating || loadingTypes;
+	const anyError = error || createError || updateError || errorTypes;
 
 	return (
 		<View
@@ -174,8 +141,12 @@ const AccountsScreen = () => {
 			>
 				<Text variant="headlineSmall" style={styles.totalBalanceValue}>
 					{Object.entries(totalByCurrency).map(([cur, val], idx) => (
-						<Text variant="titleMedium" key={cur} style={{ fontWeight: "bold" }}>
-							{cur}: {val.toLocaleString()}
+						<Text
+							variant="titleMedium"
+							key={cur}
+							style={{ fontWeight: "bold" }}
+						>
+							{formatAmount(val, cur)}
 							{idx < Object.entries(totalByCurrency).length - 1 ? " | " : ""}
 						</Text>
 					))}
@@ -219,7 +190,12 @@ const AccountsScreen = () => {
 									account={account}
 									typeName={getTypeName(account.account_type_id)}
 									onEdit={() => openEditModal(account)}
-									onDelete={() => handleDelete(account)}								onPress={() => navigation.navigate("AccountDetail", { accountId: account.id })}								/>
+									onPress={() =>
+										navigation.navigate("AccountDetail", {
+											accountId: account.id,
+										})
+									}
+								/>
 							);
 						}
 					}}

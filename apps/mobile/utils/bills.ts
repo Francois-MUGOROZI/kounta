@@ -28,7 +28,7 @@ export const generateBillName = (
 
 		case "Quarterly":
 			// Custom helper to get Q1/Q2/etc.
-			const quarter = Math.floor((new Date(dueDate).getMonth() + 3) / 3);
+			const quarter = Math.ceil((new Date(dueDate).getMonth() + 1) / 3);
 			return `${billRuleName} - Q${quarter} ${yearName}`;
 
 		default:

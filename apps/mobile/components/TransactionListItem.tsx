@@ -13,7 +13,6 @@ interface TransactionListItemProps {
 	categoryName: string;
 	transactionTypeName: string;
 	onEdit?: () => void;
-	onDelete?: () => void;
 	onPress?: () => void;
 	associationCount?: number;
 	index?: number;
@@ -26,7 +25,6 @@ const TransactionListItem: React.FC<TransactionListItemProps> = ({
 	categoryName,
 	transactionTypeName,
 	onEdit,
-	onDelete,
 	onPress,
 	associationCount = 0,
 	index = 0,
@@ -51,7 +49,6 @@ const TransactionListItem: React.FC<TransactionListItemProps> = ({
 		<View style={styles.container}>
 			<SwipeableListItem
 				onEdit={onEdit}
-				onDelete={onDelete}
 				onPress={onPress}
 				style={styles.swipeable}
 			>

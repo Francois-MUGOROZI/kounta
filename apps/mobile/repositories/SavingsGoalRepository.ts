@@ -49,9 +49,8 @@ export const SavingsGoalRepository = {
 	): Promise<void> {
 		const fields: string[] = [];
 		const values: (string | number | null)[] = [];
-		for (const key in updates) {
-			const value = updates[key as keyof SavingsGoal];
-			if (value !== undefined) {
+		for (const [key, value] of Object.entries(updates)) {
+			if (key !== "id" && value !== undefined) {
 				fields.push(`${key} = ?`);
 				values.push(value);
 			}
@@ -62,11 +61,6 @@ export const SavingsGoalRepository = {
 			`UPDATE savings_goals SET ${fields.join(", ")} WHERE id = ?`,
 			values
 		);
-		emitEvent(EVENTS.DATA_CHANGED);
-	},
-
-	async delete(db: SQLiteDatabase, id: number): Promise<void> {
-		await db.runAsync("DELETE FROM savings_goals WHERE id = ?", [id]);
 		emitEvent(EVENTS.DATA_CHANGED);
 	},
 };

@@ -81,86 +81,86 @@ export const TransactionRepository = {
 			bill_id = null,
 		} = transaction;
 
-		// Insert transaction
-		const result = await db.runAsync(
-			`INSERT INTO transactions (description, amount, transaction_type_id, date, category_id, asset_id, liability_id, from_account_id, to_account_id, envelope_id, bill_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			[
-				description,
-				amount,
-				transaction_type_id,
-				date,
-				category_id,
-				asset_id,
-				liability_id,
-				from_account_id,
-				to_account_id,
-				envelope_id,
-				bill_id,
-			]
-		);
+		let insertedId: number = 0;
 
-		// Fetch transaction type name
-		const typeRow = await db.getFirstAsync<{ name: string }>(
-			"SELECT name FROM transaction_types WHERE id = ?",
-			[transaction_type_id]
-		);
-		const transactionTypeName = typeRow?.name || "";
+		await (db as any).withTransactionAsync(async () => {
+			// Insert transaction
+			const result = await db.runAsync(
+				`INSERT INTO transactions (description, amount, transaction_type_id, date, category_id, asset_id, liability_id, from_account_id, to_account_id, envelope_id, bill_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				[
+					description,
+					amount,
+					transaction_type_id,
+					date,
+					category_id,
+					asset_id,
+					liability_id,
+					from_account_id,
+					to_account_id,
+					envelope_id,
+					bill_id,
+				]
+			);
 
-		// Update account balances
-		if (transactionTypeName === "Income" && to_account_id) {
-			await db.runAsync(
-				"UPDATE accounts SET current_balance = current_balance + ? WHERE id = ?",
-				[amount, to_account_id]
-			);
-		} else if (transactionTypeName === "Expense" && from_account_id) {
-			await db.runAsync(
-				"UPDATE accounts SET current_balance = current_balance - ? WHERE id = ?",
-				[amount, from_account_id]
-			);
-		} else if (
-			transactionTypeName === "Transfer" &&
-			from_account_id &&
-			to_account_id
-		) {
-			await db.runAsync(
-				"UPDATE accounts SET current_balance = current_balance - ? WHERE id = ?",
-				[amount, from_account_id]
-			);
-			await db.runAsync(
-				"UPDATE accounts SET current_balance = current_balance + ? WHERE id = ?",
-				[amount, to_account_id]
-			);
-		}
+			insertedId = result.lastInsertRowId;
 
-		// update liability balance if applicable
-		if (liability_id && transactionTypeName === "Expense") {
-			await db.runAsync(
-				"UPDATE liabilities SET current_balance = CASE WHEN current_balance - ? < 0 THEN 0 ELSE current_balance - ? END WHERE id = ?",
-				[amount, amount, liability_id]
+			// Fetch transaction type name
+			const typeRow = await db.getFirstAsync<{ name: string }>(
+				"SELECT name FROM transaction_types WHERE id = ?",
+				[transaction_type_id]
 			);
-		}
+			const transactionTypeName = typeRow?.name || "";
 
-		// update envelope balance if applicable
-		if (envelope_id && transactionTypeName === "Expense") {
-			await db.runAsync(
-				"UPDATE envelopes SET current_balance = current_balance - ? WHERE id = ?",
-				[amount, envelope_id]
-			);
-		}
+			// Update account balances
+			if (transactionTypeName === "Income" && to_account_id) {
+				await db.runAsync(
+					"UPDATE accounts SET current_balance = current_balance + ? WHERE id = ?",
+					[amount, to_account_id]
+				);
+			} else if (transactionTypeName === "Expense" && from_account_id) {
+				await db.runAsync(
+					"UPDATE accounts SET current_balance = current_balance - ? WHERE id = ?",
+					[amount, from_account_id]
+				);
+			} else if (
+				transactionTypeName === "Transfer" &&
+				from_account_id &&
+				to_account_id
+			) {
+				await db.runAsync(
+					"UPDATE accounts SET current_balance = current_balance - ? WHERE id = ?",
+					[amount, from_account_id]
+				);
+				await db.runAsync(
+					"UPDATE accounts SET current_balance = current_balance + ? WHERE id = ?",
+					[amount, to_account_id]
+				);
+			}
 
-		// Record bill payment if bill_id is provided
-		if (bill_id && transactionTypeName === "Expense") {
-			await BillsRepository.recordPayment(
-				db,
-				bill_id,
-				amount,
-				result.lastInsertRowId
-			);
-		}
+			// update liability balance if applicable
+			if (liability_id && transactionTypeName === "Expense") {
+				await db.runAsync(
+					"UPDATE liabilities SET current_balance = CASE WHEN current_balance - ? < 0 THEN 0 ELSE current_balance - ? END WHERE id = ?",
+					[amount, amount, liability_id]
+				);
+			}
+
+			// update envelope balance if applicable
+			if (envelope_id && transactionTypeName === "Expense") {
+				await db.runAsync(
+					"UPDATE envelopes SET current_balance = current_balance - ? WHERE id = ?",
+					[amount, envelope_id]
+				);
+			}
+
+			// Record bill payment if bill_id is provided
+			if (bill_id && transactionTypeName === "Expense") {
+				await BillsRepository.recordPayment(db, bill_id, amount, insertedId);
+			}
+		});
 
 		// Notify the app that data has changed so UI can update
 		emitEvent(EVENTS.DATA_CHANGED);
-		return result.lastInsertRowId;
+		return insertedId;
 	},
-
 };

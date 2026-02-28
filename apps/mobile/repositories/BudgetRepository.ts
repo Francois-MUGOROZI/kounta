@@ -17,15 +17,13 @@ export const BudgetRepository = {
 	},
 
 	async getById(db: SQLiteDatabase, id: number): Promise<Budget | null> {
-		return await db.getFirstAsync<Budget>("SELECT * FROM budgets WHERE id = ?", [
-			id,
-		]);
+		return await db.getFirstAsync<Budget>(
+			"SELECT * FROM budgets WHERE id = ?",
+			[id]
+		);
 	},
 
-	async create(
-		db: SQLiteDatabase,
-		budget: Omit<Budget, "id">
-	): Promise<void> {
+	async create(db: SQLiteDatabase, budget: Omit<Budget, "id">): Promise<void> {
 		await db.runAsync(
 			`INSERT INTO budgets (category_id, amount, period, created_at)
        VALUES (?, ?, ?, ?)`,
@@ -41,9 +39,8 @@ export const BudgetRepository = {
 	): Promise<void> {
 		const fields: string[] = [];
 		const values: (string | number)[] = [];
-		for (const key in updates) {
-			const value = updates[key as keyof Budget];
-			if (value !== undefined) {
+		for (const [key, value] of Object.entries(updates)) {
+			if (key !== "id" && value !== undefined) {
 				fields.push(`${key} = ?`);
 				values.push(value);
 			}
@@ -54,11 +51,6 @@ export const BudgetRepository = {
 			`UPDATE budgets SET ${fields.join(", ")} WHERE id = ?`,
 			values
 		);
-		emitEvent(EVENTS.DATA_CHANGED);
-	},
-
-	async delete(db: SQLiteDatabase, id: number): Promise<void> {
-		await db.runAsync("DELETE FROM budgets WHERE id = ?", [id]);
 		emitEvent(EVENTS.DATA_CHANGED);
 	},
 };

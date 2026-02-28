@@ -34,11 +34,13 @@ const EnvelopeFormDialog: React.FC<EnvelopeFormDialogProps> = ({
 			setTotalAmount(initialEnvelope.total_amount.toString());
 			setCurrency(initialEnvelope.currency);
 			setCurrentBalance(initialEnvelope.current_balance.toString());
+			setPurpose(initialEnvelope.purpose || "");
 		} else {
 			setName("");
 			setTotalAmount("");
 			setCurrency("");
 			setCurrentBalance("");
+			setPurpose("");
 		}
 		setError("");
 	}, [visible, initialEnvelope]);
@@ -65,6 +67,10 @@ const EnvelopeFormDialog: React.FC<EnvelopeFormDialogProps> = ({
 		}
 		if (!totalAmount || isNaN(Number(totalAmount))) {
 			setError("Total amount must be a number");
+			return;
+		}
+		if (Number(currentBalance) > Number(totalAmount)) {
+			setError("Current balance cannot exceed total amount");
 			return;
 		}
 		onSubmit({

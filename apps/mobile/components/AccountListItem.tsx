@@ -8,7 +8,6 @@ interface AccountListItemProps {
 	account: Account;
 	typeName: string;
 	onEdit: () => void;
-	onDelete: () => void;
 	onPress?: () => void;
 }
 
@@ -16,7 +15,6 @@ const AccountListItem: React.FC<AccountListItemProps> = ({
 	account,
 	typeName,
 	onEdit,
-	onDelete,
 	onPress,
 }) => {
 	const theme = useTheme();
@@ -36,7 +34,6 @@ const AccountListItem: React.FC<AccountListItemProps> = ({
 	return (
 		<SwipeableListItem
 			onEdit={onEdit}
-			onDelete={onDelete}
 			onPress={onPress}
 			style={styles.container}
 		>
@@ -44,7 +41,10 @@ const AccountListItem: React.FC<AccountListItemProps> = ({
 				<Avatar.Icon
 					size={36}
 					icon={getIcon(typeName)}
-					style={{ backgroundColor: theme.colors.elevation.level3, marginRight: 16 }}
+					style={{
+						backgroundColor: theme.colors.elevation.level3,
+						marginRight: 16,
+					}}
 					color={theme.colors.primary}
 				/>
 				<View style={styles.info}>

@@ -9,7 +9,6 @@ import { useAddToEnvelope } from "@/hooks/envelope/useAddToEnvelope";
 interface EnvelopeListItemProps {
 	envelope: Envelope;
 	onEdit: () => void;
-	onDelete: () => void;
 	onPress?: () => void;
 	onEnvelopeUpdated?: () => void;
 }
@@ -17,7 +16,6 @@ interface EnvelopeListItemProps {
 const EnvelopeListItem: React.FC<EnvelopeListItemProps> = ({
 	envelope,
 	onEdit,
-	onDelete,
 	onPress,
 	onEnvelopeUpdated,
 }) => {
@@ -35,11 +33,12 @@ const EnvelopeListItem: React.FC<EnvelopeListItemProps> = ({
 		<>
 			<SwipeableListItem
 				onEdit={onEdit}
-				onDelete={onDelete}
 				onPress={onPress}
 				style={styles.container}
 			>
-				<View style={[styles.content, { backgroundColor: theme.colors.surface }]}>
+				<View
+					style={[styles.content, { backgroundColor: theme.colors.surface }]}
+				>
 					<View style={styles.topRow}>
 						<Avatar.Icon
 							size={36}

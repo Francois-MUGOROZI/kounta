@@ -8,22 +8,16 @@ interface CategoryListItemProps {
 	category: Category;
 	typeName: string;
 	onEdit: () => void;
-	onDelete: () => void;
 }
 
 const CategoryListItem: React.FC<CategoryListItemProps> = ({
 	category,
 	typeName,
 	onEdit,
-	onDelete,
 }) => {
 	const theme = useTheme();
 	return (
-		<SwipeableListItem
-			onEdit={onEdit}
-			onDelete={onDelete}
-			style={styles.container}
-		>
+		<SwipeableListItem onEdit={onEdit} style={styles.container}>
 			<View style={styles.content}>
 				<View
 					style={[styles.colorDot, { backgroundColor: theme.colors.primary }]}

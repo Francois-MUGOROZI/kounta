@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { View, StyleSheet, Alert, FlatList } from "react-native";
+import { View, StyleSheet, FlatList } from "react-native";
 import {
 	FAB,
 	ActivityIndicator,
@@ -12,7 +12,6 @@ import AppCard from "../components/AppCard";
 import { useGetAssets } from "../hooks/asset/useGetAssets";
 import { useCreateAsset } from "../hooks/asset/useCreateAsset";
 import { useUpdateAsset } from "../hooks/asset/useUpdateAsset";
-import { useDeleteAsset } from "../hooks/asset/useDeleteAsset";
 import { useGetAssetTypes } from "../hooks/assetType/useGetAssetTypes";
 import AssetListItem from "../components/AssetListItem";
 import AssetFormDialog from "../components/AssetFormDialog";
@@ -37,11 +36,6 @@ const AssetsScreen = () => {
 		loading: updating,
 		error: updateError,
 	} = useUpdateAsset();
-	const {
-		deleteAsset,
-		loading: deleting,
-		error: deleteError,
-	} = useDeleteAsset();
 	const {
 		assetTypes,
 		loading: loadingTypes,
@@ -95,32 +89,6 @@ const AssetsScreen = () => {
 		}
 	};
 
-	const handleDelete = (asset: Asset) => {
-		Alert.alert(
-			"Delete Asset",
-			`Are you sure you want to delete "${asset.name}"?`,
-			[
-				{ text: "Cancel", style: "cancel" },
-				{
-					text: "Delete",
-					style: "destructive",
-					onPress: async () => {
-						try {
-							await deleteAsset(asset.id);
-							setSnackbar({ visible: true, message: "Asset deleted" });
-							refresh();
-						} catch (e: any) {
-							setSnackbar({
-								visible: true,
-								message: e.message || "Error deleting asset",
-							});
-						}
-					},
-				},
-			]
-		);
-	};
-
 	const getTypeName = (typeId: number) => {
 		return assetTypes.find((t) => t.id === typeId)?.name || "";
 	};
@@ -158,10 +126,8 @@ const AssetsScreen = () => {
 		return map;
 	}, [assets]);
 
-	const anyLoading =
-		loading || creating || updating || deleting || loadingTypes;
-	const anyError =
-		error || createError || updateError || deleteError || errorTypes;
+	const anyLoading = loading || creating || updating || loadingTypes;
+	const anyError = error || createError || updateError || errorTypes;
 
 	return (
 		<View
@@ -174,7 +140,11 @@ const AssetsScreen = () => {
 			>
 				<Text variant="headlineSmall" style={styles.totalBalanceValue}>
 					{Object.entries(totalByCurrency).map(([cur, val], idx) => (
-						<Text variant="titleMedium" key={cur} style={{ fontWeight: "bold" }}>
+						<Text
+							variant="titleMedium"
+							key={cur}
+							style={{ fontWeight: "bold" }}
+						>
 							{formatAmount(val, cur)}
 							{idx < Object.entries(totalByCurrency).length - 1 ? " | " : ""}
 						</Text>
@@ -219,7 +189,10 @@ const AssetsScreen = () => {
 									asset={asset}
 									typeName={getTypeName(asset.asset_type_id)}
 									onEdit={() => openEditModal(asset)}
-									onDelete={() => handleDelete(asset)}								onPress={() => navigation.navigate("AssetDetail", { assetId: asset.id })}								/>
+									onPress={() =>
+										navigation.navigate("AssetDetail", { assetId: asset.id })
+									}
+								/>
 							);
 						}
 					}}

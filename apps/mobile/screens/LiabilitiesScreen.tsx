@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { View, StyleSheet, Alert, FlatList } from "react-native";
+import { View, StyleSheet, FlatList } from "react-native";
 import {
 	FAB,
 	ActivityIndicator,
@@ -12,7 +12,6 @@ import AppCard from "../components/AppCard";
 import { useGetLiabilities } from "../hooks/liability/useGetLiabilities";
 import { useCreateLiability } from "../hooks/liability/useCreateLiability";
 import { useUpdateLiability } from "../hooks/liability/useUpdateLiability";
-import { useDeleteLiability } from "../hooks/liability/useDeleteLiability";
 import { useGetLiabilityTypes } from "../hooks/liabilityType/useGetLiabilityTypes";
 import LiabilityListItem from "../components/LiabilityListItem";
 import LiabilityFormDialog from "../components/LiabilityFormDialog";
@@ -37,11 +36,6 @@ const LiabilitiesScreen = () => {
 		loading: updating,
 		error: updateError,
 	} = useUpdateLiability();
-	const {
-		deleteLiability,
-		loading: deleting,
-		error: deleteError,
-	} = useDeleteLiability();
 	const {
 		liabilityTypes,
 		loading: loadingTypes,
@@ -97,32 +91,6 @@ const LiabilitiesScreen = () => {
 		}
 	};
 
-	const handleDelete = (liability: Liability) => {
-		Alert.alert(
-			"Delete Liability",
-			`Are you sure you want to delete "${liability.name}"?`,
-			[
-				{ text: "Cancel", style: "cancel" },
-				{
-					text: "Delete",
-					style: "destructive",
-					onPress: async () => {
-						try {
-							await deleteLiability(liability.id);
-							setSnackbar({ visible: true, message: "Liability deleted" });
-							refresh();
-						} catch (e: any) {
-							setSnackbar({
-								visible: true,
-								message: e.message || "Error deleting liability",
-							});
-						}
-					},
-				},
-			]
-		);
-	};
-
 	const getTypeName = (typeId: number) => {
 		return liabilityTypes.find((t) => t.id === typeId)?.name || "";
 	};
@@ -160,10 +128,8 @@ const LiabilitiesScreen = () => {
 		return map;
 	}, [liabilities]);
 
-	const anyLoading =
-		loading || creating || updating || deleting || loadingTypes;
-	const anyError =
-		error || createError || updateError || deleteError || errorTypes;
+	const anyLoading = loading || creating || updating || loadingTypes;
+	const anyError = error || createError || updateError || errorTypes;
 
 	return (
 		<View
@@ -176,7 +142,11 @@ const LiabilitiesScreen = () => {
 			>
 				<Text variant="headlineSmall" style={styles.totalBalanceValue}>
 					{Object.entries(totalByCurrency).map(([cur, val], idx) => (
-						<Text variant="titleMedium" key={cur} style={{ fontWeight: "bold" }}>
+						<Text
+							variant="titleMedium"
+							key={cur}
+							style={{ fontWeight: "bold" }}
+						>
 							{formatAmount(val, cur)}
 							{idx < Object.entries(totalByCurrency).length - 1 ? " | " : ""}
 						</Text>
@@ -221,7 +191,12 @@ const LiabilitiesScreen = () => {
 									liability={liability}
 									typeName={getTypeName(liability.liability_type_id)}
 									onEdit={() => openEditModal(liability)}
-									onDelete={() => handleDelete(liability)}								onPress={() => navigation.navigate("LiabilityDetail", { liabilityId: liability.id })}								/>
+									onPress={() =>
+										navigation.navigate("LiabilityDetail", {
+											liabilityId: liability.id,
+										})
+									}
+								/>
 							);
 						}
 					}}

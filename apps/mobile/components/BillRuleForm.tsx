@@ -5,13 +5,14 @@ import AppDialog from "./AppDialog";
 import AppTextInput from "./AppTextInput";
 import AppNumberInput from "./AppNumberInput";
 import AppDropdown from "./AppDropdown";
-import { BillRule, BillFrequency, Category } from "../types";
+import { BillRule, BillFrequency, Category, TransactionType } from "../types";
 
 interface BillRuleFormProps {
 	visible: boolean;
 	onClose: () => void;
 	onSubmit: (data: BillRule) => void;
 	categories: Category[];
+	transactionTypes: TransactionType[];
 	initialBillRule?: BillRule | null;
 }
 
@@ -20,6 +21,7 @@ const BillRuleForm: React.FC<BillRuleFormProps> = ({
 	onClose,
 	onSubmit,
 	categories,
+	transactionTypes,
 	initialBillRule,
 }) => {
 	const theme = useTheme();
@@ -105,9 +107,10 @@ const BillRuleForm: React.FC<BillRuleFormProps> = ({
 		} as BillRule);
 	};
 
-	// Filter categories to only show Expense categories
+	// Filter categories to only show Expense categories (matched by name)
+	const expenseTypeId = transactionTypes.find((t) => t.name === "Expense")?.id;
 	const expenseCategories = categories.filter(
-		(cat) => cat.transaction_type_id === 2 // Assuming 2 is Expense
+		(cat) => cat.transaction_type_id === expenseTypeId
 	);
 
 	return (

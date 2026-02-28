@@ -67,7 +67,7 @@ const DashboardScreen: React.FC = () => {
 		if (currencies.length > 0) {
 			setCurrency(currencies[0]);
 		}
-	}, [currencies, currency]);
+	}, [currencies]);
 
 	const renderHeroCard = (cur: string) => {
 		const netWorth = stats[cur]?.netWorth || 0;

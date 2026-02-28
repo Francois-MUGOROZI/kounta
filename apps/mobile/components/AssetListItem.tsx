@@ -9,7 +9,6 @@ interface AssetListItemProps {
 	asset: Asset;
 	typeName: string;
 	onEdit: () => void;
-	onDelete: () => void;
 	onPress?: () => void;
 }
 
@@ -17,7 +16,6 @@ const AssetListItem: React.FC<AssetListItemProps> = ({
 	asset,
 	typeName,
 	onEdit,
-	onDelete,
 	onPress,
 }) => {
 	const theme = useTheme();
@@ -41,7 +39,6 @@ const AssetListItem: React.FC<AssetListItemProps> = ({
 	return (
 		<SwipeableListItem
 			onEdit={onEdit}
-			onDelete={onDelete}
 			onPress={onPress}
 			style={styles.container}
 		>
@@ -49,7 +46,10 @@ const AssetListItem: React.FC<AssetListItemProps> = ({
 				<Avatar.Icon
 					size={36}
 					icon={getIcon(typeName)}
-					style={{ backgroundColor: theme.colors.elevation.level3, marginRight: 16 }}
+					style={{
+						backgroundColor: theme.colors.elevation.level3,
+						marginRight: 16,
+					}}
 					color={theme.colors.primary}
 				/>
 				<View style={styles.info}>
@@ -66,39 +66,39 @@ const AssetListItem: React.FC<AssetListItemProps> = ({
 					) : null}
 				</View>
 				<View style={styles.value}>
-				<Text variant="bodySmall" style={{ color: theme.colors.outline }}>
-					Initial: {formatAmount(asset.initial_value, asset.currency)}
-				</Text>
-				<Text
-					variant="titleMedium"
-					style={{
-						fontWeight: "bold",
-						color:
-							asset.current_value >= asset.initial_value
-								? theme.colors.primary
-								: theme.colors.error,
-					}}
-				>
-					{formatAmount(asset.current_value, asset.currency)}
-				</Text>
-				{asset.current_value !== asset.initial_value && (
+					<Text variant="bodySmall" style={{ color: theme.colors.outline }}>
+						Initial: {formatAmount(asset.initial_value, asset.currency)}
+					</Text>
 					<Text
-						variant="bodySmall"
+						variant="titleMedium"
 						style={{
+							fontWeight: "bold",
 							color:
 								asset.current_value >= asset.initial_value
 									? theme.colors.primary
 									: theme.colors.error,
 						}}
 					>
-						{asset.current_value >= asset.initial_value ? "+" : "-"}
-						{formatAmount(
-							asset.current_value - asset.initial_value,
-							asset.currency
-						)}
+						{formatAmount(asset.current_value, asset.currency)}
 					</Text>
-				)}
-			</View>
+					{asset.current_value !== asset.initial_value && (
+						<Text
+							variant="bodySmall"
+							style={{
+								color:
+									asset.current_value >= asset.initial_value
+										? theme.colors.primary
+										: theme.colors.error,
+							}}
+						>
+							{asset.current_value >= asset.initial_value ? "+" : "-"}
+							{formatAmount(
+								Math.abs(asset.current_value - asset.initial_value),
+								asset.currency
+							)}
+						</Text>
+					)}
+				</View>
 			</View>
 		</SwipeableListItem>
 	);

@@ -36,19 +36,19 @@ const AppNumberInput: React.FC<AppNumberInputProps> = ({
 	const [localValue, setLocalValue] = useState(value ?? "");
 	const lastSentValueRef = useRef<string>(value ?? "");
 
-	// Memoize number mask - only recreate if currency changes
+	// Memoize number mask (only used when masking is active)
 	const numberMask = useMemo(
 		() =>
 			createNumberMask({
 				prefix: [],
 				delimiter: ",",
 				separator: ".",
-				precision: 0, // Adjust based on currency if needed, RWF usually 0
+				precision: 0,
 			}),
-		[currency]
+		[]
 	);
 
-	// Sync local value with prop when it changes externally (not from user typing)
+	// Sync local value with prop when it changes externally
 	useEffect(() => {
 		if (value !== lastSentValueRef.current) {
 			setLocalValue(value ?? "");
@@ -56,7 +56,7 @@ const AppNumberInput: React.FC<AppNumberInputProps> = ({
 		}
 	}, [value]);
 
-	// Memoize input style to prevent recreation on every render
+	// Memoize input style
 	const inputStyle = useMemo(
 		() => [
 			styles.input,
