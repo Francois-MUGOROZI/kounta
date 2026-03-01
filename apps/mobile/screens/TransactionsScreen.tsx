@@ -117,12 +117,24 @@ const TransactionsScreen = () => {
 		}
 	};
 
-	const getAccountName = (accountId: number) => {
+	const getAccountName = (accountId: number | null | undefined) => {
+		if (!accountId) return "";
 		return accounts.find((a) => a.id === accountId)?.name || "";
 	};
 
-	const getAccountCurrency = (accountId: number) => {
-		return accounts.find((a) => a.id === accountId)?.currency || "USD";
+	const getAccountCurrency = (accountId: number | null | undefined) => {
+		if (!accountId) return "";
+		return accounts.find((a) => a.id === accountId)?.currency || "";
+	};
+
+	const getAssetName = (assetId: number | null | undefined) => {
+		if (!assetId) return "";
+		return assets.find((a) => a.id === assetId)?.name || "";
+	};
+
+	const getAssetCurrency = (assetId: number | null | undefined) => {
+		if (!assetId) return "";
+		return assets.find((a) => a.id === assetId)?.currency || "";
 	};
 
 	const getCategoryName = (categoryId: number) => {
@@ -133,8 +145,39 @@ const TransactionsScreen = () => {
 		return transactionTypes.find((t) => t.id === typeId)?.name || "";
 	};
 
+	/** Build a display name for the source/destination of a transaction */
+	const getTransactionLabel = (item: Transaction) => {
+		const typeName = getTransactionTypeName(item.transaction_type_id);
+		if (typeName === "Transfer") {
+			const from = item.from_account_id
+				? getAccountName(item.from_account_id)
+				: item.asset_id
+				? getAssetName(item.asset_id)
+				: "";
+			const to = item.to_account_id
+				? getAccountName(item.to_account_id)
+				: item.asset_id
+				? getAssetName(item.asset_id)
+				: "";
+			// Reinvest: both sides are the asset
+			if (from === to && from !== "") return from;
+			return `${from} → ${to}`;
+		}
+		return getAccountName(item.from_account_id || item.to_account_id);
+	};
+
+	/** Resolve currency: prefer account, fall back to asset */
+	const getTransactionCurrency = (item: Transaction) => {
+		const acctCurrency = getAccountCurrency(
+			item.from_account_id || item.to_account_id
+		);
+		if (acctCurrency) return acctCurrency;
+		return getAssetCurrency(item.asset_id) || "RWF";
+	};
+
 	const getAssociationCount = (t: Transaction) =>
-		[t.asset_id, t.liability_id, t.envelope_id, t.bill_id].filter(Boolean).length;
+		[t.asset_id, t.liability_id, t.envelope_id, t.bill_id].filter(Boolean)
+			.length;
 
 	// Group transactions by currency and calculate totals
 	const currencyGroups = useMemo(() => {
@@ -150,12 +193,7 @@ const TransactionsScreen = () => {
 		} = {};
 
 		transactions.forEach((transaction) => {
-			const account = accounts.find(
-				(a) =>
-					a.id === transaction.from_account_id ||
-					a.id === transaction.to_account_id
-			);
-			const currency = account?.currency || "RWF";
+			const currency = getTransactionCurrency(transaction);
 			const typeName = getTransactionTypeName(transaction.transaction_type_id);
 			const isExpense = typeName === "Expense";
 			const isIncome = typeName === "Income";
@@ -248,30 +286,21 @@ const TransactionsScreen = () => {
 					data={data.transactions}
 					keyExtractor={(item) => item.id.toString()}
 					renderItem={({ item, index }) => {
-						const transactionTypeName = getTransactionTypeName(
-							item.transaction_type_id
-						);
-						const isTransfer = transactionTypeName === "Transfer";
-						const accountName = isTransfer
-							? `${getAccountName(
-									item.from_account_id as number
-							  )} to ${getAccountName(item.to_account_id as number)}`
-							: getAccountName(
-									(item.from_account_id || item.to_account_id) as number
-							  );
 						return (
 							<TransactionListItem
 								transaction={item}
-								accountName={accountName}
-								accountCurrency={getAccountCurrency(
-									(item.from_account_id || item.to_account_id) as number
-								)}
+								accountName={getTransactionLabel(item)}
+								accountCurrency={getTransactionCurrency(item)}
 								categoryName={getCategoryName(item.category_id)}
 								transactionTypeName={getTransactionTypeName(
 									item.transaction_type_id
 								)}
 								associationCount={getAssociationCount(item)}
-								onPress={() => navigation.navigate("TransactionDetail", { transactionId: item.id })}
+								onPress={() =>
+									navigation.navigate("TransactionDetail", {
+										transactionId: item.id,
+									})
+								}
 								index={index}
 							/>
 						);

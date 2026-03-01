@@ -4,57 +4,57 @@ import AppDialog from "./AppDialog";
 import AppNumberInput from "./AppNumberInput";
 import { Asset } from "../types";
 
-interface AddToAssetDialogProps {
+interface UpdateValuationDialogProps {
 	visible: boolean;
 	onClose: () => void;
-	onSubmit: (assetId: number, amount: number) => void;
+	onSubmit: (assetId: number, newValuation: number) => void;
 	asset: Asset;
 }
 
-const AddToAssetDialog: React.FC<AddToAssetDialogProps> = ({
+const AddToAssetDialog: React.FC<UpdateValuationDialogProps> = ({
 	visible,
 	onClose,
 	onSubmit,
 	asset,
 }) => {
-	const [amount, setAmount] = useState("");
+	const [valuation, setValuation] = useState("");
 	const [error, setError] = useState("");
 
 	useEffect(() => {
 		if (visible) {
-			setAmount("");
+			setValuation(asset.current_valuation.toString());
 			setError("");
 		}
-	}, [visible]);
+	}, [visible, asset.current_valuation]);
 
 	const handleSave = () => {
-		if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
-			setError("Amount must be a positive number");
+		if (!valuation || isNaN(Number(valuation)) || Number(valuation) < 0) {
+			setError("Valuation must be a non-negative number");
 			return;
 		}
-		onSubmit(asset.id, Number(amount));
+		onSubmit(asset.id, Number(valuation));
 	};
 
 	return (
 		<AppDialog
 			visible={visible}
 			onDismiss={onClose}
-			title={`Add Value to ${asset.name}`}
+			title={`Update Valuation — ${asset.name}`}
 			actions={
 				<>
 					<Button onPress={onClose} style={{ marginRight: 8 }}>
 						Cancel
 					</Button>
 					<Button mode="contained" onPress={handleSave}>
-						Add
+						Update
 					</Button>
 				</>
 			}
 		>
 			<AppNumberInput
-				label={`Amount (${asset.currency})`}
-				value={amount}
-				onChangeText={setAmount}
+				label={`Current Market Value (${asset.currency})`}
+				value={valuation}
+				onChangeText={setValuation}
 				currency={asset.currency}
 				error={error}
 			/>

@@ -122,19 +122,21 @@ export const TransactionRepository = {
 					"UPDATE accounts SET current_balance = current_balance - ? WHERE id = ?",
 					[amount, from_account_id]
 				);
-			} else if (
-				transactionTypeName === "Transfer" &&
-				from_account_id &&
-				to_account_id
-			) {
-				await db.runAsync(
-					"UPDATE accounts SET current_balance = current_balance - ? WHERE id = ?",
-					[amount, from_account_id]
-				);
-				await db.runAsync(
-					"UPDATE accounts SET current_balance = current_balance + ? WHERE id = ?",
-					[amount, to_account_id]
-				);
+			} else if (transactionTypeName === "Transfer") {
+				// Deduct from source account if present
+				if (from_account_id) {
+					await db.runAsync(
+						"UPDATE accounts SET current_balance = current_balance - ? WHERE id = ?",
+						[amount, from_account_id]
+					);
+				}
+				// Credit destination account if present
+				if (to_account_id) {
+					await db.runAsync(
+						"UPDATE accounts SET current_balance = current_balance + ? WHERE id = ?",
+						[amount, to_account_id]
+					);
+				}
 			}
 
 			// update liability balance if applicable
@@ -156,6 +158,59 @@ export const TransactionRepository = {
 			// Record bill payment if bill_id is provided
 			if (bill_id && transactionTypeName === "Expense") {
 				await BillsRepository.recordPayment(db, bill_id, amount, insertedId);
+			}
+
+			// Asset side-effects
+			if (asset_id) {
+				if (
+					transactionTypeName === "Transfer" &&
+					from_account_id &&
+					!to_account_id
+				) {
+					// Contribution: Bank Account → Asset
+					const existingAsset = await db.getFirstAsync<{
+						initial_cost: number;
+					}>("SELECT initial_cost FROM assets WHERE id = ?", [asset_id]);
+					if (existingAsset && existingAsset.initial_cost === 0) {
+						// Initial acquisition
+						await db.runAsync(
+							"UPDATE assets SET initial_cost = ?, current_valuation = ?, initial_value = ?, current_value = ? WHERE id = ? AND initial_cost = 0",
+							[amount, amount, amount, amount, asset_id]
+						);
+					} else {
+						// Subsequent contribution
+						await db.runAsync(
+							"UPDATE assets SET contributions = contributions + ?, current_valuation = current_valuation + ?, current_value = current_value + ? WHERE id = ?",
+							[amount, amount, amount, asset_id]
+						);
+					}
+				} else if (
+					transactionTypeName === "Transfer" &&
+					to_account_id &&
+					!from_account_id
+				) {
+					// Divestment: Asset → Bank Account
+					await db.runAsync(
+						"UPDATE assets SET withdrawals = withdrawals + ?, current_valuation = CASE WHEN current_valuation - ? < 0 THEN 0 ELSE current_valuation - ? END, current_value = CASE WHEN current_value - ? < 0 THEN 0 ELSE current_value - ? END WHERE id = ?",
+						[amount, amount, amount, amount, amount, asset_id]
+					);
+				} else if (
+					transactionTypeName === "Transfer" &&
+					!from_account_id &&
+					!to_account_id
+				) {
+					// Reinvestment via Transfer direction: money stays inside the asset
+					await db.runAsync(
+						"UPDATE assets SET reinvestments = reinvestments + ?, current_valuation = current_valuation + ?, current_value = current_value + ? WHERE id = ?",
+						[amount, amount, amount, asset_id]
+					);
+				} else if (transactionTypeName === "Income" && !to_account_id) {
+					// Legacy: Reinvestment via Income type (backwards compat)
+					await db.runAsync(
+						"UPDATE assets SET reinvestments = reinvestments + ?, current_valuation = current_valuation + ?, current_value = current_value + ? WHERE id = ?",
+						[amount, amount, amount, asset_id]
+					);
+				}
 			}
 		});
 

@@ -18,7 +18,7 @@ export const DashboardRepository = {
 		);
 		// Assets
 		const assets = await db.getAllAsync(
-			`SELECT currency, SUM(current_value) as assetValue FROM assets GROUP BY currency`
+			`SELECT currency, SUM(current_valuation) as assetValue FROM assets GROUP BY currency`
 		);
 		// Liabilities
 		const liabilities = await db.getAllAsync(
@@ -110,7 +110,7 @@ export const DashboardRepository = {
 		db: SQLiteDatabase
 	): Promise<GroupedByType[]> {
 		return await db.getAllAsync(
-			`SELECT at.name as type, a.currency, COUNT(a.id) as count, SUM(a.current_value) as total FROM assets a JOIN asset_types at ON a.asset_type_id = at.id GROUP BY a.currency, at.name`
+			`SELECT at.name as type, a.currency, COUNT(a.id) as count, SUM(a.current_valuation) as total FROM assets a JOIN asset_types at ON a.asset_type_id = at.id GROUP BY a.currency, at.name`
 		);
 	},
 	async getLiabilitiesByTypeAndCurrency(

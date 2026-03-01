@@ -97,8 +97,15 @@ export interface Asset {
 	name: string;
 	asset_type_id: number; // Foreign key to AssetType
 	currency: string;
-	initial_value: number; // The initial purchase value
-	current_value: number; // Current market value
+	/** @deprecated kept for migration — use initial_cost */
+	initial_value: number;
+	/** @deprecated kept for migration — use current_valuation */
+	current_value: number;
+	initial_cost: number; // First out-of-pocket cash payment
+	contributions: number; // Total subsequent manual cash top-ups
+	reinvestments: number; // Total interest/dividends kept inside the asset
+	withdrawals: number; // Total value/principal taken back out
+	current_valuation: number; // Current market/sellable value
 	created_at: string;
 	notes?: string | null;
 }

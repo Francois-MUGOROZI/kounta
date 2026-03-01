@@ -10,7 +10,7 @@ export const useUpdateAsset = () => {
 
 	const updateAsset = async (
 		id: number,
-		updates: Partial<Asset>
+		updates: Partial<Pick<Asset, "name" | "asset_type_id" | "notes">>
 	): Promise<void> => {
 		try {
 			setLoading(true);

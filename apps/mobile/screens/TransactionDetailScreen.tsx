@@ -83,23 +83,42 @@ const TransactionDetailScreen = () => {
 	const accountCurrency = useMemo(() => {
 		if (!transaction) return "USD";
 		const accountId = transaction.from_account_id || transaction.to_account_id;
-		if (!accountId) return "USD";
-		return accounts.find((a) => a.id === accountId)?.currency || "USD";
-	}, [transaction, accounts]);
+		if (accountId) {
+			const acctCurrency = accounts.find((a) => a.id === accountId)?.currency;
+			if (acctCurrency) return acctCurrency;
+		}
+		// Fall back to asset currency for asset-only transfers
+		if (transaction.asset_id) {
+			const assetCurrency = assets.find(
+				(a) => a.id === transaction.asset_id
+			)?.currency;
+			if (assetCurrency) return assetCurrency;
+		}
+		return "USD";
+	}, [transaction, accounts, assets]);
 
 	const accountDisplay = useMemo(() => {
 		if (!transaction) return "";
 		if (isTransfer) {
-			const fromName =
-				accounts.find((a) => a.id === transaction.from_account_id)?.name || "—";
-			const toName =
-				accounts.find((a) => a.id === transaction.to_account_id)?.name || "—";
-			return `${fromName} → ${toName}`;
+			const from = transaction.from_account_id
+				? accounts.find((a) => a.id === transaction.from_account_id)?.name ||
+				  "—"
+				: transaction.asset_id
+				? assets.find((a) => a.id === transaction.asset_id)?.name || "—"
+				: "—";
+			const to = transaction.to_account_id
+				? accounts.find((a) => a.id === transaction.to_account_id)?.name || "—"
+				: transaction.asset_id
+				? assets.find((a) => a.id === transaction.asset_id)?.name || "—"
+				: "—";
+			// Reinvest: both sides are the same asset
+			if (from === to && from !== "—") return from;
+			return `${from} → ${to}`;
 		}
 		const accountId = transaction.from_account_id || transaction.to_account_id;
 		if (!accountId) return "—";
 		return accounts.find((a) => a.id === accountId)?.name || "—";
-	}, [transaction, accounts, isTransfer]);
+	}, [transaction, accounts, assets, isTransfer]);
 
 	const formattedDate = useMemo(() => {
 		if (!transaction) return "";
@@ -138,7 +157,7 @@ const TransactionDetailScreen = () => {
 
 		if (transaction.liability_id) {
 			const liability = liabilities.find(
-				(l) => l.id === transaction.liability_id,
+				(l) => l.id === transaction.liability_id
 			);
 			items.push({
 				icon: "credit-card-outline",
@@ -168,7 +187,7 @@ const TransactionDetailScreen = () => {
 
 		if (transaction.bill_id) {
 			const bill = (bills as any[])?.find(
-				(b: any) => b.id === transaction.bill_id,
+				(b: any) => b.id === transaction.bill_id
 			);
 			items.push({
 				icon: "receipt",
@@ -244,7 +263,7 @@ const TransactionDetailScreen = () => {
 						transaction.amount,
 						accountCurrency,
 						isIncome,
-						isTransfer,
+						isTransfer
 					)}
 				</Text>
 			</Surface>

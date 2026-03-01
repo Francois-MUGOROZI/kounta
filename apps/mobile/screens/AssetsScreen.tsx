@@ -64,17 +64,26 @@ const AssetsScreen = () => {
 		name: string;
 		asset_type_id: number;
 		currency: string;
-		initial_value: number;
-		current_value: number;
 		notes?: string;
 	}) => {
 		try {
 			if (editingAsset) {
-				await updateAsset(editingAsset.id, data);
+				await updateAsset(editingAsset.id, {
+					name: data.name,
+					asset_type_id: data.asset_type_id,
+					notes: data.notes,
+				});
 				setSnackbar({ visible: true, message: "Asset updated" });
 			} else {
 				await createAsset({
 					...data,
+					initial_value: 0,
+					current_value: 0,
+					initial_cost: 0,
+					contributions: 0,
+					reinvestments: 0,
+					withdrawals: 0,
+					current_valuation: 0,
 					created_at: new Date().toISOString(),
 				});
 				setSnackbar({ visible: true, message: "Asset created" });
@@ -121,7 +130,7 @@ const AssetsScreen = () => {
 		const map: { [currency: string]: number } = {};
 		assets.forEach((asset) => {
 			if (!map[asset.currency]) map[asset.currency] = 0;
-			map[asset.currency] += asset.current_value || 0;
+			map[asset.currency] += asset.current_valuation || 0;
 		});
 		return map;
 	}, [assets]);

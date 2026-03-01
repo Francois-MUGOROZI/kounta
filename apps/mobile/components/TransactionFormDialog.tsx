@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { View, ScrollView } from "react-native";
 import { Button, HelperText } from "react-native-paper";
 import { Category, Transaction, TransactionType } from "../types";
@@ -6,7 +6,8 @@ import AppDialog from "./AppDialog";
 import AppTextInput from "./AppTextInput";
 import AppNumberInput from "./AppNumberInput";
 import AppDropdown from "./AppDropdown";
-import CollapsibleSection from "./CollapsibleSection";
+import TransferFields, { TransferDirection } from "./TransferFields";
+import AssociationFields from "./AssociationFields";
 
 interface TransactionFormDialogProps {
 	visible: boolean;
@@ -19,7 +20,6 @@ interface TransactionFormDialogProps {
 	liabilities: { id: number; name: string }[];
 	envelopes: { id: number; name: string }[];
 	bills: { id: number; name: string; amount: number }[];
-	initialTransaction?: Transaction | null;
 }
 
 const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
@@ -33,118 +33,188 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 	liabilities,
 	envelopes,
 	bills,
-	initialTransaction,
 }) => {
-	const [description, setDescription] = useState("");
-	const [amount, setAmount] = useState("");
-	const [typeId, setTypeId] = useState<string>("");
-	const [fromAccountId, setFromAccountId] = useState<string>("");
-	const [toAccountId, setToAccountId] = useState<string>("");
-	const [categoryId, setCategoryId] = useState<string>("");
-	const [date, setDate] = useState("");
-	const [assetId, setAssetId] = useState<string>("");
-	const [liabilityId, setLiabilityId] = useState<string>("");
-	const [envelopeId, setEnvelopeId] = useState<string>("");
-	const [billId, setBillId] = useState<string>("");
-	const [error, setError] = useState("");
-	const [filteredCategories, setFilteredCategories] = useState<Category[]>([]);
-
-	const selectedTransactionType = transactionTypes.find(
-		(t) => t.id.toString() === typeId
-	)?.name;
-
-	// Find Expense type ID for default
+	// Find default type ID
 	const expenseTypeId = useMemo(() => {
 		const expenseType = transactionTypes.find((t) => t.name === "Expense");
 		return expenseType?.id.toString() || "";
 	}, [transactionTypes]);
 
+	// Form state
+	const [typeId, setTypeId] = useState<string>(expenseTypeId);
+	const [categoryId, setCategoryId] = useState<string>("");
+	const [amount, setAmount] = useState("");
+	const [fromAccountId, setFromAccountId] = useState<string>("");
+	const [toAccountId, setToAccountId] = useState<string>("");
+	const [assetId, setAssetId] = useState<string>("");
+	const [description, setDescription] = useState("");
+	const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
+	const [liabilityId, setLiabilityId] = useState<string>("");
+	const [envelopeId, setEnvelopeId] = useState<string>("");
+	const [billId, setBillId] = useState<string>("");
+	const [error, setError] = useState("");
+	const [transferDirection, setTransferDirection] =
+		useState<TransferDirection>("account-to-account");
+
+	const selectedTransactionType = transactionTypes.find(
+		(t) => t.id.toString() === typeId
+	)?.name;
+
+	// Reset form when dialog opens
 	useEffect(() => {
-		if (initialTransaction) {
-			setDescription(initialTransaction.description);
-			setAmount(initialTransaction.amount.toString());
-			setTypeId(initialTransaction.transaction_type_id.toString());
-			setFromAccountId(initialTransaction.from_account_id?.toString() || "");
-			setToAccountId(initialTransaction.to_account_id?.toString() || "");
-			setCategoryId(initialTransaction.category_id.toString());
-			setDate(initialTransaction.date);
-			setAssetId(initialTransaction.asset_id?.toString() || "");
-			setLiabilityId(initialTransaction.liability_id?.toString() || "");
-			setEnvelopeId(initialTransaction.envelope_id?.toString() || "");
-			setBillId(initialTransaction.bill_id?.toString() || "");
-		} else {
-			setDescription("");
+		if (visible) {
+			setTypeId(expenseTypeId);
+			setCategoryId("");
 			setAmount("");
-			setTypeId(expenseTypeId); // Default to Expense type
 			setFromAccountId("");
 			setToAccountId("");
-			setCategoryId("");
-			setDate(new Date().toISOString().split("T")[0]);
 			setAssetId("");
+			setDescription("");
+			setDate(new Date().toISOString().split("T")[0]);
 			setLiabilityId("");
 			setEnvelopeId("");
 			setBillId("");
+			setError("");
+			setTransferDirection("account-to-account");
 		}
+	}, [visible, expenseTypeId]);
+
+	// Filter categories by transaction type
+	const filteredCategories = useMemo(() => {
+		if (typeId) {
+			return categories.filter((c) => c.transaction_type_id === Number(typeId));
+		}
+		return categories;
+	}, [typeId, categories]);
+
+	// Clear dependent fields when transaction type changes
+	const handleTypeChange = useCallback((newTypeId: string) => {
+		setTypeId(newTypeId);
 		setError("");
-	}, [
-		visible,
-		initialTransaction,
-		transactionTypes,
-		accounts,
-		categories,
-		expenseTypeId,
-	]);
+		setCategoryId("");
+		setFromAccountId("");
+		setToAccountId("");
+		setAssetId("");
+		setLiabilityId("");
+		setEnvelopeId("");
+		setBillId("");
+		setTransferDirection("account-to-account");
+	}, []);
+
+	// Clear direction-specific fields when direction changes
+	const handleDirectionChange = useCallback((direction: TransferDirection) => {
+		setTransferDirection(direction);
+		setFromAccountId("");
+		setToAccountId("");
+		setAssetId("");
+	}, []);
 
 	const handleSave = () => {
-		if (!description.trim()) {
-			setError("Description is required");
+		if (!typeId || typeId.trim() === "") {
+			setError("Type is required");
 			return;
 		}
 		if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
 			setError("Amount must be a positive number");
 			return;
 		}
-		if (!typeId || typeId.trim() === "") {
-			setError("Type is required");
+		if (!description.trim()) {
+			setError("Description is required");
 			return;
-		}
-		if (selectedTransactionType === "Transfer") {
-			if (fromAccountId.trim() === "" || toAccountId.trim() === "") {
-				setError("From and To accounts are required for a transfer");
-				return;
-			}
-			if (fromAccountId === toAccountId) {
-				setError("From and To accounts cannot be the same");
-				return;
-			}
-		} else {
-			if (fromAccountId.trim() === "" && toAccountId.trim() === "") {
-				setError("An account is required");
-				return;
-			}
-			if (categoryId.trim() === "" && selectedTransactionType !== "Transfer") {
-				setError("Category is required");
-				return;
-			}
 		}
 		if (date.trim() === "") {
 			setError("Date is required");
 			return;
 		}
 
+		// Type-specific validation
+		if (selectedTransactionType === "Transfer") {
+			if (transferDirection === "account-to-account") {
+				if (!fromAccountId || !toAccountId) {
+					setError("Both From and To accounts are required");
+					return;
+				}
+				if (fromAccountId === toAccountId) {
+					setError("From and To accounts cannot be the same");
+					return;
+				}
+			} else if (transferDirection === "account-to-asset") {
+				if (!fromAccountId) {
+					setError("From account is required");
+					return;
+				}
+				if (!assetId) {
+					setError("Asset is required");
+					return;
+				}
+			} else if (transferDirection === "asset-to-account") {
+				if (!assetId) {
+					setError("Asset is required");
+					return;
+				}
+				if (!toAccountId) {
+					setError("To account is required");
+					return;
+				}
+			} else if (transferDirection === "reinvest-into-asset") {
+				if (!assetId) {
+					setError("Asset is required");
+					return;
+				}
+			}
+		} else {
+			// Income / Expense
+			if (!categoryId) {
+				setError("Category is required");
+				return;
+			}
+			if (!fromAccountId && !toAccountId) {
+				setError("Account is required");
+				return;
+			}
+		}
+
+		// Build transaction — null out irrelevant fields based on type/direction
+		let finalFromAccountId: number | undefined;
+		let finalToAccountId: number | undefined;
+		let finalAssetId: number | undefined;
+
+		if (selectedTransactionType === "Transfer") {
+			if (transferDirection === "account-to-account") {
+				finalFromAccountId = Number(fromAccountId);
+				finalToAccountId = Number(toAccountId);
+			} else if (transferDirection === "account-to-asset") {
+				finalFromAccountId = Number(fromAccountId);
+				finalAssetId = Number(assetId);
+			} else if (transferDirection === "asset-to-account") {
+				finalToAccountId = Number(toAccountId);
+				finalAssetId = Number(assetId);
+			} else if (transferDirection === "reinvest-into-asset") {
+				finalAssetId = Number(assetId);
+				// no accounts — money stays inside the asset
+			}
+		} else if (selectedTransactionType === "Income") {
+			finalToAccountId =
+				toAccountId && toAccountId !== "" ? Number(toAccountId) : undefined;
+			finalAssetId = assetId && assetId !== "" ? Number(assetId) : undefined;
+		} else {
+			// Expense
+			finalFromAccountId =
+				fromAccountId && fromAccountId !== ""
+					? Number(fromAccountId)
+					: undefined;
+			finalAssetId = assetId && assetId !== "" ? Number(assetId) : undefined;
+		}
+
 		onSubmit({
 			description: description.trim(),
 			amount: Number(amount),
 			transaction_type_id: Number(typeId),
-			from_account_id:
-				fromAccountId && fromAccountId !== ""
-					? Number(fromAccountId)
-					: undefined,
-			to_account_id:
-				toAccountId && toAccountId !== "" ? Number(toAccountId) : undefined,
-			category_id: categoryId && categoryId !== "" ? Number(categoryId) : null,
-			date: date && date.trim() !== "" ? date : new Date(date).toISOString(),
-			asset_id: assetId && assetId !== "" ? Number(assetId) : undefined,
+			from_account_id: finalFromAccountId,
+			to_account_id: finalToAccountId,
+			category_id: categoryId ? Number(categoryId) : null,
+			date,
+			asset_id: finalAssetId,
 			liability_id:
 				liabilityId && liabilityId !== "" ? Number(liabilityId) : undefined,
 			envelope_id:
@@ -153,47 +223,11 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 		} as Transaction);
 	};
 
-	useEffect(() => {
-		if (typeId) {
-			setFilteredCategories(
-				categories.filter(
-					(category) => category.transaction_type_id === Number(typeId)
-				)
-			);
-		} else {
-			setFilteredCategories(categories);
-		}
-	}, [typeId, categories]);
-
-	useEffect(() => {
-		if (!selectedTransactionType) {
-			return;
-		}
-		if (selectedTransactionType !== "Expense") {
-			setEnvelopeId("");
-			setLiabilityId("");
-			setBillId("");
-		}
-		if (selectedTransactionType === "Transfer") {
-			setAssetId("");
-		}
-	}, [selectedTransactionType]);
-
-	// Calculate count of selected associations for collapsible header
-	const associationCount = useMemo(() => {
-		let count = 0;
-		if (assetId && assetId !== "") count++;
-		if (envelopeId && envelopeId !== "") count++;
-		if (liabilityId && liabilityId !== "") count++;
-		if (billId && billId !== "") count++;
-		return count;
-	}, [assetId, envelopeId, liabilityId, billId]);
-
 	return (
 		<AppDialog
 			visible={visible}
 			onDismiss={onClose}
-			title={initialTransaction ? "Edit Transaction" : "Add Transaction"}
+			title="Add Transaction"
 			actions={
 				<>
 					<Button onPress={onClose} style={{ marginRight: 8 }}>
@@ -210,12 +244,12 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 				showsVerticalScrollIndicator={false}
 				contentContainerStyle={{ paddingBottom: 16 }}
 			>
-				<View style={{ gap: 8 }}>
-					{/* 1. Type */}
+				<View style={{ gap: 2 }}>
+					{/* 1. Transaction Type */}
 					<AppDropdown
 						label="Type"
 						value={typeId}
-						onSelect={(v) => setTypeId(v ?? "")}
+						onSelect={(v) => handleTypeChange(v ?? "")}
 						options={transactionTypes.map((type) => ({
 							label: type.name,
 							value: type.id.toString(),
@@ -223,23 +257,24 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 						error={error && !typeId ? "Type is required" : undefined}
 					/>
 
-					{/* 2. Category - Only show for Income/Expense */}
-					{selectedTransactionType !== "Transfer" && (
-						<AppDropdown
-							label="Category"
-							value={categoryId}
-							onSelect={(v) => setCategoryId(v ?? "")}
-							options={filteredCategories.map((category) => ({
-								label: category.name,
-								value: category.id.toString(),
-							}))}
-							error={
-								error && !categoryId && selectedTransactionType !== "Transfer"
-									? "Category is required"
-									: undefined
-							}
-						/>
-					)}
+					{/* 2. Category (Income/Expense only) */}
+					{selectedTransactionType &&
+						selectedTransactionType !== "Transfer" && (
+							<AppDropdown
+								label="Category"
+								value={categoryId}
+								onSelect={(v) => setCategoryId(v ?? "")}
+								options={filteredCategories.map((c) => ({
+									label: c.name,
+									value: c.id.toString(),
+								}))}
+								error={
+									error && !categoryId && selectedTransactionType !== "Transfer"
+										? "Category is required"
+										: undefined
+								}
+							/>
+						)}
 
 					{/* 3. Amount */}
 					<AppNumberInput
@@ -253,45 +288,28 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 						}
 					/>
 
-					{/* 4. Account(s) */}
+					{/* 4. Source & Destination — varies by type */}
 					{selectedTransactionType === "Transfer" ? (
-						<View style={{ gap: 8 }}>
-							<AppDropdown
-								label="From Account"
-								value={fromAccountId}
-								onSelect={(v) => setFromAccountId(v ?? "")}
-								options={accounts.map((account) => ({
-									label: account.name,
-									value: account.id.toString(),
-								}))}
-								error={
-									error &&
-									selectedTransactionType === "Transfer" &&
-									!fromAccountId
-										? "From account is required"
-										: undefined
-								}
-							/>
-							<AppDropdown
-								label="To Account"
-								value={toAccountId}
-								onSelect={(v) => setToAccountId(v ?? "")}
-								options={accounts.map((account) => ({
-									label: account.name,
-									value: account.id.toString(),
-								}))}
-								error={
-									error &&
-									selectedTransactionType === "Transfer" &&
-									!toAccountId
-										? "To account is required"
-										: undefined
-								}
-							/>
-						</View>
+						<TransferFields
+							transferDirection={transferDirection}
+							onDirectionChange={handleDirectionChange}
+							fromAccountId={fromAccountId}
+							onFromAccountChange={setFromAccountId}
+							toAccountId={toAccountId}
+							onToAccountChange={setToAccountId}
+							assetId={assetId}
+							onAssetChange={setAssetId}
+							accounts={accounts}
+							assets={assets}
+							error={error}
+						/>
 					) : (
 						<AppDropdown
-							label="Account"
+							label={
+								selectedTransactionType === "Income"
+									? "To Account"
+									: "From Account"
+							}
 							value={
 								selectedTransactionType === "Income"
 									? toAccountId
@@ -300,21 +318,16 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 							onSelect={(v) => {
 								if (selectedTransactionType === "Income") {
 									setToAccountId(v ?? "");
-									setFromAccountId("");
 								} else {
 									setFromAccountId(v ?? "");
-									setToAccountId("");
 								}
 							}}
-							options={accounts.map((account) => ({
-								label: account.name,
-								value: account.id.toString(),
+							options={accounts.map((a) => ({
+								label: a.name,
+								value: a.id.toString(),
 							}))}
 							error={
-								error &&
-								selectedTransactionType !== "Transfer" &&
-								!fromAccountId &&
-								!toAccountId
+								error && !fromAccountId && !toAccountId
 									? "Account is required"
 									: undefined
 							}
@@ -342,81 +355,24 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 						error={error && !date.trim() ? "Date is required" : undefined}
 					/>
 
-					{/* 7. Associations (Collapsible) */}
+					{/* 7. Associations (Income/Expense only) */}
 					{selectedTransactionType &&
 						selectedTransactionType !== "Transfer" && (
-							<CollapsibleSection
-								title="Associations (Optional)"
-								showCount={associationCount}
-							>
-								<View style={{ gap: 8 }}>
-									{/* Asset - Show for Income/Expense (not Transfer) */}
-									<AppDropdown
-										label="Asset (optional)"
-										value={assetId}
-										onSelect={(v) => setAssetId(v ?? "")}
-										options={[
-											{ label: "None", value: "" },
-											...assets.map((asset) => ({
-												label: asset.name,
-												value: asset.id.toString(),
-											})),
-										]}
-										placeholder="None"
-									/>
-
-									{/* Envelope, Liability, Bill - Show only for Expense */}
-									{selectedTransactionType === "Expense" && (
-										<>
-											<AppDropdown
-												label="Envelope (optional)"
-												value={envelopeId}
-												onSelect={(v) => setEnvelopeId(v ?? "")}
-												options={[
-													{ label: "None", value: "" },
-													...envelopes.map((envelope) => ({
-														label: envelope.name,
-														value: envelope.id.toString(),
-													})),
-												]}
-												placeholder="None"
-											/>
-											<AppDropdown
-												label="Liability (optional)"
-												value={liabilityId}
-												onSelect={(v) => setLiabilityId(v ?? "")}
-												options={[
-													{ label: "None", value: "" },
-													...liabilities.map((liability) => ({
-														label: liability.name,
-														value: liability.id.toString(),
-													})),
-												]}
-												placeholder="None"
-											/>
-											{bills.length > 0 && (
-												<AppDropdown
-													label="Bill (optional)"
-													value={billId}
-													onSelect={(v) => {
-														setBillId(v ?? "");
-													}}
-													options={[
-														{ label: "None", value: "" },
-														...bills.map((bill) => ({
-															label: `${
-																bill.name
-															} (${bill.amount.toLocaleString()})`,
-															value: bill.id.toString(),
-														})),
-													]}
-													placeholder="None"
-												/>
-											)}
-										</>
-									)}
-								</View>
-							</CollapsibleSection>
+							<AssociationFields
+								transactionType={selectedTransactionType}
+								assetId={assetId}
+								onAssetChange={setAssetId}
+								envelopeId={envelopeId}
+								onEnvelopeChange={setEnvelopeId}
+								liabilityId={liabilityId}
+								onLiabilityChange={setLiabilityId}
+								billId={billId}
+								onBillChange={setBillId}
+								assets={assets}
+								envelopes={envelopes}
+								liabilities={liabilities}
+								bills={bills}
+							/>
 						)}
 
 					<HelperText type="error" visible={!!error}>

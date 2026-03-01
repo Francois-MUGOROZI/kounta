@@ -4,6 +4,7 @@ import { Text, useTheme, Avatar } from "react-native-paper";
 import SwipeableListItem from "./SwipeableListItem";
 import { Asset } from "../types";
 import { formatAmount } from "../utils/currency";
+import { calcPercentChange, formatPercent } from "../utils/percent";
 
 interface AssetListItemProps {
 	asset: Asset;
@@ -36,6 +37,12 @@ const AssetListItem: React.FC<AssetListItemProps> = ({
 		}
 	};
 
+	const totalInvested = asset.initial_cost + asset.contributions;
+	const gainLoss = asset.current_valuation - totalInvested;
+	const gainPct = calcPercentChange(asset.current_valuation, totalInvested);
+	const gainPctStr = formatPercent(gainPct);
+	const isPositive = gainLoss >= 0;
+
 	return (
 		<SwipeableListItem
 			onEdit={onEdit}
@@ -59,44 +66,47 @@ const AssetListItem: React.FC<AssetListItemProps> = ({
 					<Text variant="bodySmall" style={{ color: theme.colors.outline }}>
 						{typeName}
 					</Text>
-					{asset.notes ? (
-						<Text variant="bodySmall" style={{ color: theme.colors.outline }}>
-							{asset.notes}
-						</Text>
-					) : null}
 				</View>
 				<View style={styles.value}>
-					<Text variant="bodySmall" style={{ color: theme.colors.outline }}>
-						Initial: {formatAmount(asset.initial_value, asset.currency)}
-					</Text>
 					<Text
 						variant="titleMedium"
 						style={{
 							fontWeight: "bold",
-							color:
-								asset.current_value >= asset.initial_value
-									? theme.colors.primary
-									: theme.colors.error,
+							color: isPositive ? theme.colors.primary : theme.colors.error,
 						}}
 					>
-						{formatAmount(asset.current_value, asset.currency)}
+						{formatAmount(asset.current_valuation, asset.currency)}
 					</Text>
-					{asset.current_value !== asset.initial_value && (
-						<Text
-							variant="bodySmall"
-							style={{
-								color:
-									asset.current_value >= asset.initial_value
-										? theme.colors.primary
-										: theme.colors.error,
-							}}
-						>
-							{asset.current_value >= asset.initial_value ? "+" : "-"}
-							{formatAmount(
-								Math.abs(asset.current_value - asset.initial_value),
-								asset.currency
+					{totalInvested > 0 && gainLoss !== 0 && (
+						<View style={styles.percentRow}>
+							<Text
+								variant="bodySmall"
+								style={{
+									color: isPositive ? theme.colors.primary : theme.colors.error,
+								}}
+							>
+								{isPositive ? "+" : ""}
+								{formatAmount(gainLoss, asset.currency)}
+							</Text>
+							{gainPctStr && (
+								<Text
+									variant="labelSmall"
+									style={[
+										styles.percentBadge,
+										{
+											backgroundColor: isPositive
+												? theme.colors.primaryContainer
+												: theme.colors.errorContainer,
+											color: isPositive
+												? theme.colors.onPrimaryContainer
+												: theme.colors.onErrorContainer,
+										},
+									]}
+								>
+									{gainPctStr}
+								</Text>
 							)}
-						</Text>
+						</View>
 					)}
 				</View>
 			</View>
@@ -121,6 +131,19 @@ const styles = StyleSheet.create({
 	value: {
 		marginLeft: 16,
 		alignItems: "flex-end",
+	},
+	percentRow: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: 4,
+	},
+	percentBadge: {
+		paddingHorizontal: 5,
+		paddingVertical: 1,
+		borderRadius: 4,
+		fontSize: 10,
+		fontWeight: "bold",
+		overflow: "hidden",
 	},
 });
 

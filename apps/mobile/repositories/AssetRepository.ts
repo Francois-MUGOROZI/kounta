@@ -20,21 +20,32 @@ export const AssetRepository = {
 		const asset_type_id: number =
 			typeof asset.asset_type_id === "number" ? asset.asset_type_id : 0;
 		const currency: string = asset.currency ?? "";
-		const initial_value: number =
-			typeof asset.initial_value === "number" ? asset.initial_value : 0;
-		const current_value: number =
-			typeof asset.current_value === "number" ? asset.current_value : 0;
+		const initial_cost: number =
+			typeof asset.initial_cost === "number" ? asset.initial_cost : 0;
+		const contributions: number =
+			typeof asset.contributions === "number" ? asset.contributions : 0;
+		const reinvestments: number =
+			typeof asset.reinvestments === "number" ? asset.reinvestments : 0;
+		const withdrawals: number =
+			typeof asset.withdrawals === "number" ? asset.withdrawals : 0;
+		const current_valuation: number =
+			typeof asset.current_valuation === "number" ? asset.current_valuation : 0;
 		const created_at: string = asset.created_at ?? new Date().toISOString();
 		const notes: string | null = asset.notes ?? null;
 
 		await db.runAsync(
-			`INSERT INTO assets (name, asset_type_id, currency, initial_value, current_value, created_at, notes) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+			`INSERT INTO assets (name, asset_type_id, currency, initial_value, current_value, initial_cost, contributions, reinvestments, withdrawals, current_valuation, created_at, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			[
 				name,
 				asset_type_id,
 				currency,
-				initial_value,
-				current_value,
+				initial_cost, // initial_value = initial_cost for backwards compat
+				current_valuation, // current_value = current_valuation for backwards compat
+				initial_cost,
+				contributions,
+				reinvestments,
+				withdrawals,
+				current_valuation,
 				created_at,
 				notes,
 			]
@@ -46,7 +57,7 @@ export const AssetRepository = {
 	async update(
 		db: SQLiteDatabase,
 		id: number,
-		updates: Partial<Asset>
+		updates: Partial<Pick<Asset, "name" | "asset_type_id" | "notes">>
 	): Promise<void> {
 		const fields: string[] = [];
 		const values: (string | number | null)[] = [];
@@ -66,14 +77,18 @@ export const AssetRepository = {
 		emitEvent(EVENTS.DATA_CHANGED);
 	},
 
-	async addToAsset(
+	/**
+	 * Update market valuation (non-transaction event).
+	 * Sets current_valuation to an absolute value.
+	 */
+	async updateValuation(
 		db: SQLiteDatabase,
 		assetId: number,
-		amount: number
+		newValuation: number
 	): Promise<void> {
 		await db.runAsync(
-			`UPDATE assets SET current_value = current_value + ? WHERE id = ?`,
-			[amount, assetId]
+			`UPDATE assets SET current_valuation = ?, current_value = ? WHERE id = ?`,
+			[newValuation, newValuation, assetId]
 		);
 		emitEvent(EVENTS.DATA_CHANGED);
 	},

@@ -1,9 +1,7 @@
 import { useState, useCallback } from "react";
 import { useDatabase } from "../../database";
-import {
-	CategoryRepository,
-	Category,
-} from "../../repositories/CategoryRepository";
+import { CategoryRepository } from "../../repositories/CategoryRepository";
+import { Category } from "../../types";
 
 export function useUpdateCategory() {
 	const db = useDatabase();

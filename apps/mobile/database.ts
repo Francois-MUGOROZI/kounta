@@ -67,8 +67,13 @@ export async function initDatabase(db: any) {
 			name TEXT NOT NULL,
 			asset_type_id INTEGER NOT NULL,
 			currency TEXT NOT NULL,
-			initial_value REAL NOT NULL,
-			current_value REAL NOT NULL,
+			initial_value REAL NOT NULL DEFAULT 0,
+			current_value REAL NOT NULL DEFAULT 0,
+			initial_cost REAL NOT NULL DEFAULT 0,
+			contributions REAL NOT NULL DEFAULT 0,
+			reinvestments REAL NOT NULL DEFAULT 0,
+			withdrawals REAL NOT NULL DEFAULT 0,
+			current_valuation REAL NOT NULL DEFAULT 0,
 			created_at TEXT NOT NULL,
 			notes TEXT,
 			FOREIGN KEY (asset_type_id) REFERENCES asset_types(id)
@@ -191,16 +196,30 @@ export async function initDatabase(db: any) {
 // Run database migrations
 async function runMigrations(db: any) {
 	try {
-		// Add created_at column to envelopes if missing
-		// const envelopeColumns = await db.getAllAsync(
-		// 	"PRAGMA table_info(envelopes);"
-		// );
-		// const hasCreatedAt = envelopeColumns.some(
-		// 	(col: any) => col.name === "created_at"
-		// );
-		// if (!hasCreatedAt) {
-		// 	await db.runAsync("ALTER TABLE envelopes ADD COLUMN created_at TEXT;");
-		// }
+		// Migration: Add new asset cost-basis columns
+		const assetColumns = await db.getAllAsync("PRAGMA table_info(assets);");
+		const columnNames = assetColumns.map((col: any) => col.name);
+
+		const newColumns = [
+			{ name: "initial_cost", def: "REAL NOT NULL DEFAULT 0" },
+			{ name: "contributions", def: "REAL NOT NULL DEFAULT 0" },
+			{ name: "reinvestments", def: "REAL NOT NULL DEFAULT 0" },
+			{ name: "withdrawals", def: "REAL NOT NULL DEFAULT 0" },
+			{ name: "current_valuation", def: "REAL NOT NULL DEFAULT 0" },
+		];
+
+		for (const col of newColumns) {
+			if (!columnNames.includes(col.name)) {
+				await db.runAsync(
+					`ALTER TABLE assets ADD COLUMN ${col.name} ${col.def};`
+				);
+			}
+		}
+
+		// Migrate existing data: copy old fields to new fields (idempotent)
+		await db.runAsync(
+			`UPDATE assets SET initial_cost = initial_value, current_valuation = current_value WHERE initial_cost = 0 AND current_valuation = 0 AND (initial_value != 0 OR current_value != 0);`
+		);
 	} catch (error) {
 		console.log("Migration error:", error);
 	}

@@ -16,13 +16,14 @@ import AssetFormDialog from "../components/AssetFormDialog";
 import AddToAssetDialog from "../components/AddToAssetDialog";
 import { useGetAssets } from "../hooks/asset/useGetAssets";
 import { useUpdateAsset } from "../hooks/asset/useUpdateAsset";
-import { useAddToAsset } from "../hooks/asset/useAddToAsset";
+import { useUpdateValuation } from "../hooks/asset/useUpdateValuation";
 import { useGetAssetTypes } from "../hooks/assetType/useGetAssetTypes";
 import { useGetTransactions } from "../hooks/transaction/useGetTransactions";
 import { useGetAccounts } from "../hooks/account/useGetAccounts";
 import { useGetCategories } from "../hooks/category/useGetCategories";
 import { useGetTransactionTypes } from "../hooks/transactionType/useGetTransactionTypes";
 import { formatAmount } from "../utils/currency";
+import { calcPercentChange, formatPercent } from "../utils/percent";
 import { RootStackParamList, Transaction } from "../types";
 
 type AssetDetailRouteProp = RouteProp<RootStackParamList, "AssetDetail">;
@@ -40,7 +41,7 @@ const AssetDetailScreen = () => {
 		refresh: refreshAssets,
 	} = useGetAssets();
 	const { updateAsset } = useUpdateAsset();
-	const { addToAsset } = useAddToAsset();
+	const { updateValuation } = useUpdateValuation();
 	const { assetTypes, loading: loadingTypes } = useGetAssetTypes();
 	const transactionFilter = useMemo(() => ({ assetId }), [assetId]);
 	const { transactions, loading: loadingTransactions } =
@@ -50,12 +51,33 @@ const AssetDetailScreen = () => {
 	const { transactionTypes } = useGetTransactionTypes();
 
 	const [editDialogVisible, setEditDialogVisible] = useState(false);
-	const [addValueVisible, setAddValueVisible] = useState(false);
+	const [valuationVisible, setValuationVisible] = useState(false);
 	const [snackbar, setSnackbar] = useState({ visible: false, message: "" });
 
 	const asset = useMemo(
 		() => assets.find((a) => a.id === assetId) ?? null,
-		[assets, assetId],
+		[assets, assetId]
+	);
+
+	// Derived metrics
+	const totalInvested = asset ? asset.initial_cost + asset.contributions : 0;
+	const totalCostBasis = asset
+		? asset.initial_cost +
+		  asset.contributions +
+		  asset.reinvestments -
+		  asset.withdrawals
+		: 0;
+	const marketAppreciation = asset
+		? asset.current_valuation - totalCostBasis
+		: 0;
+	const totalWealthGain = asset ? asset.current_valuation - totalInvested : 0;
+
+	// Percentage calculations
+	const appreciationPct = formatPercent(
+		calcPercentChange(asset?.current_valuation ?? 0, totalCostBasis)
+	);
+	const wealthGainPct = formatPercent(
+		calcPercentChange(asset?.current_valuation ?? 0, totalInvested)
 	);
 
 	const getTypeName = (typeId: number) =>
@@ -77,18 +99,18 @@ const AssetDetailScreen = () => {
 		[t.asset_id, t.liability_id, t.envelope_id, t.bill_id].filter(Boolean)
 			.length;
 
-
-
 	const handleEditSubmit = async (data: {
 		name: string;
 		asset_type_id: number;
 		currency: string;
-		initial_value: number;
-		current_value: number;
 		notes?: string;
 	}) => {
 		try {
-			await updateAsset(assetId, data);
+			await updateAsset(assetId, {
+				name: data.name,
+				asset_type_id: data.asset_type_id,
+				notes: data.notes,
+			});
 			setSnackbar({ visible: true, message: "Asset updated" });
 			setEditDialogVisible(false);
 			refreshAssets();
@@ -100,16 +122,19 @@ const AssetDetailScreen = () => {
 		}
 	};
 
-	const handleAddValue = async (assetId: number, amount: number) => {
+	const handleUpdateValuation = async (
+		assetId: number,
+		newValuation: number
+	) => {
 		try {
-			await addToAsset(assetId, amount);
-			setSnackbar({ visible: true, message: "Value added to asset" });
-			setAddValueVisible(false);
+			await updateValuation(assetId, newValuation);
+			setSnackbar({ visible: true, message: "Valuation updated" });
+			setValuationVisible(false);
 			refreshAssets();
 		} catch (e: any) {
 			setSnackbar({
 				visible: true,
-				message: e.message || "Error adding value",
+				message: e.message || "Error updating valuation",
 			});
 		}
 	};
@@ -159,16 +184,38 @@ const AssetDetailScreen = () => {
 			>
 				{/* Summary Card */}
 				<AppCard title={asset.name} subtitle={getTypeName(asset.asset_type_id)}>
+					{/* Current Valuation - prominent */}
+					<View style={styles.valuationRow}>
+						<Text
+							variant="bodySmall"
+							style={{ color: theme.colors.onSurfaceVariant }}
+						>
+							Current Valuation
+						</Text>
+						<Text
+							variant="headlineSmall"
+							style={{
+								fontWeight: "bold",
+								color: theme.colors.primary,
+							}}
+						>
+							{formatAmount(asset.current_valuation, asset.currency)}
+						</Text>
+					</View>
+
+					<Divider style={styles.divider} />
+
+					{/* Financial Breakdown */}
 					<View style={styles.row}>
 						<View style={styles.detailItem}>
 							<Text
 								variant="bodySmall"
 								style={{ color: theme.colors.onSurfaceVariant }}
 							>
-								Currency
+								Initial Cost
 							</Text>
 							<Text variant="titleSmall" style={{ fontWeight: "bold" }}>
-								{asset.currency}
+								{formatAmount(asset.initial_cost, asset.currency)}
 							</Text>
 						</View>
 						<View style={styles.detailItem}>
@@ -176,10 +223,10 @@ const AssetDetailScreen = () => {
 								variant="bodySmall"
 								style={{ color: theme.colors.onSurfaceVariant }}
 							>
-								Initial Value
+								Contributions
 							</Text>
 							<Text variant="titleSmall" style={{ fontWeight: "bold" }}>
-								{formatAmount(asset.initial_value, asset.currency)}
+								{formatAmount(asset.contributions, asset.currency)}
 							</Text>
 						</View>
 					</View>
@@ -189,13 +236,151 @@ const AssetDetailScreen = () => {
 								variant="bodySmall"
 								style={{ color: theme.colors.onSurfaceVariant }}
 							>
-								Current Value
+								Reinvestments
 							</Text>
-							<Text variant="titleMedium" style={{ fontWeight: "bold" }}>
-								{formatAmount(asset.current_value, asset.currency)}
+							<Text variant="titleSmall" style={{ fontWeight: "bold" }}>
+								{formatAmount(asset.reinvestments, asset.currency)}
+							</Text>
+						</View>
+						<View style={styles.detailItem}>
+							<Text
+								variant="bodySmall"
+								style={{ color: theme.colors.onSurfaceVariant }}
+							>
+								Withdrawals
+							</Text>
+							<Text variant="titleSmall" style={{ fontWeight: "bold" }}>
+								{formatAmount(asset.withdrawals, asset.currency)}
 							</Text>
 						</View>
 					</View>
+
+					<Divider style={styles.divider} />
+
+					{/* Derived Metrics */}
+					<View style={styles.row}>
+						<View style={styles.detailItem}>
+							<Text
+								variant="bodySmall"
+								style={{ color: theme.colors.onSurfaceVariant }}
+							>
+								Total Invested
+							</Text>
+							<Text variant="titleSmall" style={{ fontWeight: "bold" }}>
+								{formatAmount(totalInvested, asset.currency)}
+							</Text>
+						</View>
+						<View style={styles.detailItem}>
+							<Text
+								variant="bodySmall"
+								style={{ color: theme.colors.onSurfaceVariant }}
+							>
+								Cost Basis
+							</Text>
+							<Text variant="titleSmall" style={{ fontWeight: "bold" }}>
+								{formatAmount(totalCostBasis, asset.currency)}
+							</Text>
+						</View>
+					</View>
+					<View style={styles.row}>
+						<View style={styles.detailItem}>
+							<Text
+								variant="bodySmall"
+								style={{ color: theme.colors.onSurfaceVariant }}
+							>
+								Market Appreciation
+							</Text>
+							<View
+								style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
+							>
+								<Text
+									variant="titleSmall"
+									style={{
+										fontWeight: "bold",
+										color:
+											marketAppreciation >= 0
+												? theme.colors.primary
+												: theme.colors.error,
+									}}
+								>
+									{marketAppreciation >= 0 ? "+" : ""}
+									{formatAmount(marketAppreciation, asset.currency)}
+								</Text>
+								{appreciationPct && (
+									<Text
+										variant="labelSmall"
+										style={{
+											paddingHorizontal: 5,
+											paddingVertical: 1,
+											borderRadius: 4,
+											overflow: "hidden",
+											fontWeight: "bold",
+											fontSize: 10,
+											backgroundColor:
+												marketAppreciation >= 0
+													? theme.colors.primaryContainer
+													: theme.colors.errorContainer,
+											color:
+												marketAppreciation >= 0
+													? theme.colors.onPrimaryContainer
+													: theme.colors.onErrorContainer,
+										}}
+									>
+										{appreciationPct}
+									</Text>
+								)}
+							</View>
+						</View>
+						<View style={styles.detailItem}>
+							<Text
+								variant="bodySmall"
+								style={{ color: theme.colors.onSurfaceVariant }}
+							>
+								Total Wealth Gain
+							</Text>
+							<View
+								style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
+							>
+								<Text
+									variant="titleSmall"
+									style={{
+										fontWeight: "bold",
+										color:
+											totalWealthGain >= 0
+												? theme.colors.primary
+												: theme.colors.error,
+									}}
+								>
+									{totalWealthGain >= 0 ? "+" : ""}
+									{formatAmount(totalWealthGain, asset.currency)}
+								</Text>
+								{wealthGainPct && (
+									<Text
+										variant="labelSmall"
+										style={{
+											paddingHorizontal: 5,
+											paddingVertical: 1,
+											borderRadius: 4,
+											overflow: "hidden",
+											fontWeight: "bold",
+											fontSize: 10,
+											backgroundColor:
+												totalWealthGain >= 0
+													? theme.colors.primaryContainer
+													: theme.colors.errorContainer,
+											color:
+												totalWealthGain >= 0
+													? theme.colors.onPrimaryContainer
+													: theme.colors.onErrorContainer,
+										}}
+									>
+										{wealthGainPct}
+									</Text>
+								)}
+							</View>
+						</View>
+					</View>
+
 					{asset.notes ? (
 						<>
 							<Divider style={styles.divider} />
@@ -219,12 +404,12 @@ const AssetDetailScreen = () => {
 					</Text>
 				</AppCard>
 
-				{/* Edit Button */}
+				{/* Action Buttons */}
 				<View style={styles.actionsRow}>
 					<IconButton
-						icon="plus-circle"
+						icon="chart-line"
 						mode="contained"
-						onPress={() => setAddValueVisible(true)}
+						onPress={() => setValuationVisible(true)}
 						iconColor={theme.colors.primary}
 						containerColor={theme.colors.elevation.level3}
 					/>
@@ -256,23 +441,40 @@ const AssetDetailScreen = () => {
 				) : (
 					transactions.map((transaction, index) => {
 						const typeName = getTransactionTypeName(
-							transaction.transaction_type_id,
+							transaction.transaction_type_id
 						);
 						const isTransfer = typeName === "Transfer";
-						const accountName = isTransfer
-							? `${getAccountName(transaction.from_account_id)} → ${getAccountName(transaction.to_account_id)}`
-							: getAccountName(
-									transaction.from_account_id || transaction.to_account_id,
-								);
+
+						// Build label: resolve asset name when account is null
+						let accountName: string;
+						if (isTransfer) {
+							const from = transaction.from_account_id
+								? getAccountName(transaction.from_account_id)
+								: asset?.name || "";
+							const to = transaction.to_account_id
+								? getAccountName(transaction.to_account_id)
+								: asset?.name || "";
+							// Reinvest: both sides are the asset
+							accountName =
+								from === to && from !== "" ? from : `${from} → ${to}`;
+						} else {
+							accountName = getAccountName(
+								transaction.from_account_id || transaction.to_account_id
+							);
+						}
+
+						// Currency: prefer account, fall back to asset
+						const acctCurrency = getAccountCurrency(
+							transaction.from_account_id || transaction.to_account_id
+						);
+						const displayCurrency = acctCurrency || asset?.currency || "USD";
 
 						return (
 							<TransactionListItem
 								key={transaction.id}
 								transaction={transaction}
 								accountName={accountName}
-								accountCurrency={getAccountCurrency(
-									transaction.from_account_id || transaction.to_account_id,
-								)}
+								accountCurrency={displayCurrency}
 								categoryName={getCategoryName(transaction.category_id)}
 								transactionTypeName={typeName}
 								associationCount={getAssociationCount(transaction)}
@@ -298,9 +500,9 @@ const AssetDetailScreen = () => {
 
 			{asset && (
 				<AddToAssetDialog
-					visible={addValueVisible}
-					onClose={() => setAddValueVisible(false)}
-					onSubmit={handleAddValue}
+					visible={valuationVisible}
+					onClose={() => setValuationVisible(false)}
+					onSubmit={handleUpdateValuation}
 					asset={asset}
 				/>
 			)}
@@ -327,6 +529,9 @@ const styles = StyleSheet.create({
 	centered: {
 		justifyContent: "center",
 		alignItems: "center",
+	},
+	valuationRow: {
+		marginBottom: 8,
 	},
 	row: {
 		flexDirection: "row",

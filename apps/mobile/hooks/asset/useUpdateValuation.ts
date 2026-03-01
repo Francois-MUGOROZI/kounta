@@ -2,21 +2,17 @@ import { useState, useCallback } from "react";
 import { useDatabase } from "../../database";
 import { AssetRepository } from "../../repositories/AssetRepository";
 
-/**
- * @deprecated Use useUpdateValuation instead
- */
-export function useAddToAsset() {
+export function useUpdateValuation() {
 	const db = useDatabase();
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
-	const addToAsset = useCallback(
-		async (assetId: number, amount: number) => {
+	const updateValuation = useCallback(
+		async (assetId: number, newValuation: number) => {
 			setLoading(true);
 			setError(null);
 			try {
-				// Redirect to updateValuation for backwards compatibility
-				await AssetRepository.updateValuation(db, assetId, amount);
+				await AssetRepository.updateValuation(db, assetId, newValuation);
 			} catch (e: any) {
 				setError(e.message || "Failed to update valuation");
 			} finally {
@@ -26,5 +22,5 @@ export function useAddToAsset() {
 		[db]
 	);
 
-	return { addToAsset, loading, error };
+	return { updateValuation, loading, error };
 }
