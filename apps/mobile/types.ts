@@ -97,10 +97,6 @@ export interface Asset {
 	name: string;
 	asset_type_id: number; // Foreign key to AssetType
 	currency: string;
-	/** @deprecated kept for migration — use initial_cost */
-	initial_value: number;
-	/** @deprecated kept for migration — use current_valuation */
-	current_value: number;
 	initial_cost: number; // First out-of-pocket cash payment
 	contributions: number; // Total subsequent manual cash top-ups
 	reinvestments: number; // Total interest/dividends kept inside the asset

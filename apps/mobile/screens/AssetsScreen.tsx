@@ -77,8 +77,6 @@ const AssetsScreen = () => {
 			} else {
 				await createAsset({
 					...data,
-					initial_value: 0,
-					current_value: 0,
 					initial_cost: 0,
 					contributions: 0,
 					reinvestments: 0,

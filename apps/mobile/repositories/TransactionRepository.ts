@@ -174,14 +174,14 @@ export const TransactionRepository = {
 					if (existingAsset && existingAsset.initial_cost === 0) {
 						// Initial acquisition
 						await db.runAsync(
-							"UPDATE assets SET initial_cost = ?, current_valuation = ?, initial_value = ?, current_value = ? WHERE id = ? AND initial_cost = 0",
-							[amount, amount, amount, amount, asset_id]
+							"UPDATE assets SET initial_cost = ?, current_valuation = ? WHERE id = ? AND initial_cost = 0",
+							[amount, amount, asset_id]
 						);
 					} else {
 						// Subsequent contribution
 						await db.runAsync(
-							"UPDATE assets SET contributions = contributions + ?, current_valuation = current_valuation + ?, current_value = current_value + ? WHERE id = ?",
-							[amount, amount, amount, asset_id]
+							"UPDATE assets SET contributions = contributions + ?, current_valuation = current_valuation + ? WHERE id = ?",
+							[amount, amount, asset_id]
 						);
 					}
 				} else if (
@@ -191,8 +191,8 @@ export const TransactionRepository = {
 				) {
 					// Divestment: Asset → Bank Account
 					await db.runAsync(
-						"UPDATE assets SET withdrawals = withdrawals + ?, current_valuation = CASE WHEN current_valuation - ? < 0 THEN 0 ELSE current_valuation - ? END, current_value = CASE WHEN current_value - ? < 0 THEN 0 ELSE current_value - ? END WHERE id = ?",
-						[amount, amount, amount, amount, amount, asset_id]
+						"UPDATE assets SET withdrawals = withdrawals + ?, current_valuation = CASE WHEN current_valuation - ? < 0 THEN 0 ELSE current_valuation - ? END WHERE id = ?",
+						[amount, amount, amount, asset_id]
 					);
 				} else if (
 					transactionTypeName === "Transfer" &&
@@ -201,14 +201,14 @@ export const TransactionRepository = {
 				) {
 					// Reinvestment via Transfer direction: money stays inside the asset
 					await db.runAsync(
-						"UPDATE assets SET reinvestments = reinvestments + ?, current_valuation = current_valuation + ?, current_value = current_value + ? WHERE id = ?",
-						[amount, amount, amount, asset_id]
+						"UPDATE assets SET reinvestments = reinvestments + ?, current_valuation = current_valuation + ? WHERE id = ?",
+						[amount, amount, asset_id]
 					);
 				} else if (transactionTypeName === "Income" && !to_account_id) {
 					// Legacy: Reinvestment via Income type (backwards compat)
 					await db.runAsync(
-						"UPDATE assets SET reinvestments = reinvestments + ?, current_valuation = current_valuation + ?, current_value = current_value + ? WHERE id = ?",
-						[amount, amount, amount, asset_id]
+						"UPDATE assets SET reinvestments = reinvestments + ?, current_valuation = current_valuation + ? WHERE id = ?",
+						[amount, amount, asset_id]
 					);
 				}
 			}

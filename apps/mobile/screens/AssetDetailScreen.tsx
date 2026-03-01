@@ -60,25 +60,42 @@ const AssetDetailScreen = () => {
 	);
 
 	// Derived metrics
-	const totalInvested = asset ? asset.initial_cost + asset.contributions : 0;
-	const totalCostBasis = asset
-		? asset.initial_cost +
-		  asset.contributions +
-		  asset.reinvestments -
-		  asset.withdrawals
-		: 0;
-	const marketAppreciation = asset
-		? asset.current_valuation - totalCostBasis
-		: 0;
-	const totalWealthGain = asset ? asset.current_valuation - totalInvested : 0;
+	const {
+		totalInvested,
+		totalCostBasis,
+		marketAppreciation,
+		totalWealthGain,
+		wealthGainPct,
+	} = useMemo(() => {
+		let totalInvested = 0,
+			totalCostBasis = 0,
+			marketAppreciation = 0,
+			totalWealthGain = 0;
 
-	// Percentage calculations
-	const appreciationPct = formatPercent(
-		calcPercentChange(asset?.current_valuation ?? 0, totalCostBasis)
-	);
-	const wealthGainPct = formatPercent(
-		calcPercentChange(asset?.current_valuation ?? 0, totalInvested)
-	);
+		let wealthGainPct;
+		if (asset) {
+			totalInvested = asset.initial_cost + asset.contributions;
+			totalCostBasis = totalInvested + asset.reinvestments - asset.withdrawals;
+			marketAppreciation = asset.current_valuation - totalCostBasis;
+			totalWealthGain =
+				asset.withdrawals + asset.current_valuation - totalInvested;
+
+			// Percentage calculations
+			wealthGainPct = formatPercent(
+				calcPercentChange(
+					asset.current_valuation + asset.withdrawals,
+					totalInvested
+				)
+			);
+		}
+		return {
+			totalInvested,
+			totalCostBasis,
+			marketAppreciation,
+			totalWealthGain,
+			wealthGainPct,
+		};
+	}, [asset]);
 
 	const getTypeName = (typeId: number) =>
 		assetTypes.find((t) => t.id === typeId)?.name ?? "";
@@ -306,29 +323,6 @@ const AssetDetailScreen = () => {
 									{marketAppreciation >= 0 ? "+" : ""}
 									{formatAmount(marketAppreciation, asset.currency)}
 								</Text>
-								{appreciationPct && (
-									<Text
-										variant="labelSmall"
-										style={{
-											paddingHorizontal: 5,
-											paddingVertical: 1,
-											borderRadius: 4,
-											overflow: "hidden",
-											fontWeight: "bold",
-											fontSize: 10,
-											backgroundColor:
-												marketAppreciation >= 0
-													? theme.colors.primaryContainer
-													: theme.colors.errorContainer,
-											color:
-												marketAppreciation >= 0
-													? theme.colors.onPrimaryContainer
-													: theme.colors.onErrorContainer,
-										}}
-									>
-										{appreciationPct}
-									</Text>
-								)}
 							</View>
 						</View>
 						<View style={styles.detailItem}>

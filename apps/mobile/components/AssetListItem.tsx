@@ -38,8 +38,11 @@ const AssetListItem: React.FC<AssetListItemProps> = ({
 	};
 
 	const totalInvested = asset.initial_cost + asset.contributions;
-	const gainLoss = asset.current_valuation - totalInvested;
-	const gainPct = calcPercentChange(asset.current_valuation, totalInvested);
+	const gainLoss = asset.current_valuation + asset.withdrawals - totalInvested;
+	const gainPct = calcPercentChange(
+		asset.current_valuation + asset.withdrawals,
+		totalInvested
+	);
 	const gainPctStr = formatPercent(gainPct);
 	const isPositive = gainLoss >= 0;
 
