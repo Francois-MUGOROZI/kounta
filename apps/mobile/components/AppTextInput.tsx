@@ -94,7 +94,7 @@ const AppTextInput: React.FC<AppTextInputProps> = ({
 			}
 		}
 		// Use localValue for text/currency inputs to prevent cursor jumping
-		return type === "date" ? (value ?? "") : localValue;
+		return type === "date" ? value ?? "" : localValue;
 	}, [type, value, localValue]);
 
 	const inputStyle = React.useMemo(
@@ -188,7 +188,7 @@ const AppTextInput: React.FC<AppTextInputProps> = ({
 
 const styles = StyleSheet.create({
 	container: {
-		marginBottom: 12,
+		marginBottom: 4,
 	},
 	input: {
 		fontSize: 14,

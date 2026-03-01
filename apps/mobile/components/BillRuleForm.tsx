@@ -72,11 +72,26 @@ const BillRuleForm: React.FC<BillRuleFormProps> = ({
 		setError("");
 	}, [visible, initialBillRule]);
 
+	const isEditing = !!initialBillRule;
+
 	const handleSave = () => {
 		if (!name.trim() || name.length < 3) {
 			setError("Name is required (min 3 chars)");
 			return;
 		}
+
+		if (isEditing) {
+			// In edit mode, only submit editable fields
+			onSubmit({
+				...initialBillRule,
+				name: name.trim(),
+				is_active: isActive,
+				auto_next: autoNext,
+			} as BillRule);
+			return;
+		}
+
+		// Create mode: validate all fields
 		if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
 			setError("Amount must be a positive number");
 			return;
@@ -103,7 +118,7 @@ const BillRuleForm: React.FC<BillRuleFormProps> = ({
 			start_date: new Date(startDate).toISOString(),
 			auto_next: autoNext,
 			currency: currency,
-			created_at: initialBillRule?.created_at || new Date().toISOString(),
+			created_at: new Date().toISOString(),
 		} as BillRule);
 	};
 
@@ -139,46 +154,50 @@ const BillRuleForm: React.FC<BillRuleFormProps> = ({
 						: undefined
 				}
 			/>
-			<AppNumberInput
-				label="Amount"
-				value={amount}
-				onChangeText={setAmount}
-				error={
-					error && (!amount || isNaN(Number(amount)) || Number(amount) <= 0)
-						? "Valid amount required"
-						: undefined
-				}
-			/>
-			<AppDropdown
-				label="Currency"
-				value={currency}
-				onSelect={(v) => setCurrency(v ?? "RWF")}
-				options={currencyOptions}
-			/>
-			<AppDropdown
-				label="Frequency"
-				value={frequency}
-				onSelect={(v) => setFrequency(v ?? "")}
-				options={frequencyOptions}
-				error={error && !frequency ? "Frequency is required" : undefined}
-			/>
-			<AppDropdown
-				label="Category"
-				value={categoryId}
-				onSelect={(v) => setCategoryId(v ?? "")}
-				options={expenseCategories.map((cat) => ({
-					label: cat.name,
-					value: cat.id.toString(),
-				}))}
-				error={error && !categoryId ? "Category is required" : undefined}
-			/>
-			<AppTextInput
-				label="Start Date"
-				value={startDate}
-				onChangeText={setStartDate}
-				type="date"
-				error={error && !startDate ? "Start date is required" : undefined}
-			/>
+			{!isEditing && (
+				<>
+					<AppNumberInput
+						label="Amount"
+						value={amount}
+						onChangeText={setAmount}
+						error={
+							error && (!amount || isNaN(Number(amount)) || Number(amount) <= 0)
+								? "Valid amount required"
+								: undefined
+						}
+					/>
+					<AppDropdown
+						label="Currency"
+						value={currency}
+						onSelect={(v) => setCurrency(v ?? "RWF")}
+						options={currencyOptions}
+					/>
+					<AppDropdown
+						label="Frequency"
+						value={frequency}
+						onSelect={(v) => setFrequency(v ?? "")}
+						options={frequencyOptions}
+						error={error && !frequency ? "Frequency is required" : undefined}
+					/>
+					<AppDropdown
+						label="Category"
+						value={categoryId}
+						onSelect={(v) => setCategoryId(v ?? "")}
+						options={expenseCategories.map((cat) => ({
+							label: cat.name,
+							value: cat.id.toString(),
+						}))}
+						error={error && !categoryId ? "Category is required" : undefined}
+					/>
+					<AppTextInput
+						label="Start Date"
+						value={startDate}
+						onChangeText={setStartDate}
+						type="date"
+						error={error && !startDate ? "Start date is required" : undefined}
+					/>
+				</>
+			)}
 			<View
 				style={{
 					flexDirection: "row",

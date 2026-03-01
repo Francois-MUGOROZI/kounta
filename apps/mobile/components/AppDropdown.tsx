@@ -91,7 +91,7 @@ const AppDropdown: React.FC<AppDropdownProps> = ({
 
 const styles = StyleSheet.create({
 	container: {
-		marginBottom: 12,
+		marginBottom: 4,
 	},
 	input: {
 		fontSize: 14,

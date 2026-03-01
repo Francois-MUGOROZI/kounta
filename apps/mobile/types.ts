@@ -266,6 +266,7 @@ export type RootStackParamList = {
 	Types: undefined;
 	BackupRestore: undefined;
 	Bills: undefined;
+	BillRuleDetail: { billRuleId: number };
 	TransactionDetail: { transactionId: number };
 	AccountDetail: { accountId: number };
 	AssetDetail: { assetId: number };

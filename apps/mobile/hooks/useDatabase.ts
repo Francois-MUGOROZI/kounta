@@ -25,8 +25,16 @@ export const useCheckOverdueBills = () => {
 	const checkOverdueBills = useCallback(async () => {
 		setLoading(true);
 		setError(null);
-		await BillsRepository.checkOverdueBills(db);
-		setLoading(false);
+		try {
+			// 1. Mark past-due bills as overdue
+			await BillsRepository.checkOverdueBills(db);
+			// 2. Ensure all active auto_next rules have a pending bill
+			await BillsRepository.ensureAllRulesBillsGenerated(db);
+		} catch (e: any) {
+			setError(e.message || "Failed to check overdue bills");
+		} finally {
+			setLoading(false);
+		}
 	}, [db]);
 
 	return { checkOverdueBills, loading, error };

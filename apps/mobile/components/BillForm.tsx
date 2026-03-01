@@ -7,6 +7,7 @@ import AppNumberInput from "./AppNumberInput";
 import AppDropdown from "./AppDropdown";
 import { Bill, BillRule, Category, TransactionType } from "../types";
 import { generateBillName } from "../utils/bills";
+import { format } from "date-fns";
 
 interface BillFormProps {
 	visible: boolean;
@@ -119,10 +120,10 @@ const BillForm: React.FC<BillFormProps> = ({
 				name: name.trim(),
 				category_id: Number(categoryId),
 				currency: currency,
-				due_date: new Date(dueDate).toISOString(),
+				due_date: format(new Date(dueDate), "yyyy-MM-dd"),
 				amount: Number(amount),
 				status: initialBill?.status || "Pending",
-				created_at: initialBill?.created_at || new Date().toISOString(),
+				created_at: initialBill?.created_at || format(new Date(), "yyyy-MM-dd"),
 			} as Bill);
 		} else {
 			// Validation for recurring bills
@@ -150,10 +151,10 @@ const BillForm: React.FC<BillFormProps> = ({
 				name: generateBillName(dueDate, rule.name, rule.frequency),
 				category_id: rule.category_id,
 				currency: rule.currency,
-				due_date: new Date(dueDate).toISOString(),
+				due_date: format(new Date(dueDate), "yyyy-MM-dd"),
 				amount: Number(amount),
 				status: initialBill?.status || "Pending",
-				created_at: initialBill?.created_at || new Date().toISOString(),
+				created_at: initialBill?.created_at || format(new Date(), "yyyy-MM-dd"),
 			} as Bill);
 		}
 	};

@@ -169,12 +169,16 @@ export const BillsRepository = {
 			throw new Error("Bill already exists with the same due date");
 		}
 
+		const paid_amount: number =
+			typeof bill.paid_amount === "number" ? bill.paid_amount : 0;
+
 		const result = await db.runAsync(
-			`INSERT INTO bills (bill_rule_id, due_date, amount, status, transaction_id, paid_at, created_at, category_id, name, currency) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			`INSERT INTO bills (bill_rule_id, due_date, amount, paid_amount, status, transaction_id, paid_at, created_at, category_id, name, currency) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			[
 				bill_rule_id,
 				due_date,
 				amount,
+				paid_amount,
 				status,
 				transaction_id,
 				paid_at,
@@ -322,15 +326,15 @@ export const BillsRepository = {
 		const rule = await this.getRuleById(db, ruleId);
 		if (!rule || !rule.is_active) return null;
 
-		// Check if there's already a pending bill that's not yet overdue
+		// Check if there's already an unpaid bill that's not yet overdue
 		const today = format(new Date(), "yyyy-MM-dd"); // Get YYYY-MM-DD
 		const existingPendingBills = await db.getAllAsync<Bill>(
-			"SELECT * FROM bills WHERE bill_rule_id = ? AND date(due_date) >= date(?) ORDER BY due_date DESC LIMIT 1",
+			"SELECT * FROM bills WHERE bill_rule_id = ? AND status != 'Paid' AND date(due_date) >= date(?) ORDER BY due_date DESC LIMIT 1",
 			[ruleId, today]
 		);
 
 		if (existingPendingBills.length > 0) {
-			// There's already a pending bill that's not yet due, don't create another
+			// There's already an unpaid bill that's not yet due, don't create another
 			return null;
 		}
 
@@ -416,6 +420,33 @@ export const BillsRepository = {
 				) {
 					await this.generateNextBill(db, rule.id);
 				}
+			}
+		}
+	},
+
+	/**
+	 * Get all bills associated with a specific rule
+	 * @param db Database instance
+	 * @param ruleId Bill Rule ID
+	 */
+	async getBillsByRuleId(db: SQLiteDatabase, ruleId: number): Promise<Bill[]> {
+		return await db.getAllAsync<Bill>(
+			"SELECT * FROM bills WHERE bill_rule_id = ? ORDER BY date(due_date) DESC",
+			[ruleId]
+		);
+	},
+
+	/**
+	 * Ensure all active auto_next rules have a pending bill generated.
+	 * Should be called on app startup after checkOverdueBills.
+	 * @param db Database instance
+	 */
+	async ensureAllRulesBillsGenerated(db: SQLiteDatabase): Promise<void> {
+		const rules = await this.getAllRules(db);
+		for (const rule of rules) {
+			// Only auto-generate for active, recurring rules with auto_next enabled
+			if (rule.is_active && rule.auto_next && rule.frequency !== "OneTime") {
+				await this.generateNextBill(db, rule.id);
 			}
 		}
 	},

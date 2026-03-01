@@ -29,11 +29,15 @@ import BillRuleListItem from "../components/BillRuleListItem";
 import BillForm from "../components/BillForm";
 import BillListItem from "../components/BillListItem";
 import AppDialog from "../components/AppDialog";
-import type { Bill, BillRule, BillStatus } from "../types";
+import type { Bill, BillRule, BillStatus, RootStackParamList } from "../types";
 import { useCreateBillRule } from "@/hooks/bill/useCreateBillRule";
+import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 const BillsScreen = () => {
 	const theme = useTheme();
+	const navigation =
+		useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 	const [activeTab, setActiveTab] = useState<number>(0);
 	const [billStatusFilter, setBillStatusFilter] = useState<
 		BillStatus | undefined
@@ -223,7 +227,6 @@ const BillsScreen = () => {
 		loadingRules ||
 		creatingRule ||
 		updatingRule ||
-		updatingRule ||
 		loadingBills ||
 		creatingBill ||
 		updatingBill ||
@@ -233,7 +236,6 @@ const BillsScreen = () => {
 	const anyError =
 		errorRules ||
 		createRuleError ||
-		updateRuleError ||
 		updateRuleError ||
 		errorBills ||
 		createBillError ||
@@ -325,6 +327,11 @@ const BillsScreen = () => {
 									onEdit={() => openEditRuleModal(item)}
 									onToggleActive={(isActive: boolean) =>
 										handleToggleRuleActive(item.id, isActive)
+									}
+									onPress={() =>
+										navigation.navigate("BillRuleDetail", {
+											billRuleId: item.id,
+										})
 									}
 								/>
 							)}

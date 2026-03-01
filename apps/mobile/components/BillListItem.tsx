@@ -39,7 +39,7 @@ const BillListItem: React.FC<BillListItemProps> = ({
 
 	return (
 		<SwipeableListItem
-			onEdit={onEdit}
+			onEdit={bill.status === "Pending" ? onEdit : undefined}
 			onComplete={bill.status !== "Paid" ? onMarkAsPaid : undefined}
 			style={styles.container}
 		>

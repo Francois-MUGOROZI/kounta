@@ -1,5 +1,5 @@
 import React from "react";
-import { View, StyleSheet } from "react-native";
+import { View, StyleSheet, TouchableOpacity } from "react-native";
 import { Text, useTheme, Avatar, Switch } from "react-native-paper";
 import SwipeableListItem from "./SwipeableListItem";
 import { BillRule } from "../types";
@@ -11,6 +11,7 @@ interface BillRuleListItemProps {
 	categoryName: string;
 	onEdit: () => void;
 	onToggleActive: (isActive: boolean) => void;
+	onPress?: () => void;
 }
 
 const BillRuleListItem: React.FC<BillRuleListItemProps> = ({
@@ -18,48 +19,57 @@ const BillRuleListItem: React.FC<BillRuleListItemProps> = ({
 	categoryName,
 	onEdit,
 	onToggleActive,
+	onPress,
 }) => {
 	const theme = useTheme();
 
 	return (
 		<SwipeableListItem onEdit={onEdit} style={styles.container}>
-			<View style={[styles.content, { backgroundColor: theme.colors.surface }]}>
-				<Avatar.Icon
-					size={36}
-					icon="receipt"
-					style={{
-						backgroundColor: theme.colors.elevation.level3,
-						marginRight: 16,
-					}}
-					color={
-						billRule.is_active ? theme.colors.primary : theme.colors.outline
-					}
-				/>
-				<View style={styles.info}>
-					<Text variant="titleMedium" style={{ fontWeight: "600" }}>
-						{billRule.name}
-					</Text>
-					<Text variant="bodySmall" style={{ color: theme.colors.outline }}>
-						{categoryName} • {billRule.frequency}
-					</Text>
-					<Text variant="bodySmall" style={{ color: theme.colors.outline }}>
-						Start Date: {format(billRule.start_date, "MMM dd, yyyy")}
-					</Text>
-				</View>
-				<View style={styles.rightSection}>
-					<Text
-						variant="titleMedium"
+			<TouchableOpacity
+				onPress={onPress}
+				activeOpacity={0.7}
+				disabled={!onPress}
+			>
+				<View
+					style={[styles.content, { backgroundColor: theme.colors.surface }]}
+				>
+					<Avatar.Icon
+						size={36}
+						icon="receipt"
 						style={{
-							fontWeight: "bold",
-							color: theme.colors.primary,
-							marginBottom: 4,
+							backgroundColor: theme.colors.elevation.level3,
+							marginRight: 16,
 						}}
-					>
-						{formatAmount(billRule.amount, billRule.currency)}
-					</Text>
-					<Switch value={billRule.is_active} onValueChange={onToggleActive} />
+						color={
+							billRule.is_active ? theme.colors.primary : theme.colors.outline
+						}
+					/>
+					<View style={styles.info}>
+						<Text variant="titleMedium" style={{ fontWeight: "600" }}>
+							{billRule.name}
+						</Text>
+						<Text variant="bodySmall" style={{ color: theme.colors.outline }}>
+							{categoryName} • {billRule.frequency}
+						</Text>
+						<Text variant="bodySmall" style={{ color: theme.colors.outline }}>
+							Start Date: {format(billRule.start_date, "MMM dd, yyyy")}
+						</Text>
+					</View>
+					<View style={styles.rightSection}>
+						<Text
+							variant="titleMedium"
+							style={{
+								fontWeight: "bold",
+								color: theme.colors.primary,
+								marginBottom: 4,
+							}}
+						>
+							{formatAmount(billRule.amount, billRule.currency)}
+						</Text>
+						<Switch value={billRule.is_active} onValueChange={onToggleActive} />
+					</View>
 				</View>
-			</View>
+			</TouchableOpacity>
 		</SwipeableListItem>
 	);
 };

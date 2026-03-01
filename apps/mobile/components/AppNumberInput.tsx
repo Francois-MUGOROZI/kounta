@@ -111,7 +111,7 @@ const AppNumberInput: React.FC<AppNumberInputProps> = ({
 
 const styles = StyleSheet.create({
 	container: {
-		marginBottom: 12,
+		marginBottom: 4,
 	},
 	input: {
 		backgroundColor: "transparent",

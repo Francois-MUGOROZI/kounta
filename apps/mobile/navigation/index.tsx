@@ -27,6 +27,7 @@ import TransactionDetailScreen from "../screens/TransactionDetailScreen";
 import AccountDetailScreen from "../screens/AccountDetailScreen";
 import AssetDetailScreen from "../screens/AssetDetailScreen";
 import LiabilityDetailScreen from "../screens/LiabilityDetailScreen";
+import BillRuleDetailScreen from "../screens/BillRuleDetailScreen";
 import EnvelopeDetailScreen from "../screens/EnvelopeDetailScreen";
 import { RootStackParamList } from "../types";
 
@@ -160,6 +161,11 @@ const AppNavigator: React.FC = () => {
 				name="Bills"
 				options={{ title: "Bills" }}
 				component={BillsScreen}
+			/>
+			<Stack.Screen
+				name="BillRuleDetail"
+				options={{ title: "Bill Rule Detail" }}
+				component={BillRuleDetailScreen}
 			/>
 			<Stack.Screen
 				name="TransactionDetail"
