@@ -34,10 +34,12 @@ export const LiabilityRepository = {
 				: total_amount;
 		const created_at: string = liability.created_at ?? new Date().toISOString();
 		const notes: string | null = liability.notes ?? null;
+		const entity_id: number | null =
+			typeof liability.entity_id === "number" ? liability.entity_id : null;
 
 		await db.runAsync(
-			`INSERT INTO liabilities (name, liability_type_id, currency, total_amount, current_balance, created_at, notes)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+			`INSERT INTO liabilities (name, liability_type_id, currency, total_amount, current_balance, created_at, notes, entity_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 			[
 				name,
 				liability_type_id,
@@ -46,6 +48,7 @@ export const LiabilityRepository = {
 				current_balance,
 				created_at,
 				notes,
+				entity_id,
 			]
 		);
 		// Notify the app that data has changed so UI can update

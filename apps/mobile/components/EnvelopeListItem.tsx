@@ -5,6 +5,7 @@ import SwipeableListItem from "./SwipeableListItem";
 import AddToEnvelopeDialog from "./AddToEnvelopeDialog";
 import { Envelope } from "../types";
 import { useAddToEnvelope } from "@/hooks/envelope/useAddToEnvelope";
+import { formatAmount } from "../utils/currency";
 
 interface EnvelopeListItemProps {
 	envelope: Envelope;
@@ -29,6 +30,13 @@ const EnvelopeListItem: React.FC<EnvelopeListItemProps> = ({
 		onEnvelopeUpdated?.();
 	};
 
+	const balanceColor =
+		envelope.current_balance < 0
+			? theme.colors.error
+			: envelope.current_balance === 0
+			? theme.colors.outline
+			: theme.colors.primary;
+
 	return (
 		<>
 			<SwipeableListItem
@@ -47,7 +55,11 @@ const EnvelopeListItem: React.FC<EnvelopeListItemProps> = ({
 								backgroundColor: theme.colors.elevation.level3,
 								marginRight: 16,
 							}}
-							color={theme.colors.primary}
+							color={
+								envelope.current_balance < 0
+									? theme.colors.error
+									: theme.colors.primary
+							}
 						/>
 						<View style={styles.titleContainer}>
 							<Text variant="titleMedium" style={{ fontWeight: "600" }}>
@@ -62,13 +74,13 @@ const EnvelopeListItem: React.FC<EnvelopeListItemProps> = ({
 								variant="titleMedium"
 								style={{
 									fontWeight: "bold",
-									color: theme.colors.primary,
+									color: balanceColor,
 								}}
 							>
-								{envelope.currency} {envelope.current_balance.toLocaleString()}
+								{formatAmount(envelope.current_balance, envelope.currency)}
 							</Text>
 							<Text variant="bodySmall" style={{ color: theme.colors.outline }}>
-								of {envelope.total_amount.toLocaleString()}
+								of {formatAmount(envelope.total_amount, envelope.currency)}
 							</Text>
 						</View>
 					</View>

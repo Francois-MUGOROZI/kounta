@@ -24,6 +24,10 @@ export const DashboardRepository = {
 		const liabilities = await db.getAllAsync(
 			`SELECT currency, SUM(current_balance) as liabilityValue FROM liabilities WHERE current_balance > 0 GROUP BY currency`
 		);
+		// Receivables (Active only)
+		const receivables = await db.getAllAsync(
+			`SELECT currency, SUM(current_balance) as receivableValue FROM receivables WHERE status = 'Active' GROUP BY currency`
+		);
 		// Transactions (income/expense)
 		const income = await db.getAllAsync(
 			`SELECT a.currency, SUM(t.amount) as totalIncome FROM transactions t JOIN accounts a ON t.to_account_id = a.id WHERE t.transaction_type_id = (SELECT id FROM transaction_types WHERE name = 'Income') GROUP BY a.currency`
@@ -43,6 +47,7 @@ export const DashboardRepository = {
 				...accounts.map((a: any) => a.currency),
 				...assets.map((a: any) => a.currency),
 				...liabilities.map((l: any) => l.currency),
+				...receivables.map((r: any) => r.currency),
 				...income.map((i: any) => i.currency),
 				...expenses.map((e: any) => e.currency),
 				...unpaidBills.map((b: any) => b.currency),
@@ -69,6 +74,11 @@ export const DashboardRepository = {
 				liab && (liab as any)["liabilityValue"]
 					? Number((liab as any)["liabilityValue"])
 					: 0;
+			const recv = receivables.find((r: any) => r.currency === currency);
+			const receivableValue =
+				recv && (recv as any)["receivableValue"]
+					? Number((recv as any)["receivableValue"])
+					: 0;
 			const totalIncome =
 				inc && (inc as any)["totalIncome"]
 					? Number((inc as any)["totalIncome"])
@@ -82,7 +92,7 @@ export const DashboardRepository = {
 					? Number((unpaid as any)["totalUnpaidBills"])
 					: 0;
 
-			const netWorth = accountBalance + assetValue - liabilityValue;
+			const netWorth = accountBalance + assetValue + receivableValue - liabilityValue;
 
 			const returnValue = {
 				currency,
@@ -92,6 +102,7 @@ export const DashboardRepository = {
 				accountBalance,
 				assetValue,
 				liabilityValue,
+				receivableValue,
 				netWorth,
 			};
 			return returnValue;
@@ -127,16 +138,8 @@ export const DashboardRepository = {
 		currency: string
 	): Promise<CategoryTotal[]> {
 		const now = new Date();
-		const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-		const end = new Date(
-			now.getFullYear(),
-			now.getMonth() + 1,
-			0,
-			23,
-			59,
-			59,
-			999
-		).toISOString();
+		const start = format(new Date(now.getFullYear(), now.getMonth(), 1), "yyyy-MM-dd");
+		const end = format(new Date(now.getFullYear(), now.getMonth() + 1, 0), "yyyy-MM-dd");
 		return await db.getAllAsync(
 			`SELECT c.name as category, SUM(t.amount) as total, a.currency FROM transactions t JOIN categories c ON t.category_id = c.id JOIN accounts a ON t.from_account_id = a.id WHERE t.transaction_type_id = (SELECT id FROM transaction_types WHERE name = 'Expense') AND a.currency = ? AND t.date >= ? AND t.date <= ? GROUP BY c.name, a.currency`,
 			[currency, start, end]
@@ -147,7 +150,7 @@ export const DashboardRepository = {
 		db: SQLiteDatabase
 	): Promise<CategoryTotal[]> {
 		return await db.getAllAsync(
-			`SELECT c.name as category, SUM(t.amount) as total, a.currency FROM transactions t JOIN categories c ON t.category_id = c.id JOIN accounts a ON t.from_account_id = a.id WHERE t.transaction_type_id = (SELECT id FROM transaction_types WHERE name = 'Expense') GROUP BY c.name, a.currency ORDER BY total DESC`
+			`SELECT c.name as category, SUM(t.amount) as total, COALESCE(a.currency, ast.currency) as currency FROM transactions t JOIN categories c ON t.category_id = c.id LEFT JOIN accounts a ON t.from_account_id = a.id LEFT JOIN assets ast ON t.asset_id = ast.id WHERE t.transaction_type_id = (SELECT id FROM transaction_types WHERE name = 'Expense') GROUP BY c.name, COALESCE(a.currency, ast.currency) ORDER BY total DESC`
 		);
 	},
 	// Income by category (this month, per currency)
@@ -156,16 +159,8 @@ export const DashboardRepository = {
 		currency: string
 	): Promise<CategoryTotal[]> {
 		const now = new Date();
-		const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-		const end = new Date(
-			now.getFullYear(),
-			now.getMonth() + 1,
-			0,
-			23,
-			59,
-			59,
-			999
-		).toISOString();
+		const start = format(new Date(now.getFullYear(), now.getMonth(), 1), "yyyy-MM-dd");
+		const end = format(new Date(now.getFullYear(), now.getMonth() + 1, 0), "yyyy-MM-dd");
 		return await db.getAllAsync(
 			`SELECT c.name as category, SUM(t.amount) as total, a.currency FROM transactions t JOIN categories c ON t.category_id = c.id JOIN accounts a ON t.to_account_id = a.id WHERE t.transaction_type_id = (SELECT id FROM transaction_types WHERE name = 'Income') AND a.currency = ? AND t.date >= ? AND t.date <= ? GROUP BY c.name, a.currency`,
 			[currency, start, end]
@@ -175,6 +170,14 @@ export const DashboardRepository = {
 	async getEnvelopeByCurrency(db: SQLiteDatabase): Promise<EnvelopeTotal[]> {
 		return await db.getAllAsync(
 			`SELECT currency,name, SUM(total_amount) as total, SUM(current_balance) as balance FROM envelopes GROUP BY currency,name`
+		);
+	},
+
+	async getReceivablesByTypeAndCurrency(
+		db: SQLiteDatabase
+	): Promise<GroupedByType[]> {
+		return await db.getAllAsync(
+			`SELECT r.type as type, r.currency, COUNT(r.id) as count, SUM(r.current_balance) as total FROM receivables r WHERE r.status = 'Active' GROUP BY r.currency, r.type`
 		);
 	},
 };

@@ -27,6 +27,7 @@ import type {
 import { formatAmount } from "../utils/currency";
 import { useGetEnvelopes } from "@/hooks/envelope/useGetEnvelope";
 import { useGetBills } from "../hooks/bill/useGetBills";
+import { useGetReceivables } from "../hooks/receivable/useGetReceivables";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
@@ -92,6 +93,8 @@ const TransactionsScreen = () => {
 		error: errorBills,
 	} = useGetBills(undefined, true);
 
+	const { receivables } = useGetReceivables();
+
 	const [modalVisible, setModalVisible] = useState(false);
 	const [snackbar, setSnackbar] = useState({ visible: false, message: "" });
 
@@ -137,6 +140,16 @@ const TransactionsScreen = () => {
 		return assets.find((a) => a.id === assetId)?.currency || "";
 	};
 
+	const getReceivableName = (receivableId: number | null | undefined) => {
+		if (!receivableId) return "";
+		return receivables.find((r) => r.id === receivableId)?.title || "";
+	};
+
+	const getReceivableCurrency = (receivableId: number | null | undefined) => {
+		if (!receivableId) return "";
+		return receivables.find((r) => r.id === receivableId)?.currency || "";
+	};
+
 	const getCategoryName = (categoryId: number) => {
 		return categories.find((c) => c.id === categoryId)?.name || "";
 	};
@@ -153,11 +166,15 @@ const TransactionsScreen = () => {
 				? getAccountName(item.from_account_id)
 				: item.asset_id
 				? getAssetName(item.asset_id)
+				: item.receivable_id
+				? getReceivableName(item.receivable_id)
 				: "";
 			const to = item.to_account_id
 				? getAccountName(item.to_account_id)
 				: item.asset_id
 				? getAssetName(item.asset_id)
+				: item.receivable_id
+				? getReceivableName(item.receivable_id)
 				: "";
 			// Reinvest: both sides are the asset
 			if (from === to && from !== "") return from;
@@ -172,11 +189,15 @@ const TransactionsScreen = () => {
 			item.from_account_id || item.to_account_id
 		);
 		if (acctCurrency) return acctCurrency;
-		return getAssetCurrency(item.asset_id) || "RWF";
+		const assetCurr = getAssetCurrency(item.asset_id);
+		if (assetCurr) return assetCurr;
+		const recvCurr = getReceivableCurrency(item.receivable_id);
+		if (recvCurr) return recvCurr;
+		return "RWF";
 	};
 
 	const getAssociationCount = (t: Transaction) =>
-		[t.asset_id, t.liability_id, t.envelope_id, t.bill_id].filter(Boolean)
+		[t.asset_id, t.liability_id, t.envelope_id, t.bill_id, t.receivable_id].filter(Boolean)
 			.length;
 
 	// Group transactions by currency and calculate totals
@@ -223,7 +244,7 @@ const TransactionsScreen = () => {
 		});
 
 		return groups;
-	}, [transactions, accounts, transactionTypes]);
+	}, [transactions, accounts, assets, receivables, transactionTypes]);
 
 	const renderCurrencySummary = (
 		currency: string,
@@ -400,6 +421,7 @@ const TransactionsScreen = () => {
 				liabilities={liabilities}
 				envelopes={envelopes}
 				bills={bills as any}
+				receivables={receivables.map((r) => ({ id: r.id, name: r.title, status: r.status }))}
 			/>
 			<Snackbar
 				visible={snackbar.visible}

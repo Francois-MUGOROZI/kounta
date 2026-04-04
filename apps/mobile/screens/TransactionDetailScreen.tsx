@@ -19,6 +19,7 @@ import { useGetAssets } from "../hooks/asset/useGetAssets";
 import { useGetLiabilities } from "../hooks/liability/useGetLiabilities";
 import { useGetEnvelopes } from "../hooks/envelope/useGetEnvelope";
 import { useGetBills } from "../hooks/bill/useGetBills";
+import { useGetReceivables } from "../hooks/receivable/useGetReceivables";
 import { formatTransactionAmount } from "../utils/currency";
 import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
 import AppCard from "../components/AppCard";
@@ -43,6 +44,7 @@ const TransactionDetailScreen = () => {
 	const { liabilities } = useGetLiabilities();
 	const { envelopes } = useGetEnvelopes();
 	const { bills } = useGetBills();
+	const { receivables } = useGetReceivables();
 
 	const transactionTypeName = useMemo(() => {
 		if (!transaction) return "";
@@ -105,11 +107,15 @@ const TransactionDetailScreen = () => {
 				  "—"
 				: transaction.asset_id
 				? assets.find((a) => a.id === transaction.asset_id)?.name || "—"
+				: transaction.receivable_id
+				? receivables.find((r) => r.id === transaction.receivable_id)?.title || "—"
 				: "—";
 			const to = transaction.to_account_id
 				? accounts.find((a) => a.id === transaction.to_account_id)?.name || "—"
 				: transaction.asset_id
 				? assets.find((a) => a.id === transaction.asset_id)?.name || "—"
+				: transaction.receivable_id
+				? receivables.find((r) => r.id === transaction.receivable_id)?.title || "—"
 				: "—";
 			// Reinvest: both sides are the same asset
 			if (from === to && from !== "—") return from;
@@ -118,7 +124,7 @@ const TransactionDetailScreen = () => {
 		const accountId = transaction.from_account_id || transaction.to_account_id;
 		if (!accountId) return "—";
 		return accounts.find((a) => a.id === accountId)?.name || "—";
-	}, [transaction, accounts, assets, isTransfer]);
+	}, [transaction, accounts, assets, receivables, isTransfer]);
 
 	const formattedDate = useMemo(() => {
 		if (!transaction) return "";
@@ -197,8 +203,24 @@ const TransactionDetailScreen = () => {
 			});
 		}
 
+		if (transaction.receivable_id) {
+			const receivable = receivables.find(
+				(r) => r.id === transaction.receivable_id
+			);
+			items.push({
+				icon: "hand-coin",
+				label: "Receivable",
+				value: receivable?.title || `#${transaction.receivable_id}`,
+				navigable: true,
+				onPress: () =>
+					navigation.navigate("ReceivableDetail", {
+						receivableId: transaction.receivable_id!,
+					}),
+			});
+		}
+
 		return items;
-	}, [transaction, assets, liabilities, envelopes, bills, navigation]);
+	}, [transaction, assets, liabilities, envelopes, bills, receivables, navigation]);
 
 	if (loading) {
 		return (

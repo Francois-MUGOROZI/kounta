@@ -27,8 +27,12 @@ import TransactionDetailScreen from "../screens/TransactionDetailScreen";
 import AccountDetailScreen from "../screens/AccountDetailScreen";
 import AssetDetailScreen from "../screens/AssetDetailScreen";
 import LiabilityDetailScreen from "../screens/LiabilityDetailScreen";
-import BillRuleDetailScreen from "../screens/BillRuleDetailScreen";
+
 import EnvelopeDetailScreen from "../screens/EnvelopeDetailScreen";
+import EntitiesScreen from "../screens/EntitiesScreen";
+import EntityDetailScreen from "../screens/EntityDetailScreen";
+import ReceivablesScreen from "../screens/ReceivablesScreen";
+import ReceivableDetailScreen from "../screens/ReceivableDetailScreen";
 import { RootStackParamList } from "../types";
 
 const Tab = createBottomTabNavigator();
@@ -162,11 +166,7 @@ const AppNavigator: React.FC = () => {
 				options={{ title: "Bills" }}
 				component={BillsScreen}
 			/>
-			<Stack.Screen
-				name="BillRuleDetail"
-				options={{ title: "Bill Rule Detail" }}
-				component={BillRuleDetailScreen}
-			/>
+
 			<Stack.Screen
 				name="TransactionDetail"
 				options={{ title: "Transaction Detail" }}
@@ -191,6 +191,26 @@ const AppNavigator: React.FC = () => {
 				name="EnvelopeDetail"
 				options={{ title: "Envelope Detail" }}
 				component={EnvelopeDetailScreen}
+			/>
+			<Stack.Screen
+				name="Entities"
+				options={{ title: "Entities" }}
+				component={EntitiesScreen}
+			/>
+			<Stack.Screen
+				name="EntityDetail"
+				options={{ title: "Entity Detail" }}
+				component={EntityDetailScreen}
+			/>
+			<Stack.Screen
+				name="Receivables"
+				options={{ title: "Receivables" }}
+				component={ReceivablesScreen}
+			/>
+			<Stack.Screen
+				name="ReceivableDetail"
+				options={{ title: "Receivable Detail" }}
+				component={ReceivableDetailScreen}
 			/>
 		</Stack.Navigator>
 	);

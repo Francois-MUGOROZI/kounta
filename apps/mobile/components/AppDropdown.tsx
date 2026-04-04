@@ -16,6 +16,7 @@ interface AppDropdownProps {
 	error?: string | boolean;
 	style?: any;
 	placeholder?: string;
+	disabled?: boolean;
 }
 
 const AppDropdown: React.FC<AppDropdownProps> = ({
@@ -26,6 +27,7 @@ const AppDropdown: React.FC<AppDropdownProps> = ({
 	error,
 	style,
 	placeholder,
+	disabled,
 }) => {
 	const theme = useTheme();
 
@@ -53,9 +55,10 @@ const AppDropdown: React.FC<AppDropdownProps> = ({
 				right={<TextInput.Icon icon="chevron-down" />}
 				contentStyle={styles.contentStyle}
 				error={!!error}
+				disabled={disabled}
 			/>
 		),
-		[selectedLabel, label, theme.colors.surfaceVariant, style, error]
+		[selectedLabel, label, theme.colors.surfaceVariant, style, error, disabled]
 	);
 
 	// Memoize the error state

@@ -1,6 +1,7 @@
 import React from "react";
 import { View, StyleSheet } from "react-native";
 import { Text, useTheme, List, Card } from "react-native-paper";
+import { formatAmount } from "../utils/currency";
 
 interface DashboardGroupListItem {
 	label: string;
@@ -44,7 +45,7 @@ const DashboardGroupList: React.FC<DashboardGroupListProps> = ({
 								right={() => (
 									<Text
 										style={{
-											color: theme.colors.primary,
+											color: item.value < 0 ? theme.colors.error : theme.colors.primary,
 											fontWeight: "bold",
 											fontSize: 13,
 										}}
@@ -53,8 +54,7 @@ const DashboardGroupList: React.FC<DashboardGroupListProps> = ({
 										item.value === null ||
 										item.value === undefined
 											? "–"
-											: item.value.toLocaleString()}{" "}
-										{item.currency}
+											: formatAmount(item.value, item.currency)}
 									</Text>
 								)}
 								style={{ paddingVertical: 2 }}

@@ -26,10 +26,8 @@ export const useCheckOverdueBills = () => {
 		setLoading(true);
 		setError(null);
 		try {
-			// 1. Mark past-due bills as overdue
+			// Mark past-due bills as overdue
 			await BillsRepository.checkOverdueBills(db);
-			// 2. Ensure all active auto_next rules have a pending bill
-			await BillsRepository.ensureAllRulesBillsGenerated(db);
 		} catch (e: any) {
 			setError(e.message || "Failed to check overdue bills");
 		} finally {

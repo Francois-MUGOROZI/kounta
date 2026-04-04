@@ -17,6 +17,7 @@ interface TransactionFormDialogProps {
 	accounts: { id: number; name: string }[];
 	categories: Category[];
 	assets: { id: number; name: string }[];
+	receivables: { id: number; name: string; status: string }[];
 	liabilities: { id: number; name: string }[];
 	envelopes: { id: number; name: string }[];
 	bills: { id: number; name: string; amount: number }[];
@@ -30,6 +31,7 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 	accounts,
 	categories,
 	assets,
+	receivables,
 	liabilities,
 	envelopes,
 	bills,
@@ -47,6 +49,7 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 	const [fromAccountId, setFromAccountId] = useState<string>("");
 	const [toAccountId, setToAccountId] = useState<string>("");
 	const [assetId, setAssetId] = useState<string>("");
+	const [receivableId, setReceivableId] = useState<string>("");
 	const [description, setDescription] = useState("");
 	const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
 	const [liabilityId, setLiabilityId] = useState<string>("");
@@ -69,6 +72,7 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 			setFromAccountId("");
 			setToAccountId("");
 			setAssetId("");
+			setReceivableId("");
 			setDescription("");
 			setDate(new Date().toISOString().split("T")[0]);
 			setLiabilityId("");
@@ -95,6 +99,7 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 		setFromAccountId("");
 		setToAccountId("");
 		setAssetId("");
+		setReceivableId("");
 		setLiabilityId("");
 		setEnvelopeId("");
 		setBillId("");
@@ -107,6 +112,7 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 		setFromAccountId("");
 		setToAccountId("");
 		setAssetId("");
+		setReceivableId("");
 	}, []);
 
 	const handleSave = () => {
@@ -161,6 +167,24 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 					setError("Asset is required");
 					return;
 				}
+			} else if (transferDirection === "account-to-receivable") {
+				if (!fromAccountId) {
+					setError("From account is required");
+					return;
+				}
+				if (!receivableId) {
+					setError("Receivable is required");
+					return;
+				}
+			} else if (transferDirection === "receivable-to-account") {
+				if (!receivableId) {
+					setError("Receivable is required");
+					return;
+				}
+				if (!toAccountId) {
+					setError("To account is required");
+					return;
+				}
 			}
 		} else {
 			// Income / Expense
@@ -178,6 +202,7 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 		let finalFromAccountId: number | undefined;
 		let finalToAccountId: number | undefined;
 		let finalAssetId: number | undefined;
+		let finalReceivableId: number | undefined;
 
 		if (selectedTransactionType === "Transfer") {
 			if (transferDirection === "account-to-account") {
@@ -192,6 +217,12 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 			} else if (transferDirection === "reinvest-into-asset") {
 				finalAssetId = Number(assetId);
 				// no accounts — money stays inside the asset
+			} else if (transferDirection === "account-to-receivable") {
+				finalFromAccountId = Number(fromAccountId);
+				finalReceivableId = Number(receivableId);
+			} else if (transferDirection === "receivable-to-account") {
+				finalToAccountId = Number(toAccountId);
+				finalReceivableId = Number(receivableId);
 			}
 		} else if (selectedTransactionType === "Income") {
 			finalToAccountId =
@@ -215,6 +246,7 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 			category_id: categoryId ? Number(categoryId) : null,
 			date,
 			asset_id: finalAssetId,
+			receivable_id: finalReceivableId,
 			liability_id:
 				liabilityId && liabilityId !== "" ? Number(liabilityId) : undefined,
 			envelope_id:
@@ -299,6 +331,9 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 							onToAccountChange={setToAccountId}
 							assetId={assetId}
 							onAssetChange={setAssetId}
+							receivableId={receivableId}
+							onReceivableChange={setReceivableId}
+							receivables={receivables}
 							accounts={accounts}
 							assets={assets}
 							error={error}

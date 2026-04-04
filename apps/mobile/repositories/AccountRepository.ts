@@ -70,4 +70,12 @@ export const AccountRepository = {
 		// Notify the app that data has changed so UI can update
 		emitEvent(EVENTS.DATA_CHANGED);
 	},
+
+	async getTotalsByCurrency(
+		db: SQLiteDatabase
+	): Promise<{ currency: string; total: number }[]> {
+		return await db.getAllAsync<{ currency: string; total: number }>(
+			"SELECT currency, SUM(current_balance) as total FROM accounts GROUP BY currency"
+		);
+	},
 };

@@ -7,6 +7,7 @@ export interface DashboardTotals {
 	accountBalance: number;
 	assetValue: number;
 	liabilityValue: number;
+	receivableValue: number;
 	netWorth: number;
 }
 
@@ -80,6 +81,56 @@ export interface LiabilityType {
 }
 
 /**
+ * Receivable type enum — categorizes what kind of receivable this is.
+ */
+export type ReceivableType =
+	| "Salary"
+	| "Personal-Loan"
+	| "Refund"
+	| "Deposit"
+	| "IOU"
+	| "Interest";
+
+/**
+ * Receivable status enum
+ */
+export type ReceivableStatus = "Pending" | "Active" | "Settled" | "Written-Off";
+
+/**
+ * Represents a counterparty — an individual or organization.
+ * Can be linked to receivables and liabilities.
+ */
+export interface Entity {
+	id: number;
+	name: string;
+	phone_number?: string | null;
+	is_individual: boolean;
+	id_number?: string | null;
+	metadata?: string | null;
+	created_at: string;
+}
+
+/**
+ * Represents money owed to the user.
+ * Receivables are "Asset Accounts" that track obligations from entities.
+ */
+export interface Receivable {
+	id: number;
+	entity_id: number;
+	title: string;
+	type: ReceivableType;
+	currency: string;
+	principal: number;
+	interest_rate: number;
+	current_balance: number;
+	status: ReceivableStatus;
+	requires_outflow: boolean;
+	due_date?: string | null;
+	notes?: string | null;
+	created_at: string;
+}
+
+/**
  * Represents a type of transaction (e.g., "Income", "Expense").
  * Corresponds to the 'transaction_types' table/model.
  */
@@ -119,6 +170,7 @@ export interface Liability {
 	current_balance: number; // The remaining amount to be paid
 	created_at: string;
 	notes?: string | null;
+	entity_id?: number | null;
 }
 
 /**
@@ -132,13 +184,14 @@ export interface Transaction {
 	amount: number; // Always a positive value
 	transaction_type_id: number; // Foreign key to TransactionType
 	date: string; // Date as ISO string
-	category_id: number; // Foreign key to Category
+	category_id: number | null; // Foreign key to Category (null for Transfer transactions)
 	asset_id?: number | null; // Foreign key to Asset (optional)
 	liability_id?: number | null; // Foreign key to Liability (optional)
 	from_account_id?: number | null;
 	to_account_id?: number | null;
 	envelope_id?: number | null;
 	bill_id?: number | null; // Foreign key to Bill (optional)
+	receivable_id?: number | null;
 }
 
 /** Envelope
@@ -156,36 +209,9 @@ export interface Envelope {
 }
 
 /**
- * Bill Frequency enum for recurring bills
- */
-export type BillFrequency =
-	| "Monthly"
-	| "Yearly"
-	| "OneTime"
-	| "Weekly"
-	| "Quarterly";
-
-/**
  * Bill Status enum
  */
 export type BillStatus = "Pending" | "Paid" | "Overdue";
-
-/**
- * Represents a bill rule (master template) for recurring or one-time bills.
- * Corresponds to the 'bill_rules' table/model.
- */
-export interface BillRule {
-	id: number;
-	name: string;
-	amount: number;
-	frequency: BillFrequency;
-	category_id: number; // Foreign key to Category (MANDATORY)
-	is_active: boolean;
-	start_date: string; // ISO date string
-	auto_next: boolean; // Auto-generate next bill when current is paid/overdue
-	currency: string; // Currency code (e.g., 'RWF', 'USD')
-	created_at: string; // ISO date string
-}
 
 /**
  * Represents a specific bill instance (obligation event).
@@ -193,9 +219,8 @@ export interface BillRule {
  */
 export interface Bill {
 	id: number;
-	name: string; // Populated from bill_rule.name via JOIN or user-provided for one-time bills
-	currency: string; // Populated from bill_rule.currency via JOIN or user-provided for one-time bills
-	bill_rule_id: number | null; // Foreign key to BillRule (null for one-time bills)
+	name: string;
+	currency: string;
 	due_date: string; // ISO date string
 	amount: number;
 	paid_amount: number;
@@ -255,6 +280,7 @@ export type TransactionFilter = {
 	liabilityId?: number;
 	envelopeId?: number;
 	billId?: number;
+	receivableId?: number;
 };
 
 // React Navigation root stack param list
@@ -266,10 +292,13 @@ export type RootStackParamList = {
 	Types: undefined;
 	BackupRestore: undefined;
 	Bills: undefined;
-	BillRuleDetail: { billRuleId: number };
 	TransactionDetail: { transactionId: number };
 	AccountDetail: { accountId: number };
 	AssetDetail: { assetId: number };
 	LiabilityDetail: { liabilityId: number };
 	EnvelopeDetail: { envelopeId: number };
+	Entities: undefined;
+	EntityDetail: { entityId: number };
+	Receivables: undefined;
+	ReceivableDetail: { receivableId: number };
 };

@@ -1,6 +1,6 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { View, StyleSheet, ScrollView } from "react-native";
-import { Text, useTheme, Divider, ActivityIndicator } from "react-native-paper";
+import { Text, useTheme, Divider, ActivityIndicator, SegmentedButtons } from "react-native-paper";
 import AppCard from "../components/AppCard";
 import DashboardGroupList from "../components/DashboardGroupList";
 import { useDashboardStats } from "../hooks/dashboard/useDashboardStats";
@@ -14,6 +14,7 @@ export type StatKey =
 	| "totalExpenses"
 	| "accountBalance"
 	| "assetValue"
+	| "receivableValue"
 	| "liabilityValue"
 	| "totalUnpaidBills";
 
@@ -33,19 +34,20 @@ const STAT_CONFIG: {
 		danger: true,
 	},
 	{ key: "assetValue", label: "Asset Value", icon: "diamond-stone" },
+	{ key: "receivableValue", label: "Receivables", icon: "hand-coin" },
 	{
 		key: "liabilityValue",
 		label: "Liabilities",
 		icon: "account-cash",
 		danger: true,
 	},
-	{ key: "accountBalance", label: "Account Balance", icon: "bank" },
 	{
 		key: "totalUnpaidBills",
 		label: "Bills Due",
 		icon: "receipt",
 		warning: true,
 	},
+	{ key: "accountBalance", label: "Account Balance", icon: "bank" },
 ];
 
 const DashboardScreen: React.FC = () => {
@@ -55,18 +57,21 @@ const DashboardScreen: React.FC = () => {
 		accountsByType,
 		assetsByType,
 		liabilitiesByType,
+		receivablesByType,
 		expensesByCategory,
 		envelopesByCurrency,
 		loading: groupsLoading,
 		error: groupsError,
 	} = useDashboardGroups(refresh);
-	const currencies = Object.keys(stats);
+	const currencies = useMemo(() => Object.keys(stats), [stats]);
 	const [currency, setCurrency] = React.useState<string | null>(null);
 
 	React.useEffect(() => {
-		if (currencies.length > 0) {
-			setCurrency(currencies[0]);
-		}
+		setCurrency((prev) => {
+			// Keep the selected currency if it's still valid; otherwise default to first
+			if (prev && currencies.includes(prev)) return prev;
+			return currencies.length > 0 ? currencies[0] : null;
+		});
 	}, [currencies]);
 
 	const renderHeroCard = (cur: string) => {
@@ -116,6 +121,15 @@ const DashboardScreen: React.FC = () => {
 				<Text style={{ textAlign: "center", marginTop: 32 }}>
 					No data available.
 				</Text>
+			)}
+
+			{currencies.length > 1 && currency && (
+				<SegmentedButtons
+					value={currency}
+					onValueChange={setCurrency}
+					buttons={currencies.map((c) => ({ value: c, label: c }))}
+					style={styles.currencyTabs}
+				/>
 			)}
 
 			{currency && (
@@ -180,7 +194,12 @@ const DashboardScreen: React.FC = () => {
 									icon="account-cash"
 								/>
 								<DashboardGroupList
-									title="Envelopes by Currency"
+									title="Receivables by Type"
+									items={receivablesByType[currency] || []}
+									icon="hand-coin"
+								/>
+								<DashboardGroupList
+									title="Envelopes"
 									items={envelopesByCurrency[currency] || []}
 									icon="briefcase"
 								/>
@@ -212,6 +231,9 @@ const styles = StyleSheet.create({
 	},
 	currencySection: {
 		marginBottom: 32,
+	},
+	currencyTabs: {
+		marginBottom: 16,
 	},
 	heroCard: {
 		marginBottom: 24,

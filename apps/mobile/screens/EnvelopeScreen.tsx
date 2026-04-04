@@ -12,11 +12,13 @@ import AppCard from "../components/AppCard";
 import { useGetEnvelopes } from "../hooks/envelope/useGetEnvelope";
 import { useCreateEnvelope } from "../hooks/envelope/useCreateEnvelope";
 import { useUpdateEnvelope } from "../hooks/envelope/useUpdateEnvelope";
+import { useAccountTotalsByCurrency } from "../hooks/account/useAccountTotalsByCurrency";
 import { Envelope, RootStackParamList } from "../types";
 import EnvelopeFormDialog from "@/components/EnvelopeFormDialog";
 import EnvelopeListItem from "@/components/EnvelopeListItem";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { formatAmount } from "../utils/currency";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -34,6 +36,7 @@ const EnvelopeScreen = () => {
 		loading: updating,
 		error: updateError,
 	} = useUpdateEnvelope();
+	const { totals: accountTotals } = useAccountTotalsByCurrency();
 
 	const [modalVisible, setModalVisible] = useState(false);
 	const [editingEnvelope, setEditingEnvelope] = useState<Envelope | null>(null);
@@ -76,26 +79,31 @@ const EnvelopeScreen = () => {
 		}
 	};
 
-	const flatListData = useMemo(() => {
-		const data: Array<{ type: "header" | "item"; content: Envelope }> = [];
-		envelopes.forEach((env) => {
-			data.push({ type: "item", content: env });
-		});
-		return data;
-	}, [envelopes]);
-
-	// Calculate total balances by currency
-	const totalByCurrency = useMemo(() => {
+	// Calculate envelope summary by currency
+	const summaryByCurrency = useMemo(() => {
 		const map: {
 			[currency: string]: {
-				total: number;
-				balance: number;
+				totalBudgeted: number; // sum of all total_amount (overall allocation)
+				netBalance: number; // sum of all current_balance
+				allocated: number; // sum of positive current_balance
+				overused: number; // sum of abs(negative current_balance)
 			};
 		} = {};
 		envelopes.forEach((env) => {
-			if (!map[env.currency]) map[env.currency] = { total: 0, balance: 0 };
-			map[env.currency].total += env.total_amount || 0;
-			map[env.currency].balance += env.current_balance || 0;
+			if (!map[env.currency])
+				map[env.currency] = {
+					totalBudgeted: 0,
+					netBalance: 0,
+					allocated: 0,
+					overused: 0,
+				};
+			map[env.currency].totalBudgeted += env.total_amount || 0;
+			map[env.currency].netBalance += env.current_balance || 0;
+			if (env.current_balance >= 0) {
+				map[env.currency].allocated += env.current_balance;
+			} else {
+				map[env.currency].overused += Math.abs(env.current_balance);
+			}
 		});
 		return map;
 	}, [envelopes]);
@@ -107,25 +115,157 @@ const EnvelopeScreen = () => {
 		<View
 			style={[styles.container, { backgroundColor: theme.colors.background }]}
 		>
-			<AppCard
-				title="Total Balance"
-				subtitle="Combined across all envelopes"
-				style={styles.totalBalanceContainer}
-			>
-				<Text variant="headlineSmall" style={styles.totalBalanceValue}>
-					{Object.entries(totalByCurrency).map(([cur, val], idx) => (
-						<Text
-							variant="titleMedium"
-							key={cur}
-							style={{ fontWeight: "bold" }}
-						>
-							{cur}: {val.total.toLocaleString()} |{" "}
-							{val.balance.toLocaleString()}
-							{idx < Object.entries(totalByCurrency).length - 1 ? " | " : ""}
-						</Text>
-					))}
-				</Text>
+			{/* Envelope Summary Card */}
+			<AppCard title="Envelope Summary" style={styles.summaryCard}>
+				{Object.entries(summaryByCurrency).map(([cur, val]) => {
+					const accountBalance = accountTotals[cur] || 0;
+					const unallocated = accountBalance - val.netBalance;
+					const overuseRate =
+						val.totalBudgeted > 0
+							? ((val.overused / val.totalBudgeted) * 100).toFixed(1)
+							: "0";
+
+					return (
+						<View key={cur} style={styles.currencySummary}>
+							{Object.keys(summaryByCurrency).length > 1 && (
+								<Text
+									variant="labelLarge"
+									style={{
+										fontWeight: "bold",
+										marginBottom: 4,
+										color: theme.colors.onSurface,
+									}}
+								>
+									{cur}
+								</Text>
+							)}
+							<View style={styles.summaryRow}>
+								<Text
+									variant="bodyMedium"
+									style={{ color: theme.colors.onSurfaceVariant }}
+								>
+									Overall Allocation
+								</Text>
+								<Text
+									variant="bodyMedium"
+									style={{ fontWeight: "bold", color: theme.colors.onSurface }}
+								>
+									{formatAmount(val.totalBudgeted, cur)}
+								</Text>
+							</View>
+							<View style={styles.summaryRow}>
+								<Text
+									variant="bodyMedium"
+									style={{ color: theme.colors.onSurfaceVariant }}
+								>
+									Current Balance (+)
+								</Text>
+								<Text
+									variant="bodyMedium"
+									style={{
+										fontWeight: "600",
+										color:
+											val.netBalance < 0
+												? theme.colors.error
+												: theme.colors.primary,
+									}}
+								>
+									{formatAmount(val.netBalance, cur)}
+								</Text>
+							</View>
+							<Divider style={{ marginVertical: 6 }} />
+							<View style={styles.summaryRow}>
+								<Text
+									variant="bodyMedium"
+									style={{ color: theme.colors.onSurfaceVariant }}
+								>
+									Allocated
+								</Text>
+								<Text
+									variant="bodyMedium"
+									style={{
+										fontWeight: "600",
+										color: theme.colors.primary,
+									}}
+								>
+									{formatAmount(val.allocated, cur)}
+								</Text>
+							</View>
+							{val.overused > 0 && (
+								<View style={styles.summaryRow}>
+									<Text
+										variant="bodyMedium"
+										style={{ color: theme.colors.onSurfaceVariant }}
+									>
+										Overused
+									</Text>
+									<Text
+										variant="bodyMedium"
+										style={{
+											fontWeight: "600",
+											color: theme.colors.error,
+										}}
+									>
+										{formatAmount(val.overused, cur)}
+									</Text>
+								</View>
+							)}
+							<Divider style={{ marginVertical: 6 }} />
+							<View style={styles.summaryRow}>
+								<Text
+									variant="bodyMedium"
+									style={{
+										color: theme.colors.onSurfaceVariant,
+										fontWeight: "600",
+									}}
+								>
+									Unallocated
+								</Text>
+								<Text
+									variant="bodyMedium"
+									style={{
+										fontWeight: "bold",
+										color:
+											unallocated < 0
+												? theme.colors.error
+												: theme.colors.primary,
+									}}
+								>
+									{formatAmount(unallocated, cur)}
+								</Text>
+							</View>
+							{val.overused > 0 && (
+								<View style={styles.summaryRow}>
+									<Text
+										variant="bodySmall"
+										style={{ color: theme.colors.onSurfaceVariant }}
+									>
+										Overuse Rate
+									</Text>
+									<Text
+										variant="bodySmall"
+										style={{
+											fontWeight: "600",
+											color: theme.colors.error,
+										}}
+									>
+										{overuseRate}%
+									</Text>
+								</View>
+							)}
+						</View>
+					);
+				})}
+				{Object.keys(summaryByCurrency).length === 0 && (
+					<Text
+						variant="bodyMedium"
+						style={{ color: theme.colors.onSurfaceVariant }}
+					>
+						No envelopes yet
+					</Text>
+				)}
 			</AppCard>
+
 			{anyLoading ? (
 				<View style={styles.centered}>
 					<ActivityIndicator size="large" />
@@ -141,38 +281,20 @@ const EnvelopeScreen = () => {
 				</View>
 			) : (
 				<FlatList
-					data={flatListData}
-					keyExtractor={(item, index) =>
-						item.type === "header"
-							? `header-${item.content}`
-							: `item-${item.content.id}-${index}`
-					}
-					renderItem={({ item }) => {
-						if (item.type === "header") {
-							return (
-								<Text
-									variant="titleMedium"
-									style={[styles.headerText, { color: theme.colors.primary }]}
-								>
-									{item.content.name}
-								</Text>
-							);
-						} else {
-							const envelope = item.content as Envelope;
-							return (
-								<EnvelopeListItem
-									envelope={envelope}
-									onEdit={() => openEditModal(envelope)}
-									onPress={() =>
-										navigation.navigate("EnvelopeDetail", {
-											envelopeId: envelope.id,
-										})
-									}
-									onEnvelopeUpdated={refresh}
-								/>
-							);
-						}
-					}}
+					data={envelopes}
+					keyExtractor={(item) => `item-${item.id}`}
+					renderItem={({ item }) => (
+						<EnvelopeListItem
+							envelope={item}
+							onEdit={() => openEditModal(item)}
+							onPress={() =>
+								navigation.navigate("EnvelopeDetail", {
+									envelopeId: item.id,
+								})
+							}
+							onEnvelopeUpdated={refresh}
+						/>
+					)}
 					ListEmptyComponent={
 						<View style={styles.centered}>
 							<Text
@@ -184,7 +306,7 @@ const EnvelopeScreen = () => {
 						</View>
 					}
 					contentContainerStyle={[
-						flatListData.length === 0 ? styles.centered : undefined,
+						envelopes.length === 0 ? styles.centered : undefined,
 						{ paddingBottom: 80 },
 					]}
 					ItemSeparatorComponent={() => <Divider />}
@@ -231,20 +353,17 @@ const styles = StyleSheet.create({
 		textAlign: "center",
 		marginTop: 32,
 	},
-	headerContainer: {
-		paddingHorizontal: 16,
-		paddingVertical: 8,
-		marginTop: 8,
-	},
-	headerText: {
-		fontWeight: "600",
-		marginTop: 8,
-	},
-	totalBalanceContainer: {
+	summaryCard: {
 		marginBottom: 16,
 	},
-	totalBalanceValue: {
-		fontWeight: "bold",
+	currencySummary: {
+		marginBottom: 8,
+	},
+	summaryRow: {
+		flexDirection: "row",
+		justifyContent: "space-between",
+		alignItems: "center",
+		paddingVertical: 3,
 	},
 });
 

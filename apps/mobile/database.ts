@@ -77,17 +77,33 @@ export async function initDatabase(db: any) {
 			FOREIGN KEY (asset_type_id) REFERENCES asset_types(id)
 		);
 	`);
+
+	// Entities table — must be created before liabilities (FK dependency)
+	await db.execAsync(`
+		CREATE TABLE IF NOT EXISTS entities (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			name TEXT NOT NULL,
+			phone_number TEXT,
+			is_individual INTEGER NOT NULL DEFAULT 1,
+			id_number TEXT,
+			metadata TEXT,
+			created_at TEXT NOT NULL
+		);
+	`);
+
 	await db.execAsync(`
 		CREATE TABLE IF NOT EXISTS liabilities (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			name TEXT NOT NULL,
 			liability_type_id INTEGER NOT NULL,
+			entity_id INTEGER,
 			currency TEXT NOT NULL,
 			total_amount REAL NOT NULL,
 			current_balance REAL NOT NULL,
 			created_at TEXT NOT NULL,
 			notes TEXT,
-			FOREIGN KEY (liability_type_id) REFERENCES liability_types(id)
+			FOREIGN KEY (liability_type_id) REFERENCES liability_types(id),
+			FOREIGN KEY (entity_id) REFERENCES entities(id)
 		);
 	`);
 	await db.execAsync(`
@@ -100,6 +116,45 @@ export async function initDatabase(db: any) {
 			UNIQUE(name, transaction_type_id)
 		);
 	`);
+	// Receivables table — must be created before transactions (FK dependency)
+	await db.execAsync(`
+		CREATE TABLE IF NOT EXISTS receivables (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			entity_id INTEGER NOT NULL,
+			title TEXT NOT NULL,
+			type TEXT NOT NULL,
+			currency TEXT NOT NULL,
+			principal REAL NOT NULL,
+			interest_rate REAL NOT NULL DEFAULT 0,
+			current_balance REAL NOT NULL,
+			status TEXT NOT NULL DEFAULT 'Active',
+			requires_outflow INTEGER NOT NULL DEFAULT 0,
+			due_date TEXT,
+			notes TEXT,
+			created_at TEXT NOT NULL,
+			FOREIGN KEY (entity_id) REFERENCES entities(id)
+		);
+	`);
+
+	// Bills table — must be created before transactions (FK dependency)
+	await db.execAsync(`
+		CREATE TABLE IF NOT EXISTS bills (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			name TEXT NOT NULL,
+			currency TEXT NOT NULL DEFAULT 'RWF',
+			due_date TEXT NOT NULL,
+			amount REAL NOT NULL,
+			paid_amount REAL NOT NULL DEFAULT 0,
+			status TEXT NOT NULL DEFAULT 'Pending',
+			transaction_id INTEGER,
+			category_id INTEGER,
+			paid_at TEXT,
+			created_at TEXT NOT NULL,
+			FOREIGN KEY (transaction_id) REFERENCES transactions(id),
+			FOREIGN KEY (category_id) REFERENCES categories(id)
+		);
+	`);
+
 	await db.execAsync(`
 		CREATE TABLE IF NOT EXISTS transactions (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -114,6 +169,7 @@ export async function initDatabase(db: any) {
 			to_account_id INTEGER,
 			envelope_id INTEGER,
 			bill_id INTEGER,
+			receivable_id INTEGER,
 			FOREIGN KEY (transaction_type_id) REFERENCES transaction_types(id),
 			FOREIGN KEY (category_id) REFERENCES categories(id),
 			FOREIGN KEY (asset_id) REFERENCES assets(id),
@@ -121,7 +177,8 @@ export async function initDatabase(db: any) {
 			FOREIGN KEY (from_account_id) REFERENCES accounts(id),
 			FOREIGN KEY (to_account_id) REFERENCES accounts(id),
 			FOREIGN KEY (envelope_id) REFERENCES envelopes(id),
-			FOREIGN KEY (bill_id) REFERENCES bills(id)
+			FOREIGN KEY (bill_id) REFERENCES bills(id),
+			FOREIGN KEY (receivable_id) REFERENCES receivables(id)
 		);
 	`);
 
@@ -146,44 +203,6 @@ export async function initDatabase(db: any) {
 		);
 	`);
 
-	// Bill Rules table (Master template)
-	await db.execAsync(`
-		CREATE TABLE IF NOT EXISTS bill_rules (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			name TEXT NOT NULL,
-			amount REAL NOT NULL,
-			currency TEXT NOT NULL DEFAULT 'RWF',
-			frequency TEXT NOT NULL,
-			category_id INTEGER NOT NULL,
-			is_active INTEGER NOT NULL DEFAULT 1,
-			start_date TEXT NOT NULL,
-			auto_next INTEGER NOT NULL DEFAULT 1,
-			created_at TEXT NOT NULL,
-			FOREIGN KEY (category_id) REFERENCES categories(id)
-		);
-	`);
-
-	// Bills table (Instance)
-	await db.execAsync(`
-		CREATE TABLE IF NOT EXISTS bills (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			name TEXT NOT NULL,
-			currency TEXT NOT NULL DEFAULT 'RWF',
-			bill_rule_id INTEGER,
-			due_date TEXT NOT NULL,
-			amount REAL NOT NULL,
-			paid_amount REAL NOT NULL DEFAULT 0,
-			status TEXT NOT NULL DEFAULT 'Pending',
-			transaction_id INTEGER,
-			category_id INTEGER,
-			paid_at TEXT,
-			created_at TEXT NOT NULL,
-			FOREIGN KEY (bill_rule_id) REFERENCES bill_rules(id),
-			FOREIGN KEY (transaction_id) REFERENCES transactions(id),
-			FOREIGN KEY (category_id) REFERENCES categories(id)
-		);
-	`);
-
 	// Run migrations
 	await runMigrations(db);
 
@@ -198,6 +217,54 @@ async function runMigrations(db: any) {
 		// const assetColumns = await db.getAllAsync("PRAGMA table_info(assets);");
 		// const columnNames = assetColumns.map((col: any) => col.name);
 		// Migrate existing data: copy old fields to new fields (idempotent)
+
+		// Migration: Add receivable_id to transactions
+		const txColumns = await db.getAllAsync("PRAGMA table_info(transactions);");
+		const txColumnNames = txColumns.map((col: any) => col.name);
+		if (!txColumnNames.includes("receivable_id")) {
+			await db.execAsync(
+				"ALTER TABLE transactions ADD COLUMN receivable_id INTEGER REFERENCES receivables(id);"
+			);
+		}
+
+		// Migration: Add entity_id to liabilities
+		const liabColumns = await db.getAllAsync("PRAGMA table_info(liabilities);");
+		const liabColumnNames = liabColumns.map((col: any) => col.name);
+		if (!liabColumnNames.includes("entity_id")) {
+			await db.execAsync(
+				"ALTER TABLE liabilities ADD COLUMN entity_id INTEGER REFERENCES entities(id);"
+			);
+		}
+
+		// Migration: Remove bill_rules and bill_rule_id from bills
+		const billColumns = await db.getAllAsync("PRAGMA table_info(bills);");
+		const billColumnNames = billColumns.map((col: any) => col.name);
+		if (billColumnNames.includes("bill_rule_id")) {
+			await db.execAsync(`
+				CREATE TABLE IF NOT EXISTS bills_new (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					name TEXT NOT NULL,
+					currency TEXT NOT NULL DEFAULT 'RWF',
+					due_date TEXT NOT NULL,
+					amount REAL NOT NULL,
+					paid_amount REAL NOT NULL DEFAULT 0,
+					status TEXT NOT NULL DEFAULT 'Pending',
+					transaction_id INTEGER,
+					category_id INTEGER,
+					paid_at TEXT,
+					created_at TEXT NOT NULL,
+					FOREIGN KEY (transaction_id) REFERENCES transactions(id),
+					FOREIGN KEY (category_id) REFERENCES categories(id)
+				);
+			`);
+			await db.execAsync(`
+				INSERT INTO bills_new (id, name, currency, due_date, amount, paid_amount, status, transaction_id, category_id, paid_at, created_at)
+				SELECT id, name, currency, due_date, amount, paid_amount, status, transaction_id, category_id, paid_at, created_at FROM bills;
+			`);
+			await db.execAsync("DROP TABLE bills;");
+			await db.execAsync("ALTER TABLE bills_new RENAME TO bills;");
+		}
+		await db.execAsync("DROP TABLE IF EXISTS bill_rules;");
 	} catch (error) {
 		console.log("Migration error:", error);
 	}
@@ -367,18 +434,42 @@ export function useDatabaseInitialization() {
 	return { isInitialized, isInitializing, error };
 }
 
+// Known application tables — used as an allowlist in clearDatabase
+const APP_TABLES = new Set([
+	"account_types",
+	"asset_types",
+	"liability_types",
+	"transaction_types",
+	"envelopes",
+	"accounts",
+	"assets",
+	"entities",
+	"liabilities",
+	"categories",
+	"receivables",
+	"bills",
+	"transactions",
+	"budgets",
+	"savings_goals",
+	"bill_rules", // legacy — may exist on older installs
+]);
+
 // Clear database and reset to initial state
 export async function clearDatabase(db: any) {
 	try {
-		// Get all table names
-		// Only get user tables, exclude SQLite internal tables (names starting with 'sqlite_')
 		const tableNames = await db.getAllAsync(
 			"SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';"
 		);
-		const tables = tableNames.map((table: any) => table.name);
+		const tables: string[] = tableNames.map((t: any) => t.name);
+
+		// Disable FK enforcement so tables can be dropped in any order
+		await db.execAsync("PRAGMA foreign_keys = OFF;");
 		for (const table of tables) {
-			await db.runAsync(`DROP TABLE IF EXISTS ${table}`);
+			if (!APP_TABLES.has(table)) continue; // skip unknown tables
+			await db.runAsync(`DROP TABLE IF EXISTS "${table}"`);
 		}
+		await db.execAsync("PRAGMA foreign_keys = ON;");
+
 		// Re-initialize database
 		await initDatabase(db);
 	} catch (error) {

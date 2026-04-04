@@ -6,7 +6,9 @@ export type TransferDirection =
 	| "account-to-account"
 	| "account-to-asset"
 	| "asset-to-account"
-	| "reinvest-into-asset";
+	| "reinvest-into-asset"
+	| "account-to-receivable"
+	| "receivable-to-account";
 
 interface TransferFieldsProps {
 	transferDirection: TransferDirection;
@@ -19,6 +21,9 @@ interface TransferFieldsProps {
 	onAssetChange: (value: string) => void;
 	accounts: { id: number; name: string }[];
 	assets: { id: number; name: string }[];
+	receivables: { id: number; name: string; status: string }[];
+	receivableId: string;
+	onReceivableChange: (value: string) => void;
 	error: string;
 }
 
@@ -27,6 +32,8 @@ const DIRECTION_OPTIONS = [
 	{ label: "Account → Asset (Contribute)", value: "account-to-asset" },
 	{ label: "Asset → Account (Withdraw)", value: "asset-to-account" },
 	{ label: "Reinvest into Asset", value: "reinvest-into-asset" },
+	{ label: "Account → Receivable (Lend)", value: "account-to-receivable" },
+	{ label: "Receivable → Account (Payment)", value: "receivable-to-account" },
 ];
 
 const TransferFields: React.FC<TransferFieldsProps> = ({
@@ -38,17 +45,26 @@ const TransferFields: React.FC<TransferFieldsProps> = ({
 	onToAccountChange,
 	assetId,
 	onAssetChange,
+	receivableId,
+	onReceivableChange,
 	accounts,
 	assets,
+	receivables,
 	error,
 }) => {
 	const showFromAccount =
 		transferDirection === "account-to-account" ||
-		transferDirection === "account-to-asset";
+		transferDirection === "account-to-asset" ||
+		transferDirection === "account-to-receivable";
 
 	const showToAccount =
 		transferDirection === "account-to-account" ||
-		transferDirection === "asset-to-account";
+		transferDirection === "asset-to-account" ||
+		transferDirection === "receivable-to-account";
+
+	const showReceivable =
+		transferDirection === "account-to-receivable" ||
+		transferDirection === "receivable-to-account";
 
 	const showAsset =
 		transferDirection === "account-to-asset" ||
@@ -61,6 +77,17 @@ const TransferFields: React.FC<TransferFieldsProps> = ({
 			: transferDirection === "reinvest-into-asset"
 			? "Asset"
 			: "To Asset";
+
+	const receivableLabel =
+		transferDirection === "receivable-to-account"
+			? "From Receivable"
+			: "To Receivable";
+
+	// Lend: show Pending only. Payment: show Active only.
+	const filteredReceivables =
+		transferDirection === "account-to-receivable"
+			? receivables.filter((r) => r.status === "Pending")
+			: receivables.filter((r) => r.status === "Active");
 
 	return (
 		<View>
@@ -101,6 +128,20 @@ const TransferFields: React.FC<TransferFieldsProps> = ({
 						value: a.id.toString(),
 					}))}
 					error={error && !assetId ? "Asset is required" : undefined}
+				/>
+			)}
+
+			{/* Receivable */}
+			{showReceivable && (
+				<AppDropdown
+					label={receivableLabel}
+					value={receivableId}
+					onSelect={(v) => onReceivableChange(v ?? "")}
+					options={filteredReceivables.map((r) => ({
+						label: r.name,
+						value: r.id.toString(),
+					}))}
+					error={error && !receivableId ? "Receivable is required" : undefined}
 				/>
 			)}
 
