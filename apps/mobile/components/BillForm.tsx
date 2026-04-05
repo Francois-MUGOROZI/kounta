@@ -6,6 +6,7 @@ import AppNumberInput from "./AppNumberInput";
 import AppDropdown from "./AppDropdown";
 import { Bill, Category, TransactionType } from "../types";
 import { format, parseISO } from "date-fns";
+import { getPopularCurrencyOptions } from "../constants/currencies";
 
 interface BillFormProps {
 	visible: boolean;
@@ -30,12 +31,6 @@ const BillForm: React.FC<BillFormProps> = ({
 	const [categoryId, setCategoryId] = useState<string>("");
 	const [currency, setCurrency] = useState("RWF");
 	const [error, setError] = useState("");
-
-	const currencyOptions = [
-		{ label: "RWF", value: "RWF" },
-		{ label: "USD", value: "USD" },
-		{ label: "EUR", value: "EUR" },
-	];
 
 	// Filter categories to only show Expense categories
 	const expenseTypeId = transactionTypes.find((t) => t.name === "Expense")?.id;
@@ -129,7 +124,7 @@ const BillForm: React.FC<BillFormProps> = ({
 				label="Currency"
 				value={currency}
 				onSelect={(v) => setCurrency(v ?? "RWF")}
-				options={currencyOptions}
+				options={getPopularCurrencyOptions()}
 			/>
 			<AppTextInput
 				label="Due Date"

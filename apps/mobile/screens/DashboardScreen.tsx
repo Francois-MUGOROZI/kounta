@@ -1,6 +1,6 @@
 import React, { useMemo } from "react";
 import { View, StyleSheet, ScrollView } from "react-native";
-import { Text, useTheme, Divider, ActivityIndicator, SegmentedButtons } from "react-native-paper";
+import { Text, useTheme, Divider, ActivityIndicator, Menu, Button } from "react-native-paper";
 import AppCard from "../components/AppCard";
 import DashboardGroupList from "../components/DashboardGroupList";
 import { useDashboardStats } from "../hooks/dashboard/useDashboardStats";
@@ -65,6 +65,7 @@ const DashboardScreen: React.FC = () => {
 	} = useDashboardGroups(refresh);
 	const currencies = useMemo(() => Object.keys(stats), [stats]);
 	const [currency, setCurrency] = React.useState<string | null>(null);
+	const [menuVisible, setMenuVisible] = React.useState(false);
 
 	React.useEffect(() => {
 		setCurrency((prev) => {
@@ -103,6 +104,37 @@ const DashboardScreen: React.FC = () => {
 				<Text variant="titleMedium" style={styles.title}>
 					Dashboard
 				</Text>
+				{currencies.length > 1 && currency && (
+					<Menu
+						visible={menuVisible}
+						onDismiss={() => setMenuVisible(false)}
+						anchor={
+							<Button
+								mode="outlined"
+								compact
+								icon="chevron-down"
+								contentStyle={{ flexDirection: "row-reverse", height: 32 }}
+								style={{ height: 32, justifyContent: 'center' }}
+								labelStyle={{ marginVertical: 0, fontSize: 13 }}
+								onPress={() => setMenuVisible(true)}
+							>
+								{currency}
+							</Button>
+						}
+					>
+						{currencies.map((c) => (
+							<Menu.Item
+								key={c}
+								onPress={() => {
+									setCurrency(c);
+									setMenuVisible(false);
+								}}
+								title={c}
+								trailingIcon={currency === c ? "check" : undefined}
+							/>
+						))}
+					</Menu>
+				)}
 			</View>
 
 			{loading && (
@@ -123,14 +155,7 @@ const DashboardScreen: React.FC = () => {
 				</Text>
 			)}
 
-			{currencies.length > 1 && currency && (
-				<SegmentedButtons
-					value={currency}
-					onValueChange={setCurrency}
-					buttons={currencies.map((c) => ({ value: c, label: c }))}
-					style={styles.currencyTabs}
-				/>
-			)}
+			{/* SegmentedButtons removed in favor of header dropdown */}
 
 			{currency && (
 				<View key={currency} style={styles.currencySection}>
@@ -225,6 +250,9 @@ const styles = StyleSheet.create({
 	header: {
 		marginBottom: 24,
 		marginTop: 8,
+		flexDirection: "row",
+		justifyContent: "space-between",
+		alignItems: "center",
 	},
 	title: {
 		fontWeight: "bold",

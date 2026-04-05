@@ -217,54 +217,6 @@ async function runMigrations(db: any) {
 		// const assetColumns = await db.getAllAsync("PRAGMA table_info(assets);");
 		// const columnNames = assetColumns.map((col: any) => col.name);
 		// Migrate existing data: copy old fields to new fields (idempotent)
-
-		// Migration: Add receivable_id to transactions
-		const txColumns = await db.getAllAsync("PRAGMA table_info(transactions);");
-		const txColumnNames = txColumns.map((col: any) => col.name);
-		if (!txColumnNames.includes("receivable_id")) {
-			await db.execAsync(
-				"ALTER TABLE transactions ADD COLUMN receivable_id INTEGER REFERENCES receivables(id);"
-			);
-		}
-
-		// Migration: Add entity_id to liabilities
-		const liabColumns = await db.getAllAsync("PRAGMA table_info(liabilities);");
-		const liabColumnNames = liabColumns.map((col: any) => col.name);
-		if (!liabColumnNames.includes("entity_id")) {
-			await db.execAsync(
-				"ALTER TABLE liabilities ADD COLUMN entity_id INTEGER REFERENCES entities(id);"
-			);
-		}
-
-		// Migration: Remove bill_rules and bill_rule_id from bills
-		const billColumns = await db.getAllAsync("PRAGMA table_info(bills);");
-		const billColumnNames = billColumns.map((col: any) => col.name);
-		if (billColumnNames.includes("bill_rule_id")) {
-			await db.execAsync(`
-				CREATE TABLE IF NOT EXISTS bills_new (
-					id INTEGER PRIMARY KEY AUTOINCREMENT,
-					name TEXT NOT NULL,
-					currency TEXT NOT NULL DEFAULT 'RWF',
-					due_date TEXT NOT NULL,
-					amount REAL NOT NULL,
-					paid_amount REAL NOT NULL DEFAULT 0,
-					status TEXT NOT NULL DEFAULT 'Pending',
-					transaction_id INTEGER,
-					category_id INTEGER,
-					paid_at TEXT,
-					created_at TEXT NOT NULL,
-					FOREIGN KEY (transaction_id) REFERENCES transactions(id),
-					FOREIGN KEY (category_id) REFERENCES categories(id)
-				);
-			`);
-			await db.execAsync(`
-				INSERT INTO bills_new (id, name, currency, due_date, amount, paid_amount, status, transaction_id, category_id, paid_at, created_at)
-				SELECT id, name, currency, due_date, amount, paid_amount, status, transaction_id, category_id, paid_at, created_at FROM bills;
-			`);
-			await db.execAsync("DROP TABLE bills;");
-			await db.execAsync("ALTER TABLE bills_new RENAME TO bills;");
-		}
-		await db.execAsync("DROP TABLE IF EXISTS bill_rules;");
 	} catch (error) {
 		console.log("Migration error:", error);
 	}
