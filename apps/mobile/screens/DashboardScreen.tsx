@@ -15,8 +15,7 @@ export type StatKey =
 	| "accountBalance"
 	| "assetValue"
 	| "receivableValue"
-	| "liabilityValue"
-	| "totalUnpaidBills";
+	| "liabilityValue";
 
 const STAT_CONFIG: {
 	key: StatKey;
@@ -40,12 +39,6 @@ const STAT_CONFIG: {
 		label: "Liabilities",
 		icon: "account-cash",
 		danger: true,
-	},
-	{
-		key: "totalUnpaidBills",
-		label: "Bills Due",
-		icon: "receipt",
-		warning: true,
 	},
 	{ key: "accountBalance", label: "Account Balance", icon: "bank" },
 ];

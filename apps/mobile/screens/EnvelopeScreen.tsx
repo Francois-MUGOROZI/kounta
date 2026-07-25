@@ -84,23 +84,20 @@ const EnvelopeScreen = () => {
 		const map: {
 			[currency: string]: {
 				totalBudgeted: number; // sum of all total_amount (overall allocation)
-				netBalance: number; // sum of all current_balance
-				allocated: number; // sum of positive current_balance
-				overused: number; // sum of abs(negative current_balance)
+				positive: number; // sum of current_balance for envelopes still in credit
+				overused: number; // sum of abs(negative current_balance) — envelopes in deficit
 			};
 		} = {};
 		envelopes.forEach((env) => {
 			if (!map[env.currency])
 				map[env.currency] = {
 					totalBudgeted: 0,
-					netBalance: 0,
-					allocated: 0,
+					positive: 0,
 					overused: 0,
 				};
 			map[env.currency].totalBudgeted += env.total_amount || 0;
-			map[env.currency].netBalance += env.current_balance || 0;
 			if (env.current_balance >= 0) {
-				map[env.currency].allocated += env.current_balance;
+				map[env.currency].positive += env.current_balance;
 			} else {
 				map[env.currency].overused += Math.abs(env.current_balance);
 			}
@@ -119,7 +116,10 @@ const EnvelopeScreen = () => {
 			<AppCard title="Envelope Summary" style={styles.summaryCard}>
 				{Object.entries(summaryByCurrency).map(([cur, val]) => {
 					const accountBalance = accountTotals[cur] || 0;
-					const unallocated = accountBalance - val.netBalance;
+					// Deficits are added, not netted — an overspent envelope still needs
+					// refilling from account balance, so it can't count as free money.
+					const grossCommitment = val.positive + val.overused;
+					const unallocated = accountBalance - grossCommitment;
 					const overuseRate =
 						val.totalBudgeted > 0
 							? ((val.overused / val.totalBudgeted) * 100).toFixed(1)
@@ -153,33 +153,13 @@ const EnvelopeScreen = () => {
 									{formatAmount(val.totalBudgeted, cur)}
 								</Text>
 							</View>
-							<View style={styles.summaryRow}>
-								<Text
-									variant="bodyMedium"
-									style={{ color: theme.colors.onSurfaceVariant }}
-								>
-									Current Balance (+)
-								</Text>
-								<Text
-									variant="bodyMedium"
-									style={{
-										fontWeight: "600",
-										color:
-											val.netBalance < 0
-												? theme.colors.error
-												: theme.colors.primary,
-									}}
-								>
-									{formatAmount(val.netBalance, cur)}
-								</Text>
-							</View>
 							<Divider style={{ marginVertical: 6 }} />
 							<View style={styles.summaryRow}>
 								<Text
 									variant="bodyMedium"
 									style={{ color: theme.colors.onSurfaceVariant }}
 								>
-									Allocated
+									Positive Balance
 								</Text>
 								<Text
 									variant="bodyMedium"
@@ -188,28 +168,44 @@ const EnvelopeScreen = () => {
 										color: theme.colors.primary,
 									}}
 								>
-									{formatAmount(val.allocated, cur)}
+									{formatAmount(val.positive, cur)}
 								</Text>
 							</View>
-							{val.overused > 0 && (
-								<View style={styles.summaryRow}>
-									<Text
-										variant="bodyMedium"
-										style={{ color: theme.colors.onSurfaceVariant }}
-									>
-										Overused
-									</Text>
-									<Text
-										variant="bodyMedium"
-										style={{
-											fontWeight: "600",
-											color: theme.colors.error,
-										}}
-									>
-										{formatAmount(val.overused, cur)}
-									</Text>
-								</View>
-							)}
+							<View style={styles.summaryRow}>
+								<Text
+									variant="bodyMedium"
+									style={{ color: theme.colors.onSurfaceVariant }}
+								>
+									Overused
+								</Text>
+								<Text
+									variant="bodyMedium"
+									style={{
+										fontWeight: "600",
+										color: theme.colors.error,
+									}}
+								>
+									{formatAmount(val.overused, cur)}
+									{val.overused > 0 ? ` (${overuseRate}%)` : ""}
+								</Text>
+							</View>
+							<View style={styles.summaryRow}>
+								<Text
+									variant="bodyMedium"
+									style={{
+										color: theme.colors.onSurfaceVariant,
+										fontWeight: "600",
+									}}
+								>
+									Gross Commitment
+								</Text>
+								<Text
+									variant="bodyMedium"
+									style={{ fontWeight: "bold", color: theme.colors.onSurface }}
+								>
+									{formatAmount(grossCommitment, cur)}
+								</Text>
+							</View>
 							<Divider style={{ marginVertical: 6 }} />
 							<View style={styles.summaryRow}>
 								<Text
@@ -219,7 +215,9 @@ const EnvelopeScreen = () => {
 										fontWeight: "600",
 									}}
 								>
-									Unallocated
+									{unallocated < 0
+										? "Allocation Deficit"
+										: "Allocation Surplus"}
 								</Text>
 								<Text
 									variant="bodyMedium"
@@ -231,28 +229,9 @@ const EnvelopeScreen = () => {
 												: theme.colors.primary,
 									}}
 								>
-									{formatAmount(unallocated, cur)}
+									{formatAmount(Math.abs(unallocated), cur)}
 								</Text>
 							</View>
-							{val.overused > 0 && (
-								<View style={styles.summaryRow}>
-									<Text
-										variant="bodySmall"
-										style={{ color: theme.colors.onSurfaceVariant }}
-									>
-										Overuse Rate
-									</Text>
-									<Text
-										variant="bodySmall"
-										style={{
-											fontWeight: "600",
-											color: theme.colors.error,
-										}}
-									>
-										{overuseRate}%
-									</Text>
-								</View>
-							)}
 						</View>
 					);
 				})}
