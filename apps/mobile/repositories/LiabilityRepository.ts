@@ -9,6 +9,12 @@ export const LiabilityRepository = {
 		);
 	},
 
+	async getActive(db: SQLiteDatabase): Promise<Liability[]> {
+		return await db.getAllAsync<Liability>(
+			"SELECT * FROM liabilities WHERE current_balance > 0 ORDER BY created_at DESC"
+		);
+	},
+
 	async getById(db: SQLiteDatabase, id: number): Promise<Liability | null> {
 		return await db.getFirstAsync<Liability>(
 			"SELECT * FROM liabilities WHERE id = ?",

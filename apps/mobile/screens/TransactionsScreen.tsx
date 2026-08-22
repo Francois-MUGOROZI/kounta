@@ -15,7 +15,7 @@ import { useGetTransactionTypes } from "../hooks/transactionType/useGetTransacti
 import { useGetAccounts } from "../hooks/account/useGetAccounts";
 import { useGetCategories } from "../hooks/category/useGetCategories";
 import { useGetAssets } from "../hooks/asset/useGetAssets";
-import { useGetLiabilities } from "../hooks/liability/useGetLiabilities";
+import { useGetActiveLiabilities } from "../hooks/liability/useGetActiveLiabilities";
 import TransactionListItem from "../components/TransactionListItem";
 import TransactionFormDialog from "../components/TransactionFormDialog";
 import { TransactionFilter } from "../components/TransactionFilter";
@@ -79,7 +79,7 @@ const TransactionsScreen = () => {
 		liabilities,
 		loading: loadingLiabilities,
 		error: errorLiabilities,
-	} = useGetLiabilities();
+	} = useGetActiveLiabilities();
 
 	const {
 		envelopes,

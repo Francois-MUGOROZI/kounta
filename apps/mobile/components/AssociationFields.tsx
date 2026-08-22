@@ -2,6 +2,7 @@ import React from "react";
 import { View } from "react-native";
 import AppDropdown from "./AppDropdown";
 import CollapsibleSection from "./CollapsibleSection";
+import { formatAmount } from "../utils/currency";
 
 interface AssociationFieldsProps {
 	transactionType: string;
@@ -15,7 +16,7 @@ interface AssociationFieldsProps {
 	onBillChange: (value: string) => void;
 	assets: { id: number; name: string }[];
 	envelopes: { id: number; name: string }[];
-	liabilities: { id: number; name: string }[];
+	liabilities: { id: number; name: string; current_balance: number; currency: string }[];
 	bills: { id: number; name: string; amount: number }[];
 }
 
@@ -82,7 +83,7 @@ const AssociationFields: React.FC<AssociationFieldsProps> = ({
 							options={[
 								{ label: "None", value: "" },
 								...liabilities.map((l) => ({
-									label: l.name,
+									label: `${l.name} (${formatAmount(l.current_balance, l.currency)})`,
 									value: l.id.toString(),
 								})),
 							]}

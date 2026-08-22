@@ -18,7 +18,7 @@ interface TransactionFormDialogProps {
 	categories: Category[];
 	assets: { id: number; name: string }[];
 	receivables: { id: number; name: string; status: string }[];
-	liabilities: { id: number; name: string }[];
+	liabilities: { id: number; name: string; current_balance: number; currency: string }[];
 	envelopes: { id: number; name: string }[];
 	bills: { id: number; name: string; amount: number }[];
 }
