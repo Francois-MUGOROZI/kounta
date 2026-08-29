@@ -124,10 +124,6 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 			setError("Amount must be a positive number");
 			return;
 		}
-		if (!description.trim()) {
-			setError("Description is required");
-			return;
-		}
 		if (date.trim() === "") {
 			setError("Date is required");
 			return;
@@ -371,14 +367,9 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 
 					{/* 5. Description */}
 					<AppTextInput
-						label="Description"
+						label="Description (optional)"
 						value={description}
 						onChangeText={setDescription}
-						error={
-							error && !description.trim()
-								? "Description is required"
-								: undefined
-						}
 					/>
 
 					{/* 6. Date */}

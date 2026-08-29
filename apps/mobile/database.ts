@@ -264,7 +264,7 @@ export async function seedTypeTables(db: any) {
 	for (const name of liabilityTypes) {
 		await db.runAsync(
 			"INSERT OR IGNORE INTO liability_types (name) VALUES (?)",
-			[name]
+			[name],
 		);
 	}
 	// Transaction Types
@@ -272,7 +272,7 @@ export async function seedTypeTables(db: any) {
 	for (const name of transactionTypes) {
 		await db.runAsync(
 			"INSERT OR IGNORE INTO transaction_types (name) VALUES (?)",
-			[name]
+			[name],
 		);
 	}
 }
@@ -281,14 +281,14 @@ export async function seedTypeTables(db: any) {
 export async function seedCategories(db: any) {
 	// First, check if categories table is empty
 	const existingCategories = await db.getAllAsync(
-		"SELECT COUNT(*) as count FROM categories"
+		"SELECT COUNT(*) as count FROM categories",
 	);
 	const count = existingCategories[0]?.count || 0;
 
 	if (count === 0) {
 		// Get transaction type IDs
 		const transactionTypes = await db.getAllAsync(
-			"SELECT * FROM transaction_types"
+			"SELECT * FROM transaction_types",
 		);
 		const incomeType = transactionTypes.find((t: any) => t.name === "Income");
 		const expenseType = transactionTypes.find((t: any) => t.name === "Expense");
@@ -334,7 +334,7 @@ export async function seedCategories(db: any) {
 						category.name,
 						category.transaction_type_id,
 						new Date().toISOString(),
-					]
+					],
 				);
 			}
 		}
@@ -410,7 +410,7 @@ const APP_TABLES = new Set([
 export async function clearDatabase(db: any) {
 	try {
 		const tableNames = await db.getAllAsync(
-			"SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';"
+			"SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';",
 		);
 		const tables: string[] = tableNames.map((t: any) => t.name);
 
