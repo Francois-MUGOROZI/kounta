@@ -8,6 +8,7 @@ import { formatAmount } from "../utils/currency";
 interface LiabilityListItemProps {
 	liability: Liability;
 	typeName: string;
+	entityName?: string;
 	onEdit: () => void;
 	onPress?: () => void;
 }
@@ -15,6 +16,7 @@ interface LiabilityListItemProps {
 const LiabilityListItem: React.FC<LiabilityListItemProps> = ({
 	liability,
 	typeName,
+	entityName,
 	onEdit,
 	onPress,
 }) => {
@@ -58,7 +60,7 @@ const LiabilityListItem: React.FC<LiabilityListItemProps> = ({
 						{liability.name}
 					</Text>
 					<Text variant="bodySmall" style={{ color: theme.colors.outline }}>
-						{typeName}
+						{entityName ? `${typeName} · ${entityName}` : typeName}
 					</Text>
 					{liability.notes ? (
 						<Text variant="bodySmall" style={{ color: theme.colors.outline }}>

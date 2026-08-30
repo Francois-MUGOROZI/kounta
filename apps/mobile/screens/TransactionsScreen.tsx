@@ -28,6 +28,7 @@ import { formatAmount } from "../utils/currency";
 import { useGetEnvelopes } from "@/hooks/envelope/useGetEnvelope";
 import { useGetBills } from "../hooks/bill/useGetBills";
 import { useGetReceivables } from "../hooks/receivable/useGetReceivables";
+import { useGetEntities } from "../hooks/entity/useGetEntities";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
@@ -94,6 +95,9 @@ const TransactionsScreen = () => {
 	} = useGetBills(undefined, true);
 
 	const { receivables } = useGetReceivables();
+
+	const { entities, loading: loadingEntities, error: errorEntities } =
+		useGetEntities();
 
 	const [modalVisible, setModalVisible] = useState(false);
 	const [snackbar, setSnackbar] = useState({ visible: false, message: "" });
@@ -197,8 +201,14 @@ const TransactionsScreen = () => {
 	};
 
 	const getAssociationCount = (t: Transaction) =>
-		[t.asset_id, t.liability_id, t.envelope_id, t.bill_id, t.receivable_id].filter(Boolean)
-			.length;
+		[
+			t.asset_id,
+			t.liability_id,
+			t.envelope_id,
+			t.bill_id,
+			t.receivable_id,
+			t.entity_id,
+		].filter(Boolean).length;
 
 	// Group transactions by currency and calculate totals
 	const currencyGroups = useMemo(() => {
@@ -340,7 +350,8 @@ const TransactionsScreen = () => {
 		loadingAssets ||
 		loadingLiabilities ||
 		loadingEnvelopes ||
-		loadingBills;
+		loadingBills ||
+		loadingEntities;
 	const anyError =
 		error ||
 		createError ||
@@ -350,7 +361,8 @@ const TransactionsScreen = () => {
 		errorAssets ||
 		errorLiabilities ||
 		errorEnvelopes ||
-		errorBills;
+		errorBills ||
+		errorEntities;
 
 	return (
 		<View
@@ -422,6 +434,7 @@ const TransactionsScreen = () => {
 				envelopes={envelopes}
 				bills={bills as any}
 				receivables={receivables.map((r) => ({ id: r.id, name: r.title, status: r.status }))}
+				entities={entities}
 			/>
 			<Snackbar
 				visible={snackbar.visible}

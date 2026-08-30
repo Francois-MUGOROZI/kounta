@@ -192,6 +192,7 @@ export interface Transaction {
 	envelope_id?: number | null;
 	bill_id?: number | null; // Foreign key to Bill (optional)
 	receivable_id?: number | null;
+	entity_id?: number | null; // Foreign key to Entity (optional)
 }
 
 /** Envelope
@@ -281,6 +282,7 @@ export type TransactionFilter = {
 	envelopeId?: number;
 	billId?: number;
 	receivableId?: number;
+	entityId?: number;
 };
 
 // React Navigation root stack param list

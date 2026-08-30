@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { View, StyleSheet, ScrollView } from "react-native";
+import { View, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
 import {
 	ActivityIndicator,
 	Text,
@@ -21,6 +21,7 @@ import { useGetTransactions } from "../hooks/transaction/useGetTransactions";
 import { useGetAccounts } from "../hooks/account/useGetAccounts";
 import { useGetCategories } from "../hooks/category/useGetCategories";
 import { useGetTransactionTypes } from "../hooks/transactionType/useGetTransactionTypes";
+import { useGetEntities } from "../hooks/entity/useGetEntities";
 import { formatAmount } from "../utils/currency";
 import { RootStackParamList, Transaction } from "../types";
 
@@ -49,6 +50,7 @@ const LiabilityDetailScreen = () => {
 	const { accounts } = useGetAccounts();
 	const { categories } = useGetCategories();
 	const { transactionTypes } = useGetTransactionTypes();
+	const { entities } = useGetEntities();
 
 	const [editDialogVisible, setEditDialogVisible] = useState(false);
 	const [snackbar, setSnackbar] = useState({ visible: false, message: "" });
@@ -73,9 +75,18 @@ const LiabilityDetailScreen = () => {
 	const getTransactionTypeName = (typeId: number) =>
 		transactionTypes.find((t) => t.id === typeId)?.name ?? "";
 
+	const getEntityName = (entityId: number | null | undefined) =>
+		entities.find((e) => e.id === entityId)?.name ?? "";
+
 	const getAssociationCount = (t: Transaction) =>
-		[t.asset_id, t.liability_id, t.envelope_id, t.bill_id, t.receivable_id].filter(Boolean)
-			.length;
+		[
+			t.asset_id,
+			t.liability_id,
+			t.envelope_id,
+			t.bill_id,
+			t.receivable_id,
+			t.entity_id,
+		].filter(Boolean).length;
 
 	const paymentInfo = useMemo(() => {
 		if (!liability) return { paid: 0, percentage: 0 };
@@ -92,6 +103,7 @@ const LiabilityDetailScreen = () => {
 		total_amount: number;
 		current_balance: number;
 		notes?: string;
+		entity_id?: number | null;
 	}) => {
 		try {
 			await updateLiability(liabilityId, data);
@@ -238,6 +250,32 @@ const LiabilityDetailScreen = () => {
 						/>
 					</View>
 
+					{liability.entity_id ? (
+						<>
+							<Divider style={styles.divider} />
+							<Text
+								variant="bodySmall"
+								style={{ color: theme.colors.onSurfaceVariant }}
+							>
+								Entity
+							</Text>
+							<TouchableOpacity
+								onPress={() =>
+									navigation.navigate("EntityDetail", {
+										entityId: liability.entity_id!,
+									})
+								}
+							>
+								<Text
+									variant="bodyMedium"
+									style={{ color: theme.colors.primary, marginTop: 4 }}
+								>
+									{getEntityName(liability.entity_id)}
+								</Text>
+							</TouchableOpacity>
+						</>
+					) : null}
+
 					{liability.notes ? (
 						<>
 							<Divider style={styles.divider} />
@@ -328,6 +366,7 @@ const LiabilityDetailScreen = () => {
 				onClose={() => setEditDialogVisible(false)}
 				onSubmit={handleEditSubmit}
 				liabilityTypes={liabilityTypes}
+				entities={entities}
 				initialLiability={liability}
 			/>
 

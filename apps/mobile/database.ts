@@ -170,6 +170,7 @@ export async function initDatabase(db: any) {
 			envelope_id INTEGER,
 			bill_id INTEGER,
 			receivable_id INTEGER,
+			entity_id INTEGER,
 			FOREIGN KEY (transaction_type_id) REFERENCES transaction_types(id),
 			FOREIGN KEY (category_id) REFERENCES categories(id),
 			FOREIGN KEY (asset_id) REFERENCES assets(id),
@@ -178,7 +179,8 @@ export async function initDatabase(db: any) {
 			FOREIGN KEY (to_account_id) REFERENCES accounts(id),
 			FOREIGN KEY (envelope_id) REFERENCES envelopes(id),
 			FOREIGN KEY (bill_id) REFERENCES bills(id),
-			FOREIGN KEY (receivable_id) REFERENCES receivables(id)
+			FOREIGN KEY (receivable_id) REFERENCES receivables(id),
+			FOREIGN KEY (entity_id) REFERENCES entities(id)
 		);
 	`);
 
@@ -213,10 +215,14 @@ export async function initDatabase(db: any) {
 // Run database migrations
 async function runMigrations(db: any) {
 	try {
-		// Migration: Add new asset cost-basis columns
-		// const assetColumns = await db.getAllAsync("PRAGMA table_info(assets);");
-		// const columnNames = assetColumns.map((col: any) => col.name);
-		// Migrate existing data: copy old fields to new fields (idempotent)
+		// Migration: Add entity_id to transactions
+		const txnColumns = await db.getAllAsync("PRAGMA table_info(transactions);");
+		const txnColumnNames = txnColumns.map((col: any) => col.name);
+		if (!txnColumnNames.includes("entity_id")) {
+			await db.execAsync(
+				"ALTER TABLE transactions ADD COLUMN entity_id INTEGER REFERENCES entities(id);"
+			);
+		}
 	} catch (error) {
 		console.log("Migration error:", error);
 	}

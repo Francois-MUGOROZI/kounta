@@ -70,8 +70,13 @@ const EnvelopeDetailScreen = () => {
 		transactionTypes.find((t) => t.id === typeId)?.name ?? "";
 
 	const getAssociationCount = (t: Transaction) =>
-		[t.asset_id, t.liability_id, t.envelope_id, t.bill_id].filter(Boolean)
-			.length;
+		[
+			t.asset_id,
+			t.liability_id,
+			t.envelope_id,
+			t.bill_id,
+			t.entity_id,
+		].filter(Boolean).length;
 
 	const usageInfo = useMemo(() => {
 		if (!envelope) return { spent: 0, percentage: 0, isOverspent: false };

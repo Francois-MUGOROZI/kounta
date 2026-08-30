@@ -90,6 +90,7 @@ const ReceivableDetailScreen = () => {
 			t.envelope_id,
 			t.bill_id,
 			t.receivable_id,
+			t.entity_id,
 		].filter(Boolean).length;
 
 	const paymentInfo = useMemo(() => {

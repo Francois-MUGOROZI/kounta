@@ -22,6 +22,20 @@ export const LiabilityRepository = {
 		);
 	},
 
+	// Paid/total totals for one entity's liabilities, grouped by currency
+	async getTotalsByEntityAndCurrency(
+		db: SQLiteDatabase,
+		entityId: number
+	): Promise<{ currency: string; total: number; paid: number }[]> {
+		return await db.getAllAsync(
+			`SELECT currency, SUM(total_amount) as total, SUM(total_amount - current_balance) as paid
+			 FROM liabilities
+			 WHERE entity_id = ?
+			 GROUP BY currency`,
+			[entityId]
+		);
+	},
+
 	async create(
 		db: SQLiteDatabase,
 		liability: Omit<Liability, "id">

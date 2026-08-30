@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { View, StyleSheet, ScrollView } from "react-native";
 import {
 	ActivityIndicator,
@@ -7,23 +7,53 @@ import {
 	IconButton,
 	Snackbar,
 	Divider,
+	Menu,
+	Button,
 } from "react-native-paper";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import AppCard from "../components/AppCard";
 import ReceivableListItem from "../components/ReceivableListItem";
+import TransactionListItem from "../components/TransactionListItem";
 import EntityFormDialog from "../components/EntityFormDialog";
 import ReceivableFormDialog from "../components/ReceivableFormDialog";
 import { useGetEntities } from "../hooks/entity/useGetEntities";
 import { useUpdateEntity } from "../hooks/entity/useUpdateEntity";
+import { useEntityFinancialSummary } from "../hooks/entity/useEntityFinancialSummary";
 import { useGetReceivablesByEntityId } from "../hooks/receivable/useGetReceivablesByEntityId";
 import { useUpdateReceivable } from "../hooks/receivable/useUpdateReceivable";
 import { useGetLiabilities } from "../hooks/liability/useGetLiabilities";
+import { useGetTransactions } from "../hooks/transaction/useGetTransactions";
+import { useGetAccounts } from "../hooks/account/useGetAccounts";
+import { useGetAssets } from "../hooks/asset/useGetAssets";
+import { useGetCategories } from "../hooks/category/useGetCategories";
+import { useGetTransactionTypes } from "../hooks/transactionType/useGetTransactionTypes";
 import { formatAmount } from "../utils/currency";
-import { RootStackParamList, Receivable, ReceivableType } from "../types";
+import {
+	RootStackParamList,
+	Receivable,
+	ReceivableType,
+	Transaction,
+} from "../types";
 
 type EntityDetailRouteProp = RouteProp<RootStackParamList, "EntityDetail">;
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
+
+/** Reusable label/value row for the Net Position card */
+const SummaryRow: React.FC<{
+	label: string;
+	value: React.ReactNode;
+	theme: { colors: { onSurfaceVariant: string } };
+}> = ({ label, value, theme }) => (
+	<View style={styles.summaryRow}>
+		<Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+			{label}
+		</Text>
+		<Text variant="titleSmall" style={{ fontWeight: "bold" }}>
+			{value}
+		</Text>
+	</View>
+);
 
 const EntityDetailScreen = () => {
 	const theme = useTheme();
@@ -41,10 +71,24 @@ const EntityDetailScreen = () => {
 		useGetReceivablesByEntityId(entityId);
 	const { updateReceivable } = useUpdateReceivable();
 	const { liabilities, loading: loadingLiabilities } = useGetLiabilities();
+	const transactionFilter = useMemo(() => ({ entityId }), [entityId]);
+	const { transactions, loading: loadingTransactions } =
+		useGetTransactions(transactionFilter);
+	const { accounts } = useGetAccounts();
+	const { assets } = useGetAssets();
+	const { categories } = useGetCategories();
+	const { transactionTypes } = useGetTransactionTypes();
+	const {
+		summaries,
+		loading: loadingSummary,
+		error: summaryError,
+	} = useEntityFinancialSummary(entityId);
 
 	const [editDialogVisible, setEditDialogVisible] = useState(false);
 	const [editingReceivable, setEditingReceivable] = useState<Receivable | null>(null);
 	const [snackbar, setSnackbar] = useState({ visible: false, message: "" });
+	const [selectedCurrency, setSelectedCurrency] = useState<string | null>(null);
+	const [currencyMenuVisible, setCurrencyMenuVisible] = useState(false);
 
 	const entity = useMemo(
 		() => entities.find((e) => e.id === entityId) ?? null,
@@ -56,26 +100,6 @@ const EntityDetailScreen = () => {
 		() => liabilities.filter((l) => l.entity_id === entityId),
 		[liabilities, entityId],
 	);
-
-	// Net position by currency
-	const netPosition = useMemo(() => {
-		const positions: {
-			[currency: string]: { receivable: number; liability: number };
-		} = {};
-		receivables.forEach((r) => {
-			if (r.status === "Active") {
-				if (!positions[r.currency])
-					positions[r.currency] = { receivable: 0, liability: 0 };
-				positions[r.currency].receivable += r.current_balance;
-			}
-		});
-		entityLiabilities.forEach((l) => {
-			if (!positions[l.currency])
-				positions[l.currency] = { receivable: 0, liability: 0 };
-			positions[l.currency].liability += l.current_balance;
-		});
-		return positions;
-	}, [receivables, entityLiabilities]);
 
 	const handleEditSubmit = async (data: {
 		name: string;
@@ -101,6 +125,95 @@ const EntityDetailScreen = () => {
 			});
 		}
 	};
+
+	const getAccountName = (accountId: number | null | undefined) =>
+		accounts.find((a) => a.id === accountId)?.name ?? "";
+
+	const getAccountCurrency = (accountId: number | null | undefined) =>
+		accounts.find((a) => a.id === accountId)?.currency ?? "USD";
+
+	/** Resolve a transaction's currency: prefer its account, fall back to its asset */
+	const resolveTransactionCurrency = (t: Transaction) => {
+		const accountId = t.from_account_id || t.to_account_id;
+		const acctCurrency = accounts.find((a) => a.id === accountId)?.currency;
+		if (acctCurrency) return acctCurrency;
+		const assetCurrency = assets.find((a) => a.id === t.asset_id)?.currency;
+		if (assetCurrency) return assetCurrency;
+		return "RWF";
+	};
+
+	const getCategoryName = (categoryId: number | null) =>
+		categories.find((c) => c.id === categoryId)?.name ?? "";
+
+	const getTransactionTypeName = (typeId: number) =>
+		transactionTypes.find((t) => t.id === typeId)?.name ?? "";
+
+	const getAssociationCount = (t: Transaction) =>
+		[
+			t.asset_id,
+			t.liability_id,
+			t.envelope_id,
+			t.bill_id,
+			t.receivable_id,
+			t.entity_id,
+		].filter(Boolean).length;
+
+	// Every currency this entity has any data in — drives the currency switcher.
+	// Cheap: derived from the (already-fetched, already-rendered) lists, not a new query.
+	const currencies = useMemo(() => {
+		const set = new Set<string>();
+		receivables.forEach((r) => set.add(r.currency));
+		entityLiabilities.forEach((l) => set.add(l.currency));
+		transactions.forEach((t) => set.add(resolveTransactionCurrency(t)));
+		return Array.from(set);
+	}, [receivables, entityLiabilities, transactions, accounts, assets]);
+
+	useEffect(() => {
+		setSelectedCurrency((prev) => {
+			if (prev && currencies.includes(prev)) return prev;
+			return currencies.length > 0 ? currencies[0] : null;
+		});
+	}, [currencies]);
+
+	const filteredReceivables = useMemo(
+		() =>
+			selectedCurrency
+				? receivables.filter((r) => r.currency === selectedCurrency)
+				: receivables,
+		[receivables, selectedCurrency],
+	);
+
+	const filteredLiabilities = useMemo(
+		() =>
+			selectedCurrency
+				? entityLiabilities.filter((l) => l.currency === selectedCurrency)
+				: entityLiabilities,
+		[entityLiabilities, selectedCurrency],
+	);
+
+	const filteredTransactions = useMemo(
+		() =>
+			selectedCurrency
+				? transactions.filter(
+						(t) => resolveTransactionCurrency(t) === selectedCurrency
+				  )
+				: transactions,
+		[transactions, selectedCurrency, accounts, assets],
+	);
+
+	const selectedSummary = selectedCurrency
+		? summaries[selectedCurrency] ?? {
+				income: 0,
+				expenses: 0,
+				receivable: 0,
+				liabilityPaid: 0,
+				liabilityTotal: 0,
+		  }
+		: null;
+	const netPosition = selectedSummary
+		? selectedSummary.receivable -
+		  (selectedSummary.liabilityTotal - selectedSummary.liabilityPaid)
+		: 0;
 
 	const handleReceivableEdit = (receivable: Receivable) => {
 		setEditingReceivable(receivable);
@@ -131,7 +244,12 @@ const EntityDetailScreen = () => {
 		}
 	};
 
-	const isLoading = loadingEntities || loadingReceivables || loadingLiabilities;
+	const isLoading =
+		loadingEntities ||
+		loadingReceivables ||
+		loadingLiabilities ||
+		loadingTransactions ||
+		loadingSummary;
 
 	if (isLoading) {
 		return (
@@ -206,26 +324,103 @@ const EntityDetailScreen = () => {
 					</Text>
 				</AppCard>
 
+				{/* Currency Switcher — filters the summary and every section below */}
+				{currencies.length > 1 && selectedCurrency && (
+					<View style={styles.currencyPickerRow}>
+						<Menu
+							visible={currencyMenuVisible}
+							onDismiss={() => setCurrencyMenuVisible(false)}
+							anchor={
+								<Button
+									mode="outlined"
+									compact
+									icon="chevron-down"
+									contentStyle={{ flexDirection: "row-reverse", height: 32 }}
+									style={{ height: 32, justifyContent: "center" }}
+									labelStyle={{ marginVertical: 0, fontSize: 13 }}
+									onPress={() => setCurrencyMenuVisible(true)}
+								>
+									{selectedCurrency}
+								</Button>
+							}
+						>
+							{currencies.map((c) => (
+								<Menu.Item
+									key={c}
+									onPress={() => {
+										setSelectedCurrency(c);
+										setCurrencyMenuVisible(false);
+									}}
+									title={c}
+									trailingIcon={selectedCurrency === c ? "check" : undefined}
+								/>
+							))}
+						</Menu>
+					</View>
+				)}
+
 				{/* Net Position Card */}
-				{Object.keys(netPosition).length > 0 && (
+				{summaryError && (
+					<Text
+						variant="bodySmall"
+						style={{ color: theme.colors.error, marginTop: 12 }}
+					>
+						{summaryError}
+					</Text>
+				)}
+				{selectedCurrency && selectedSummary && (
 					<AppCard title="Net Position" style={{ marginTop: 12 }}>
-						{Object.entries(netPosition).map(([cur, pos]) => (
-							<View key={cur} style={styles.row}>
-								<Text variant="bodyMedium">{cur}</Text>
+						<SummaryRow
+							theme={theme}
+							label="Income / Expenses"
+							value={
+								<Text>
+									<Text style={{ color: theme.colors.primary }}>
+										+{formatAmount(selectedSummary.income, selectedCurrency)}
+									</Text>
+									{"  /  "}
+									<Text style={{ color: theme.colors.error }}>
+										-{formatAmount(selectedSummary.expenses, selectedCurrency)}
+									</Text>
+								</Text>
+							}
+						/>
+						<SummaryRow
+							theme={theme}
+							label="Liability Paid / Total"
+							value={`${formatAmount(
+								selectedSummary.liabilityPaid,
+								selectedCurrency
+							)} / ${formatAmount(
+								selectedSummary.liabilityTotal,
+								selectedCurrency
+							)}`}
+						/>
+						<SummaryRow
+							theme={theme}
+							label="Receivable"
+							value={
+								<Text style={{ color: theme.colors.primary }}>
+									{formatAmount(selectedSummary.receivable, selectedCurrency)}
+								</Text>
+							}
+						/>
+						<SummaryRow
+							theme={theme}
+							label="Net Position"
+							value={
 								<Text
-									variant="titleSmall"
 									style={{
-										fontWeight: "bold",
 										color:
-											pos.receivable - pos.liability >= 0
+											netPosition >= 0
 												? theme.colors.primary
 												: theme.colors.error,
 									}}
 								>
-									{formatAmount(pos.receivable - pos.liability, cur)}
+									{formatAmount(netPosition, selectedCurrency)}
 								</Text>
-							</View>
-						))}
+							}
+						/>
 					</AppCard>
 				)}
 
@@ -247,17 +442,19 @@ const EntityDetailScreen = () => {
 				>
 					Receivables
 				</Text>
-				{receivables.length === 0 ? (
+				{filteredReceivables.length === 0 ? (
 					<View style={styles.emptyState}>
 						<Text
 							variant="bodyLarge"
 							style={{ color: theme.colors.onSurfaceVariant }}
 						>
-							No receivables for this entity.
+							{receivables.length === 0
+								? "No receivables for this entity."
+								: `No receivables in ${selectedCurrency}.`}
 						</Text>
 					</View>
 				) : (
-					receivables.map((receivable) => (
+					filteredReceivables.map((receivable) => (
 						<ReceivableListItem
 							key={receivable.id}
 							receivable={receivable}
@@ -273,7 +470,7 @@ const EntityDetailScreen = () => {
 				)}
 
 				{/* Liabilities Section */}
-				{entityLiabilities.length > 0 && (
+				{filteredLiabilities.length > 0 && (
 					<>
 						<Text
 							variant="titleMedium"
@@ -284,7 +481,7 @@ const EntityDetailScreen = () => {
 						>
 							Liabilities
 						</Text>
-						{entityLiabilities.map((liability) => (
+						{filteredLiabilities.map((liability) => (
 							<View
 								key={liability.id}
 								style={[
@@ -301,6 +498,61 @@ const EntityDetailScreen = () => {
 							</View>
 						))}
 					</>
+				)}
+
+				{/* Transactions Section */}
+				<Text
+					variant="titleMedium"
+					style={[
+						styles.sectionTitle,
+						{ color: theme.colors.onSurface, marginTop: 16 },
+					]}
+				>
+					Transactions
+				</Text>
+				{filteredTransactions.length === 0 ? (
+					<View style={styles.emptyState}>
+						<Text
+							variant="bodyLarge"
+							style={{ color: theme.colors.onSurfaceVariant }}
+						>
+							{transactions.length === 0
+								? "No transactions for this entity."
+								: `No transactions in ${selectedCurrency}.`}
+						</Text>
+					</View>
+				) : (
+					filteredTransactions.map((transaction, index) => {
+						const typeName = getTransactionTypeName(
+							transaction.transaction_type_id
+						);
+						const isTransfer = typeName === "Transfer";
+						const accountName = isTransfer
+							? `${getAccountName(transaction.from_account_id)} → ${getAccountName(transaction.to_account_id)}`
+							: getAccountName(
+									transaction.from_account_id || transaction.to_account_id
+							  );
+
+						return (
+							<TransactionListItem
+								key={transaction.id}
+								transaction={transaction}
+								accountName={accountName}
+								accountCurrency={getAccountCurrency(
+									transaction.from_account_id || transaction.to_account_id
+								)}
+								categoryName={getCategoryName(transaction.category_id)}
+								transactionTypeName={typeName}
+								associationCount={getAssociationCount(transaction)}
+								onPress={() =>
+									navigation.navigate("TransactionDetail", {
+										transactionId: transaction.id,
+									})
+								}
+								index={index}
+							/>
+						);
+					})
 				)}
 			</ScrollView>
 
@@ -338,6 +590,17 @@ const styles = StyleSheet.create({
 		flexDirection: "row",
 		justifyContent: "space-between",
 		marginBottom: 8,
+	},
+	summaryRow: {
+		flexDirection: "row",
+		justifyContent: "space-between",
+		alignItems: "center",
+		marginBottom: 8,
+	},
+	currencyPickerRow: {
+		flexDirection: "row",
+		justifyContent: "flex-end",
+		marginTop: 12,
 	},
 	divider: { marginVertical: 12 },
 	actionsRow: {

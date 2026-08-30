@@ -71,8 +71,14 @@ const AccountDetailScreen = () => {
 		transactionTypes.find((t) => t.id === id)?.name || "";
 
 	const getAssociationCount = (t: Transaction) =>
-		[t.asset_id, t.liability_id, t.envelope_id, t.bill_id, t.receivable_id].filter(Boolean)
-			.length;
+		[
+			t.asset_id,
+			t.liability_id,
+			t.envelope_id,
+			t.bill_id,
+			t.receivable_id,
+			t.entity_id,
+		].filter(Boolean).length;
 
 	const handleEditSubmit = async (data: {
 		name: string;

@@ -43,6 +43,20 @@ export const ReceivableRepository = {
 		);
 	},
 
+	// Active-balance totals for one entity's receivables, grouped by currency
+	async getActiveTotalsByEntityAndCurrency(
+		db: SQLiteDatabase,
+		entityId: number,
+	): Promise<{ currency: string; total: number }[]> {
+		return await db.getAllAsync(
+			`SELECT currency, SUM(current_balance) as total
+			 FROM receivables
+			 WHERE entity_id = ? AND status = 'Active'
+			 GROUP BY currency`,
+			[entityId],
+		);
+	},
+
 	async create(
 		db: SQLiteDatabase,
 		receivable: Omit<Receivable, "id">,

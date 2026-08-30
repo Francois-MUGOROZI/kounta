@@ -14,10 +14,13 @@ interface AssociationFieldsProps {
 	onLiabilityChange: (value: string) => void;
 	billId: string;
 	onBillChange: (value: string) => void;
+	entityId: string;
+	onEntityChange: (value: string) => void;
 	assets: { id: number; name: string }[];
 	envelopes: { id: number; name: string }[];
 	liabilities: { id: number; name: string; current_balance: number; currency: string }[];
 	bills: { id: number; name: string; amount: number }[];
+	entities: { id: number; name: string }[];
 }
 
 const AssociationFields: React.FC<AssociationFieldsProps> = ({
@@ -30,10 +33,13 @@ const AssociationFields: React.FC<AssociationFieldsProps> = ({
 	onLiabilityChange,
 	billId,
 	onBillChange,
+	entityId,
+	onEntityChange,
 	assets,
 	envelopes,
 	liabilities,
 	bills,
+	entities,
 }) => {
 	// Count selected associations for badge
 	let count = 0;
@@ -41,6 +47,7 @@ const AssociationFields: React.FC<AssociationFieldsProps> = ({
 	if (envelopeId && envelopeId !== "") count++;
 	if (liabilityId && liabilityId !== "") count++;
 	if (billId && billId !== "") count++;
+	if (entityId && entityId !== "") count++;
 
 	return (
 		<CollapsibleSection title="Associations (Optional)" showCount={count}>
@@ -55,6 +62,21 @@ const AssociationFields: React.FC<AssociationFieldsProps> = ({
 						...assets.map((a) => ({
 							label: a.name,
 							value: a.id.toString(),
+						})),
+					]}
+					placeholder="None"
+				/>
+
+				{/* Entity - who this transaction was given to / received from */}
+				<AppDropdown
+					label="Entity (optional)"
+					value={entityId}
+					onSelect={(v) => onEntityChange(v ?? "")}
+					options={[
+						{ label: "None", value: "" },
+						...entities.map((e) => ({
+							label: e.name,
+							value: e.id.toString(),
 						})),
 					]}
 					placeholder="None"

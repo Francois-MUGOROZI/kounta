@@ -273,6 +273,10 @@ export const TransactionRepository = {
 				where.push("receivable_id = ?");
 				params.push(filter.receivableId);
 			}
+			if (filter.entityId) {
+				where.push("entity_id = ?");
+				params.push(filter.entityId);
+			}
 		}
 		if (where.length > 0) {
 			query += " WHERE " + where.join(" AND ");
@@ -286,6 +290,49 @@ export const TransactionRepository = {
 			"SELECT * FROM transactions WHERE id = ?",
 			[id]
 		);
+	},
+
+	// Income/Expense totals for one entity, grouped by currency — aggregated in SQL
+	async getEntityTotalsByCurrency(
+		db: SQLiteDatabase,
+		entityId: number
+	): Promise<{ currency: string; income: number; expenses: number }[]> {
+		const rows = await db.getAllAsync<{
+			currency: string;
+			typeName: string;
+			total: number;
+		}>(
+			`SELECT
+				COALESCE(a.currency, ast.currency, 'RWF') as currency,
+				tt.name as typeName,
+				SUM(t.amount) as total
+			 FROM transactions t
+			 JOIN transaction_types tt ON t.transaction_type_id = tt.id
+			 LEFT JOIN accounts a ON a.id = COALESCE(t.from_account_id, t.to_account_id)
+			 LEFT JOIN assets ast ON ast.id = t.asset_id
+			 WHERE t.entity_id = ? AND tt.name IN ('Income', 'Expense')
+			 GROUP BY COALESCE(a.currency, ast.currency, 'RWF'), tt.name`,
+			[entityId]
+		);
+
+		const byCurrency: {
+			[currency: string]: { income: number; expenses: number };
+		} = {};
+		rows.forEach((r) => {
+			if (!byCurrency[r.currency]) {
+				byCurrency[r.currency] = { income: 0, expenses: 0 };
+			}
+			if (r.typeName === "Income") {
+				byCurrency[r.currency].income += r.total;
+			} else {
+				byCurrency[r.currency].expenses += r.total;
+			}
+		});
+
+		return Object.entries(byCurrency).map(([currency, totals]) => ({
+			currency,
+			...totals,
+		}));
 	},
 
 	async create(
@@ -305,6 +352,7 @@ export const TransactionRepository = {
 			envelope_id = null,
 			bill_id = null,
 			receivable_id = null,
+			entity_id = null,
 		} = transaction;
 
 		// ── Step 1: Resolve transaction type name ─────────────────────────────
@@ -386,8 +434,8 @@ export const TransactionRepository = {
 				`INSERT INTO transactions
 					(description, amount, transaction_type_id, date, category_id,
 					 asset_id, liability_id, from_account_id, to_account_id,
-					 envelope_id, bill_id, receivable_id)
-				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+					 envelope_id, bill_id, receivable_id, entity_id)
+				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 				[
 					description,
 					amount,
@@ -401,6 +449,7 @@ export const TransactionRepository = {
 					envelope_id,
 					bill_id,
 					receivable_id,
+					entity_id,
 				]
 			);
 			insertedId = result.lastInsertRowId;

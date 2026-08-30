@@ -20,6 +20,7 @@ import { useGetLiabilities } from "../hooks/liability/useGetLiabilities";
 import { useGetEnvelopes } from "../hooks/envelope/useGetEnvelope";
 import { useGetBills } from "../hooks/bill/useGetBills";
 import { useGetReceivables } from "../hooks/receivable/useGetReceivables";
+import { useGetEntities } from "../hooks/entity/useGetEntities";
 import { formatTransactionAmount } from "../utils/currency";
 import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
 import AppCard from "../components/AppCard";
@@ -45,6 +46,7 @@ const TransactionDetailScreen = () => {
 	const { envelopes } = useGetEnvelopes();
 	const { bills } = useGetBills();
 	const { receivables } = useGetReceivables();
+	const { entities } = useGetEntities();
 
 	const transactionTypeName = useMemo(() => {
 		if (!transaction) return "";
@@ -219,8 +221,31 @@ const TransactionDetailScreen = () => {
 			});
 		}
 
+		if (transaction.entity_id) {
+			const entity = entities.find((e) => e.id === transaction.entity_id);
+			items.push({
+				icon: "account-outline",
+				label: "Entity",
+				value: entity?.name || `#${transaction.entity_id}`,
+				navigable: true,
+				onPress: () =>
+					navigation.navigate("EntityDetail", {
+						entityId: transaction.entity_id!,
+					}),
+			});
+		}
+
 		return items;
-	}, [transaction, assets, liabilities, envelopes, bills, receivables, navigation]);
+	}, [
+		transaction,
+		assets,
+		liabilities,
+		envelopes,
+		bills,
+		receivables,
+		entities,
+		navigation,
+	]);
 
 	if (loading) {
 		return (

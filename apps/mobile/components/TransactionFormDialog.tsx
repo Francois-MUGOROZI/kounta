@@ -21,6 +21,7 @@ interface TransactionFormDialogProps {
 	liabilities: { id: number; name: string; current_balance: number; currency: string }[];
 	envelopes: { id: number; name: string }[];
 	bills: { id: number; name: string; amount: number }[];
+	entities: { id: number; name: string }[];
 }
 
 const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
@@ -35,6 +36,7 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 	liabilities,
 	envelopes,
 	bills,
+	entities,
 }) => {
 	// Find default type ID
 	const expenseTypeId = useMemo(() => {
@@ -55,6 +57,7 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 	const [liabilityId, setLiabilityId] = useState<string>("");
 	const [envelopeId, setEnvelopeId] = useState<string>("");
 	const [billId, setBillId] = useState<string>("");
+	const [entityId, setEntityId] = useState<string>("");
 	const [error, setError] = useState("");
 	const [transferDirection, setTransferDirection] =
 		useState<TransferDirection>("account-to-account");
@@ -78,6 +81,7 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 			setLiabilityId("");
 			setEnvelopeId("");
 			setBillId("");
+			setEntityId("");
 			setError("");
 			setTransferDirection("account-to-account");
 		}
@@ -103,6 +107,7 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 		setLiabilityId("");
 		setEnvelopeId("");
 		setBillId("");
+		setEntityId("");
 		setTransferDirection("account-to-account");
 	}, []);
 
@@ -248,6 +253,7 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 			envelope_id:
 				envelopeId && envelopeId !== "" ? Number(envelopeId) : undefined,
 			bill_id: billId && billId !== "" ? Number(billId) : undefined,
+			entity_id: entityId && entityId !== "" ? Number(entityId) : undefined,
 		} as Transaction);
 	};
 
@@ -394,10 +400,13 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 								onLiabilityChange={setLiabilityId}
 								billId={billId}
 								onBillChange={setBillId}
+								entityId={entityId}
+								onEntityChange={setEntityId}
 								assets={assets}
 								envelopes={envelopes}
 								liabilities={liabilities}
 								bills={bills}
+								entities={entities}
 							/>
 						)}
 

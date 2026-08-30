@@ -5,7 +5,7 @@ import AppDialog from "./AppDialog";
 import AppTextInput from "./AppTextInput";
 import AppNumberInput from "./AppNumberInput";
 import AppDropdown from "./AppDropdown";
-import { Liability } from "../types";
+import { Entity, Liability } from "../types";
 
 interface LiabilityFormDialogProps {
 	visible: boolean;
@@ -17,8 +17,10 @@ interface LiabilityFormDialogProps {
 		total_amount: number;
 		current_balance: number;
 		notes?: string;
+		entity_id?: number | null;
 	}) => void;
 	liabilityTypes: { id: number; name: string }[];
+	entities: Entity[];
 	initialLiability?: Liability | null;
 }
 
@@ -27,6 +29,7 @@ const LiabilityFormDialog: React.FC<LiabilityFormDialogProps> = ({
 	onClose,
 	onSubmit,
 	liabilityTypes,
+	entities,
 	initialLiability,
 }) => {
 	const isEditing = !!initialLiability;
@@ -36,6 +39,7 @@ const LiabilityFormDialog: React.FC<LiabilityFormDialogProps> = ({
 	const [totalAmount, setTotalAmount] = useState("");
 	const [currentBalance, setCurrentBalance] = useState("");
 	const [notes, setNotes] = useState("");
+	const [entityId, setEntityId] = useState<string>("");
 	const [error, setError] = useState("");
 
 	useEffect(() => {
@@ -46,6 +50,7 @@ const LiabilityFormDialog: React.FC<LiabilityFormDialogProps> = ({
 			setTotalAmount(initialLiability.total_amount.toString());
 			setCurrentBalance(initialLiability.current_balance.toString());
 			setNotes(initialLiability.notes || "");
+			setEntityId(initialLiability.entity_id?.toString() ?? "");
 		} else {
 			setName("");
 			setTypeId(liabilityTypes[0]?.id?.toString() ?? "");
@@ -53,6 +58,7 @@ const LiabilityFormDialog: React.FC<LiabilityFormDialogProps> = ({
 			setTotalAmount("");
 			setCurrentBalance("");
 			setNotes("");
+			setEntityId("");
 		}
 		setError("");
 	}, [visible, initialLiability, liabilityTypes]);
@@ -74,6 +80,7 @@ const LiabilityFormDialog: React.FC<LiabilityFormDialogProps> = ({
 				total_amount: initialLiability!.total_amount,
 				current_balance: initialLiability!.current_balance,
 				notes: notes.trim() || undefined,
+				entity_id: entityId && entityId !== "" ? Number(entityId) : null,
 			});
 			return;
 		}
@@ -100,6 +107,7 @@ const LiabilityFormDialog: React.FC<LiabilityFormDialogProps> = ({
 			total_amount: Number(totalAmount),
 			current_balance: Number(currentBalance),
 			notes: notes.trim() || undefined,
+			entity_id: entityId && entityId !== "" ? Number(entityId) : null,
 		});
 	};
 
@@ -170,6 +178,19 @@ const LiabilityFormDialog: React.FC<LiabilityFormDialogProps> = ({
 					}
 				/>
 			)}
+			<AppDropdown
+				label="Entity (optional)"
+				value={entityId}
+				onSelect={(v) => setEntityId(v ?? "")}
+				options={[
+					{ label: "None", value: "" },
+					...entities.map((e) => ({
+						label: e.name,
+						value: e.id.toString(),
+					})),
+				]}
+				placeholder="None"
+			/>
 			<AppTextInput
 				label="Notes (optional)"
 				value={notes}

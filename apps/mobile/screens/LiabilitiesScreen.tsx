@@ -13,6 +13,7 @@ import { useGetLiabilities } from "../hooks/liability/useGetLiabilities";
 import { useCreateLiability } from "../hooks/liability/useCreateLiability";
 import { useUpdateLiability } from "../hooks/liability/useUpdateLiability";
 import { useGetLiabilityTypes } from "../hooks/liabilityType/useGetLiabilityTypes";
+import { useGetEntities } from "../hooks/entity/useGetEntities";
 import LiabilityListItem from "../components/LiabilityListItem";
 import LiabilityFormDialog from "../components/LiabilityFormDialog";
 import { Liability, RootStackParamList } from "../types";
@@ -41,6 +42,11 @@ const LiabilitiesScreen = () => {
 		loading: loadingTypes,
 		error: errorTypes,
 	} = useGetLiabilityTypes();
+	const {
+		entities,
+		loading: loadingEntities,
+		error: errorEntities,
+	} = useGetEntities();
 	const [modalVisible, setModalVisible] = useState(false);
 	const [editingLiability, setEditingLiability] = useState<Liability | null>(
 		null
@@ -69,6 +75,7 @@ const LiabilitiesScreen = () => {
 		total_amount: number;
 		current_balance: number;
 		notes?: string;
+		entity_id?: number | null;
 	}) => {
 		try {
 			if (editingLiability) {
@@ -93,6 +100,11 @@ const LiabilitiesScreen = () => {
 
 	const getTypeName = (typeId: number) => {
 		return liabilityTypes.find((t) => t.id === typeId)?.name || "";
+	};
+
+	const getEntityName = (entityId: number | null | undefined) => {
+		if (!entityId) return undefined;
+		return entities.find((e) => e.id === entityId)?.name;
 	};
 
 	// Group liabilities by currency
@@ -128,8 +140,10 @@ const LiabilitiesScreen = () => {
 		return map;
 	}, [liabilities]);
 
-	const anyLoading = loading || creating || updating || loadingTypes;
-	const anyError = error || createError || updateError || errorTypes;
+	const anyLoading =
+		loading || creating || updating || loadingTypes || loadingEntities;
+	const anyError =
+		error || createError || updateError || errorTypes || errorEntities;
 
 	return (
 		<View
@@ -190,6 +204,7 @@ const LiabilitiesScreen = () => {
 								<LiabilityListItem
 									liability={liability}
 									typeName={getTypeName(liability.liability_type_id)}
+									entityName={getEntityName(liability.entity_id)}
 									onEdit={() => openEditModal(liability)}
 									onPress={() =>
 										navigation.navigate("LiabilityDetail", {
@@ -229,6 +244,7 @@ const LiabilitiesScreen = () => {
 				onClose={closeModal}
 				onSubmit={handleSubmit}
 				liabilityTypes={liabilityTypes}
+				entities={entities}
 				initialLiability={editingLiability}
 			/>
 			<Snackbar
