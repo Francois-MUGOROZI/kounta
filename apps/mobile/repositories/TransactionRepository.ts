@@ -39,6 +39,76 @@ async function applyAccountSideEffects(
 	}
 }
 
+async function getNameById(
+	db: SQLiteDatabase,
+	table: "accounts" | "assets" | "receivables",
+	id: number
+): Promise<string | null> {
+	const column = table === "receivables" ? "title" : "name";
+	const row = await db.getFirstAsync<{ label: string }>(
+		`SELECT ${column} AS label FROM ${table} WHERE id = ?`,
+		[id]
+	);
+	return row?.label ?? null;
+}
+
+// Builds a sensible description when the user left it blank — category name
+// for Income/Expense, source → destination for Transfers, falling back to
+// the transaction type and date when nothing else is available.
+async function buildFallbackDescription(
+	db: SQLiteDatabase,
+	typeName: string,
+	date: string,
+	categoryId: number | null,
+	fromAccountId: number | null | undefined,
+	toAccountId: number | null | undefined,
+	assetId: number | null | undefined,
+	receivableId: number | null | undefined
+): Promise<string> {
+	const formattedDate = new Date(date).toLocaleDateString(undefined, {
+		month: "short",
+		day: "numeric",
+		year: "numeric",
+	});
+
+	if (categoryId) {
+		const category = await db.getFirstAsync<{ name: string }>(
+			"SELECT name FROM categories WHERE id = ?",
+			[categoryId]
+		);
+		if (category) return `${category.name} — ${formattedDate}`;
+	}
+
+	if (typeName === "Transfer") {
+		const sourceLabel = fromAccountId
+			? await getNameById(db, "accounts", fromAccountId)
+			: receivableId && toAccountId
+			? await getNameById(db, "receivables", receivableId)
+			: assetId && toAccountId
+			? await getNameById(db, "assets", assetId)
+			: null;
+
+		const destinationLabel = toAccountId
+			? await getNameById(db, "accounts", toAccountId)
+			: receivableId && fromAccountId
+			? await getNameById(db, "receivables", receivableId)
+			: assetId && fromAccountId
+			? await getNameById(db, "assets", assetId)
+			: null;
+
+		if (sourceLabel && destinationLabel) {
+			return `${sourceLabel} → ${destinationLabel} — ${formattedDate}`;
+		}
+
+		if (assetId && !fromAccountId && !toAccountId) {
+			const assetName = await getNameById(db, "assets", assetId);
+			if (assetName) return `${assetName} reinvestment — ${formattedDate}`;
+		}
+	}
+
+	return `${typeName} — ${formattedDate}`;
+}
+
 async function applyLiabilitySideEffect(
 	db: SQLiteDatabase,
 	amount: number,
@@ -223,7 +293,7 @@ export const TransactionRepository = {
 		transaction: Omit<Transaction, "id">
 	): Promise<number> {
 		const {
-			description = "",
+			description: rawDescription = "",
 			amount = 0,
 			transaction_type_id = 0,
 			date = new Date().toISOString(),
@@ -246,6 +316,19 @@ export const TransactionRepository = {
 			throw new Error(`Unknown transaction type id: ${transaction_type_id}`);
 		}
 		const typeName = typeRow.name;
+
+		const description = rawDescription.trim()
+			? rawDescription.trim()
+			: await buildFallbackDescription(
+					db,
+					typeName,
+					date,
+					category_id,
+					from_account_id,
+					to_account_id,
+					asset_id,
+					receivable_id
+				);
 
 		// ── Step 2: Pre-fetch and validate — ALL checks before any DB write ───
 		let receivable: ReceivableSnapshot | null = null;
