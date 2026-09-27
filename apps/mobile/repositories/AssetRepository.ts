@@ -85,8 +85,8 @@ export const AssetRepository = {
 		newValuation: number
 	): Promise<void> {
 		await db.runAsync(
-			`UPDATE assets SET current_valuation = ?, current_value = ? WHERE id = ?`,
-			[newValuation, newValuation, assetId]
+			`UPDATE assets SET current_valuation = ? WHERE id = ?`,
+			[newValuation, assetId]
 		);
 		emitEvent(EVENTS.DATA_CHANGED);
 	},

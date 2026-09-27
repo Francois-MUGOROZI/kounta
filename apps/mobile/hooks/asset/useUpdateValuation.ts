@@ -15,6 +15,7 @@ export function useUpdateValuation() {
 				await AssetRepository.updateValuation(db, assetId, newValuation);
 			} catch (e: any) {
 				setError(e.message || "Failed to update valuation");
+				throw e;
 			} finally {
 				setLoading(false);
 			}
