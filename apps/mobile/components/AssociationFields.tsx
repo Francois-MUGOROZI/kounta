@@ -8,16 +8,13 @@ interface AssociationFieldsProps {
 	transactionType: string;
 	assetId: string;
 	onAssetChange: (value: string) => void;
-	envelopeId: string;
-	onEnvelopeChange: (value: string) => void;
 	liabilityId: string;
 	onLiabilityChange: (value: string) => void;
 	billId: string;
 	onBillChange: (value: string) => void;
 	entityId: string;
 	onEntityChange: (value: string) => void;
-	assets: { id: number; name: string }[];
-	envelopes: { id: number; name: string }[];
+	assets: { id: number; name: string; current_valuation: number; currency: string }[];
 	liabilities: { id: number; name: string; current_balance: number; currency: string }[];
 	bills: { id: number; name: string; amount: number }[];
 	entities: { id: number; name: string }[];
@@ -27,8 +24,6 @@ const AssociationFields: React.FC<AssociationFieldsProps> = ({
 	transactionType,
 	assetId,
 	onAssetChange,
-	envelopeId,
-	onEnvelopeChange,
 	liabilityId,
 	onLiabilityChange,
 	billId,
@@ -36,7 +31,6 @@ const AssociationFields: React.FC<AssociationFieldsProps> = ({
 	entityId,
 	onEntityChange,
 	assets,
-	envelopes,
 	liabilities,
 	bills,
 	entities,
@@ -44,7 +38,6 @@ const AssociationFields: React.FC<AssociationFieldsProps> = ({
 	// Count selected associations for badge
 	let count = 0;
 	if (assetId && assetId !== "") count++;
-	if (envelopeId && envelopeId !== "") count++;
 	if (liabilityId && liabilityId !== "") count++;
 	if (billId && billId !== "") count++;
 	if (entityId && entityId !== "") count++;
@@ -60,7 +53,7 @@ const AssociationFields: React.FC<AssociationFieldsProps> = ({
 					options={[
 						{ label: "None", value: "" },
 						...assets.map((a) => ({
-							label: a.name,
+							label: `${a.name} (${formatAmount(a.current_valuation, a.currency)})`,
 							value: a.id.toString(),
 						})),
 					]}
@@ -82,22 +75,9 @@ const AssociationFields: React.FC<AssociationFieldsProps> = ({
 					placeholder="None"
 				/>
 
-				{/* Envelope, Liability, Bill - only for Expense */}
+				{/* Liability, Bill - only for Expense */}
 				{transactionType === "Expense" && (
 					<>
-						<AppDropdown
-							label="Envelope (optional)"
-							value={envelopeId}
-							onSelect={(v) => onEnvelopeChange(v ?? "")}
-							options={[
-								{ label: "None", value: "" },
-								...envelopes.map((e) => ({
-									label: e.name,
-									value: e.id.toString(),
-								})),
-							]}
-							placeholder="None"
-						/>
 						<AppDropdown
 							label="Liability (optional)"
 							value={liabilityId}

@@ -8,18 +8,19 @@ import AppNumberInput from "./AppNumberInput";
 import AppDropdown from "./AppDropdown";
 import TransferFields, { TransferDirection } from "./TransferFields";
 import AssociationFields from "./AssociationFields";
+import { formatAmount } from "../utils/currency";
 
 interface TransactionFormDialogProps {
 	visible: boolean;
 	onClose: () => void;
 	onSubmit: (data: Transaction) => void;
 	transactionTypes: TransactionType[];
-	accounts: { id: number; name: string }[];
+	accounts: { id: number; name: string; current_balance: number; currency: string }[];
 	categories: Category[];
-	assets: { id: number; name: string }[];
+	assets: { id: number; name: string; current_valuation: number; currency: string }[];
 	receivables: { id: number; name: string; status: string }[];
 	liabilities: { id: number; name: string; current_balance: number; currency: string }[];
-	envelopes: { id: number; name: string }[];
+	envelopes: { id: number; name: string; current_balance: number; currency: string }[];
 	bills: { id: number; name: string; amount: number }[];
 	entities: { id: number; name: string }[];
 }
@@ -360,7 +361,7 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 								}
 							}}
 							options={accounts.map((a) => ({
-								label: a.name,
+								label: `${a.name} (${formatAmount(a.current_balance, a.currency)})`,
 								value: a.id.toString(),
 							}))}
 							error={
@@ -371,14 +372,31 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 						/>
 					)}
 
-					{/* 5. Description */}
+					{/* 5. Envelope (optional, Expense only) */}
+					{selectedTransactionType === "Expense" && (
+						<AppDropdown
+							label="Envelope (optional)"
+							value={envelopeId}
+							onSelect={(v) => setEnvelopeId(v ?? "")}
+							options={[
+								{ label: "None", value: "" },
+								...envelopes.map((e) => ({
+									label: `${e.name} (${formatAmount(e.current_balance, e.currency)})`,
+									value: e.id.toString(),
+								})),
+							]}
+							placeholder="None"
+						/>
+					)}
+
+					{/* 6. Description */}
 					<AppTextInput
 						label="Description (optional)"
 						value={description}
 						onChangeText={setDescription}
 					/>
 
-					{/* 6. Date */}
+					{/* 7. Date */}
 					<AppTextInput
 						label="Date"
 						value={date}
@@ -387,15 +405,13 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 						error={error && !date.trim() ? "Date is required" : undefined}
 					/>
 
-					{/* 7. Associations (Income/Expense only) */}
+					{/* 8. Associations (Income/Expense only) */}
 					{selectedTransactionType &&
 						selectedTransactionType !== "Transfer" && (
 							<AssociationFields
 								transactionType={selectedTransactionType}
 								assetId={assetId}
 								onAssetChange={setAssetId}
-								envelopeId={envelopeId}
-								onEnvelopeChange={setEnvelopeId}
 								liabilityId={liabilityId}
 								onLiabilityChange={setLiabilityId}
 								billId={billId}
@@ -403,7 +419,6 @@ const TransactionFormDialog: React.FC<TransactionFormDialogProps> = ({
 								entityId={entityId}
 								onEntityChange={setEntityId}
 								assets={assets}
-								envelopes={envelopes}
 								liabilities={liabilities}
 								bills={bills}
 								entities={entities}

@@ -1,6 +1,7 @@
 import React from "react";
 import { View } from "react-native";
 import AppDropdown from "./AppDropdown";
+import { formatAmount } from "../utils/currency";
 
 export type TransferDirection =
 	| "account-to-account"
@@ -19,8 +20,8 @@ interface TransferFieldsProps {
 	onToAccountChange: (value: string) => void;
 	assetId: string;
 	onAssetChange: (value: string) => void;
-	accounts: { id: number; name: string }[];
-	assets: { id: number; name: string }[];
+	accounts: { id: number; name: string; current_balance: number; currency: string }[];
+	assets: { id: number; name: string; current_valuation: number; currency: string }[];
 	receivables: { id: number; name: string; status: string }[];
 	receivableId: string;
 	onReceivableChange: (value: string) => void;
@@ -108,7 +109,7 @@ const TransferFields: React.FC<TransferFieldsProps> = ({
 					value={fromAccountId}
 					onSelect={(v) => onFromAccountChange(v ?? "")}
 					options={accounts.map((a) => ({
-						label: a.name,
+						label: `${a.name} (${formatAmount(a.current_balance, a.currency)})`,
 						value: a.id.toString(),
 					}))}
 					error={
@@ -124,7 +125,7 @@ const TransferFields: React.FC<TransferFieldsProps> = ({
 					value={assetId}
 					onSelect={(v) => onAssetChange(v ?? "")}
 					options={assets.map((a) => ({
-						label: a.name,
+						label: `${a.name} (${formatAmount(a.current_valuation, a.currency)})`,
 						value: a.id.toString(),
 					}))}
 					error={error && !assetId ? "Asset is required" : undefined}
@@ -152,7 +153,7 @@ const TransferFields: React.FC<TransferFieldsProps> = ({
 					value={toAccountId}
 					onSelect={(v) => onToAccountChange(v ?? "")}
 					options={accounts.map((a) => ({
-						label: a.name,
+						label: `${a.name} (${formatAmount(a.current_balance, a.currency)})`,
 						value: a.id.toString(),
 					}))}
 					error={error && !toAccountId ? "To account is required" : undefined}
