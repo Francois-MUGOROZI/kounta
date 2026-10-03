@@ -1,198 +1,171 @@
-import React, { useState, useMemo } from "react";
-import { View, FlatList, StyleSheet } from "react-native";
-import {
-	FAB,
-	ActivityIndicator,
-	Text,
-	Snackbar,
-	useTheme,
-	Divider,
-} from "react-native-paper";
+import React, { useMemo, useState } from "react";
+import { RefreshControl, ScrollView, StyleSheet, View } from "react-native";
+import { AnimatedFAB, Text } from "react-native-paper";
+import Card from "../components/ui/Card";
+import ListItem from "../components/ui/ListItem";
+import IconBadge from "../components/ui/IconBadge";
+import EmptyState from "../components/ui/EmptyState";
+import { SegmentedControl } from "../components/ui/fields";
+import { SkeletonList } from "../components/ui/Skeleton";
+import { useToast } from "../components/ui/Toast";
+import CategoryFormSheet, { CategoryFormValues } from "../components/CategoryFormSheet";
 import { useGetCategories } from "../hooks/category/useGetCategories";
 import { useCreateCategory } from "../hooks/category/useCreateCategory";
 import { useUpdateCategory } from "../hooks/category/useUpdateCategory";
 import { useGetTransactionTypes } from "../hooks/transactionType/useGetTransactionTypes";
-import CategoryListItem from "../components/CategoryListItem";
-import CategoryFormModal from "../components/CategoryFormModal";
-import { Category } from "../types";
+import { getCategoryIcon } from "../constants/categoryIcons";
+import { Category, RootStackParamList } from "../types";
+import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { radius, spacing, useKTheme } from "../theme/theme";
+
+type Kind = "Expense" | "Income" | "Transfer";
 
 const CategoriesScreen = () => {
-	const theme = useTheme();
-	const { categories, loading, error, refresh } = useGetCategories();
-	const {
-		createCategory,
-		loading: creating,
-		error: createError,
-	} = useCreateCategory();
-	const {
-		updateCategory,
-		loading: updating,
-		error: updateError,
-	} = useUpdateCategory();
+	const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+	const theme = useKTheme();
+	const toast = useToast();
+	const { categories, loading, error, refresh, refreshing, pullToRefresh } = useGetCategories();
 	const { transactionTypes } = useGetTransactionTypes();
-	const [modalVisible, setModalVisible] = useState(false);
-	const [editingCategory, setEditingCategory] = useState<Category | null>(null);
-	const [snackbar, setSnackbar] = useState({ visible: false, message: "" });
+	const { createCategory } = useCreateCategory();
+	const { updateCategory } = useUpdateCategory();
+	const [kind, setKind] = useState<Kind>("Expense");
+	const [formVisible, setFormVisible] = useState(false);
+	const [editing, setEditing] = useState<Category | null>(null);
+	const [fabExtended, setFabExtended] = useState(true);
 
-	const openAddModal = () => {
-		setEditingCategory(null);
-		setModalVisible(true);
-	};
+	const typeIdOf = (name: Kind) => transactionTypes.find((t) => t.name === name)?.id;
 
-	const openEditModal = (category: Category) => {
-		setEditingCategory(category);
-		setModalVisible(true);
-	};
-
-	const closeModal = () => {
-		setModalVisible(false);
-		setEditingCategory(null);
-	};
-
-	const handleSubmit = async (data: {
-		name: string;
-		transaction_type_id: number;
-	}) => {
-		try {
-			if (editingCategory) {
-				await updateCategory(editingCategory.id, data);
-				setSnackbar({ visible: true, message: "Category updated" });
-			} else {
-				await createCategory({ ...data, created_at: new Date().toISOString() });
-				setSnackbar({ visible: true, message: "Category created" });
-			}
-			closeModal();
-			refresh();
-		} catch (e: any) {
-			setSnackbar({
-				visible: true,
-				message: e.message || "Error saving category",
-			});
-		}
-	};
-
-	const getTypeName = (typeId: number) => {
-		return transactionTypes.find((t) => t.id === typeId)?.name || "";
-	};
-
-	// Group categories by transaction type
-	const groupedCategories = useMemo(() => {
-		const groups: { [key: string]: Category[] } = {};
-		categories.forEach((category) => {
-			const typeName = getTypeName(category.transaction_type_id);
-			if (!groups[typeName]) {
-				groups[typeName] = [];
-			}
-			groups[typeName].push(category);
+	const byKind = useMemo(() => {
+		const map: Record<Kind, Category[]> = { Expense: [], Income: [], Transfer: [] };
+		categories.forEach((c) => {
+			const name = transactionTypes.find((t) => t.id === c.transaction_type_id)?.name as Kind | undefined;
+			if (name && map[name]) map[name].push(c);
 		});
-		return groups;
+		(Object.keys(map) as Kind[]).forEach((k) => map[k].sort((a, b) => a.name.localeCompare(b.name)));
+		return map;
 	}, [categories, transactionTypes]);
 
-	// Flatten grouped data for FlatList
-	const flatListData = useMemo(() => {
-		const data: Array<{ type: "header" | "item"; content: any }> = [];
-		Object.entries(groupedCategories).forEach(([typeName, categories]) => {
-			// Add header
-			data.push({ type: "header", content: typeName });
-			// Add items
-			categories.forEach((category) => {
-				data.push({ type: "item", content: category });
-			});
-		});
-		return data;
-	}, [groupedCategories]);
+	// Transfers rarely have categories — only offer the tab when some exist.
+	const kinds: Kind[] = byKind.Transfer.length > 0 ? ["Expense", "Income", "Transfer"] : ["Expense", "Income"];
+	const list = byKind[kind];
 
-	const anyLoading = loading || creating || updating;
-	const anyError = error || createError || updateError;
+	const openCreate = () => {
+		setEditing(null);
+		setFormVisible(true);
+	};
+
+	const handleSubmit = async (values: CategoryFormValues) => {
+		if (editing) {
+			await updateCategory(editing.id, values);
+			toast.success("Category updated");
+		} else {
+			await createCategory({ ...values, created_at: new Date().toISOString() });
+			toast.success(`${values.name} added`);
+		}
+		setFormVisible(false);
+	};
+
+	const renderBody = () => {
+		if (loading) return <SkeletonList rows={8} />;
+		if (error && categories.length === 0) {
+			return (
+				<EmptyState icon="cloud-alert" tone="error" title="Couldn't load categories" message={error} actionLabel="Try again" onAction={refresh} />
+			);
+		}
+		if (list.length === 0) {
+			return (
+				<EmptyState
+					icon="shape-outline"
+					title={`No ${kind.toLowerCase()} categories`}
+					message="Categories help you see where money comes from and where it goes."
+					actionLabel="Add category"
+					onAction={openCreate}
+				/>
+			);
+		}
+		const tint =
+			kind === "Income"
+				? { fg: theme.custom.income, bg: theme.custom.incomeContainer }
+				: kind === "Transfer"
+				? { fg: theme.custom.transfer, bg: theme.custom.transferContainer }
+				: { fg: theme.custom.expense, bg: theme.custom.expenseContainer };
+		return (
+			<>
+				<Card padded={false}>
+					{list.map((c, i) => (
+						<ListItem
+							key={c.id}
+							title={c.name}
+							left={
+								<IconBadge
+									icon={getCategoryIcon(c.name, kind === "Income" ? "income" : "expense")}
+									color={tint.fg}
+									background={tint.bg}
+								/>
+							}
+							chevron
+							onPress={() => navigation.navigate("CategoryDetail", { categoryId: c.id })}
+							onLongPress={() => {
+								setEditing(c);
+								setFormVisible(true);
+							}}
+							accessibilityLabel={`${c.name}. Long-press to rename`}
+							style={i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.colors.outlineVariant }}
+						/>
+					))}
+				</Card>
+				<Text variant="bodySmall" style={[styles.hint, { color: theme.colors.onSurfaceVariant }]}>
+					Tap a category to see its spending; long-press to rename it.
+				</Text>
+			</>
+		);
+	};
 
 	return (
-		<View
-			style={[styles.container, { backgroundColor: theme.colors.background }]}
-		>
-			{anyLoading ? (
-				<View style={styles.centered}>
-					<ActivityIndicator size="large" />
-					<Text variant="bodyLarge" style={{ marginTop: 16 }}>
-						Loading categories...
-					</Text>
-				</View>
-			) : anyError ? (
-				<View style={styles.centered}>
-					<Text variant="bodyLarge" style={{ color: theme.colors.error }}>
-						{anyError}
-					</Text>
-				</View>
-			) : (
-				<FlatList
-					data={flatListData}
-					keyExtractor={(item, index) =>
-						item.type === "header"
-							? `header-${item.content}`
-							: `item-${item.content.id}-${index}`
-					}
-					renderItem={({ item }) => {
-						if (item.type === "header") {
-							const headerColor =
-								item.content === "Income"
-									? theme.colors.primary
-									: theme.colors.error;
-							return (
-								<Text
-									variant="titleMedium"
-									style={[styles.headerText, { color: headerColor }]}
-								>
-									{item.content}
-								</Text>
-							);
-						} else {
-							const category = item.content as Category;
-							return (
-								<CategoryListItem
-									category={category}
-									typeName={getTypeName(category.transaction_type_id)}
-									onEdit={() => openEditModal(category)}
-								/>
-							);
-						}
-					}}
-					ListEmptyComponent={
-						<View style={styles.centered}>
-							<Text
-								variant="bodyLarge"
-								style={{ color: theme.colors.onSurfaceVariant }}
-							>
-								No categories yet.
-							</Text>
-						</View>
-					}
-					contentContainerStyle={[
-						flatListData.length === 0 ? styles.centered : undefined,
-						{ paddingBottom: 80 },
-					]}
-					ItemSeparatorComponent={() => <Divider />}
-				/>
-			)}
-			<FAB
-				icon="plus"
-				style={[styles.fab, { backgroundColor: theme.colors.primary }]}
-				color={theme.colors.onPrimary}
-				onPress={openAddModal}
-				accessibilityLabel="Add Category"
-			/>
-			<CategoryFormModal
-				visible={modalVisible}
-				onClose={closeModal}
-				onSubmit={handleSubmit}
-				transactionTypes={transactionTypes}
-				initialCategory={editingCategory}
-			/>
-			<Snackbar
-				visible={snackbar.visible}
-				onDismiss={() => setSnackbar({ visible: false, message: "" })}
-				duration={2000}
+		<View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+			<ScrollView
+				contentContainerStyle={styles.content}
+				onScroll={(e) => setFabExtended(e.nativeEvent.contentOffset.y <= 8)}
+				scrollEventThrottle={64}
+				refreshControl={
+					<RefreshControl
+						refreshing={refreshing}
+						onRefresh={pullToRefresh}
+						colors={[theme.colors.primary]}
+						progressBackgroundColor={theme.colors.surface}
+					/>
+				}
 			>
-				{snackbar.message}
-			</Snackbar>
+				<SegmentedControl<Kind>
+					value={kind}
+					onChange={setKind}
+					segments={kinds.map((k) => ({
+						value: k,
+						label: `${k} · ${byKind[k].length}`,
+						color: k === "Income" ? theme.custom.income : k === "Transfer" ? theme.custom.transfer : theme.custom.expense,
+					}))}
+				/>
+				{renderBody()}
+			</ScrollView>
+			<AnimatedFAB
+				icon="plus"
+				label="Add category"
+				extended={fabExtended}
+				onPress={openCreate}
+				style={styles.fab}
+				color={theme.colors.onPrimary}
+				theme={{ colors: { primaryContainer: theme.colors.primary } }}
+				accessibilityLabel="Add category"
+			/>
+			<CategoryFormSheet
+				visible={formVisible}
+				onDismiss={() => setFormVisible(false)}
+				transactionTypes={transactionTypes}
+				defaultTypeId={typeIdOf(kind)}
+				category={editing}
+				onSubmit={handleSubmit}
+			/>
 		</View>
 	);
 };
@@ -200,28 +173,21 @@ const CategoriesScreen = () => {
 const styles = StyleSheet.create({
 	container: {
 		flex: 1,
-		padding: 16,
+	},
+	content: {
+		paddingHorizontal: spacing.lg,
+		paddingTop: spacing.sm,
+		paddingBottom: 120,
+	},
+	hint: {
+		textAlign: "center",
+		marginTop: spacing.xl,
 	},
 	fab: {
 		position: "absolute",
-		right: 16,
-		bottom: 24,
-	},
-	centered: {
-		flex: 1,
-		justifyContent: "center",
-		alignItems: "center",
-		textAlign: "center",
-		marginTop: 32,
-	},
-	headerContainer: {
-		paddingHorizontal: 16,
-		paddingVertical: 8,
-		marginTop: 8,
-	},
-	headerText: {
-		fontWeight: "600",
-		marginTop: 8,
+		right: spacing.lg,
+		bottom: spacing.lg,
+		borderRadius: radius.lg,
 	},
 });
 

@@ -1,15 +1,18 @@
 import React, { useEffect } from "react";
-import { Text, ActivityIndicator } from "react-native-paper";
-import { View } from "react-native";
-import { useAppTheme } from "../contexts/ThemeContext";
-// ...existing code...
+import { StyleSheet, View } from "react-native";
+import { ActivityIndicator, Text } from "react-native-paper";
+import * as SplashScreen from "expo-splash-screen";
 import { useDatabaseInitialization } from "../database";
 import AppNavigator from "@/navigation";
 import { useCheckOverdueBills } from "@/hooks/useDatabase";
+import EmptyState from "@/components/ui/EmptyState";
+import { spacing, useKTheme } from "@/theme/theme";
+import { TransactionComposerProvider } from "@/contexts/TransactionComposer";
 
 const AppInitializer: React.FC = () => {
-	const { theme } = useAppTheme();
-	const { isInitialized, isInitializing, error } = useDatabaseInitialization();
+	const theme = useKTheme();
+	const { isInitialized, isInitializing, error, retry } =
+		useDatabaseInitialization();
 	const { checkOverdueBills } = useCheckOverdueBills();
 
 	useEffect(() => {
@@ -18,142 +21,69 @@ const AppInitializer: React.FC = () => {
 		}
 	}, [isInitialized, checkOverdueBills]);
 
+	useEffect(() => {
+		if (!isInitializing) {
+			SplashScreen.hideAsync().catch(() => {});
+		}
+	}, [isInitializing]);
+
+	// Normally hidden behind the native splash; shown if initialising runs long.
 	if (isInitializing) {
 		return (
-			<View
-				style={{
-					flex: 1,
-					justifyContent: "center",
-					alignItems: "center",
-					padding: 32,
-				}}
-			>
-				<Text
-					variant="headlineMedium"
-					style={{ marginBottom: 16, textAlign: "center" }}
-				>
-					Welcome to Kounta!
+			<View style={[styles.center, styles.loading, { backgroundColor: theme.colors.background }]}>
+				<Text variant="headlineMedium" style={{ color: theme.colors.primary }}>
+					Kounta
 				</Text>
-				<Text
-					variant="bodyLarge"
-					style={{
-						marginBottom: 24,
-						textAlign: "center",
-						color: theme.colors.onSurfaceVariant,
-					}}
-				>
-					Your personal finance app is getting ready. Please wait while we
-					initialize your data and set up your experience.
-				</Text>
-				<Text
-					variant="bodyMedium"
-					style={{
-						marginBottom: 16,
-						textAlign: "center",
-						color: theme.colors.onSurfaceVariant,
-					}}
-				>
-					We are setting up your app. Please wait a moment while we prepare
-					everything for you.
-				</Text>
-				<ActivityIndicator size="large" />
+				<ActivityIndicator color={theme.colors.primary} style={{ marginTop: spacing.lg }} />
 			</View>
 		);
 	}
 
-	if (error) {
+	if (error || !isInitialized) {
 		return (
-			<View
-				style={{
-					flex: 1,
-					justifyContent: "center",
-					alignItems: "center",
-					padding: 32,
-				}}
-			>
+			<View style={[styles.center, { backgroundColor: theme.colors.background }]}>
+				<EmptyState
+					icon="database-alert-outline"
+					tone="error"
+					title="Kounta couldn't open your data"
+					message={
+						error
+							? `${error}\n\nYour data has not been changed. Try again, or restart the app if this keeps happening.`
+							: "Setup didn't finish. Try again."
+					}
+					actionLabel="Try again"
+					onAction={retry}
+				/>
 				<Text
-					variant="headlineMedium"
-					style={{
-						color: theme.colors.error,
-						marginBottom: 16,
-						textAlign: "center",
-					}}
+					variant="bodySmall"
+					style={[styles.footnote, { color: theme.colors.onSurfaceVariant }]}
 				>
-					Initialization Error
-				</Text>
-				<Text
-					variant="bodyLarge"
-					style={{
-						color: theme.colors.error,
-						marginBottom: 16,
-						textAlign: "center",
-					}}
-				>
-					{error}
-				</Text>
-				<Text
-					variant="bodyMedium"
-					style={{
-						color: theme.colors.onSurfaceVariant,
-						marginBottom: 24,
-						textAlign: "center",
-					}}
-				>
-					Something went wrong while setting up your app. Please try restarting
-					the app. If the problem persists, contact support or try restoring
-					from a backup.
+					Kounta keeps everything on this device.
 				</Text>
 			</View>
 		);
 	}
 
-	if (!isInitialized) {
-		return (
-			<View
-				style={{
-					flex: 1,
-					justifyContent: "center",
-					alignItems: "center",
-					padding: 32,
-				}}
-			>
-				<Text
-					variant="headlineMedium"
-					style={{
-						marginBottom: 16,
-						textAlign: "center",
-						color: theme.colors.error,
-					}}
-				>
-					App Not Ready
-				</Text>
-				<Text
-					variant="bodyLarge"
-					style={{
-						marginBottom: 16,
-						textAlign: "center",
-						color: theme.colors.onSurfaceVariant,
-					}}
-				>
-					The application is not ready yet. This may be due to incomplete setup
-					or a previous error.
-				</Text>
-				<Text
-					variant="bodyMedium"
-					style={{
-						marginBottom: 24,
-						textAlign: "center",
-						color: theme.colors.onSurfaceVariant,
-					}}
-				>
-					Please restart or reinstall the app. If you have a backup, you can
-					restore your data from the Backup & Restore screen in More Actions.
-				</Text>
-			</View>
-		);
-	}
-
-	return <AppNavigator />;
+	return (
+		<TransactionComposerProvider>
+			<AppNavigator />
+		</TransactionComposerProvider>
+	);
 };
+
+const styles = StyleSheet.create({
+	center: {
+		flex: 1,
+		justifyContent: "center",
+		padding: spacing.xxl,
+	},
+	loading: {
+		alignItems: "center",
+	},
+	footnote: {
+		textAlign: "center",
+		marginTop: spacing.lg,
+	},
+});
 
 export default AppInitializer;

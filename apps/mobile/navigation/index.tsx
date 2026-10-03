@@ -1,13 +1,15 @@
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
+import { View } from "react-native";
 import {
-	BottomTabBarButtonProps,
+	BottomTabHeaderProps,
 	createBottomTabNavigator,
 } from "@react-navigation/bottom-tabs";
 import {
 	createNativeStackNavigator,
 	NativeStackHeaderProps,
+	NativeStackNavigationProp,
 } from "@react-navigation/native-stack";
-import { View, TouchableOpacity } from "react-native";
+import { useNavigation } from "@react-navigation/native";
 import DashboardScreen from "../screens/DashboardScreen";
 import TransactionsScreen from "../screens/TransactionsScreen";
 import AccountsScreen from "../screens/AccountsScreen";
@@ -16,143 +18,139 @@ import LiabilitiesScreen from "../screens/LiabilitiesScreen";
 import CategoriesScreen from "../screens/CategoriesScreen";
 import TypesScreen from "../screens/TypesScreen";
 import BackupRestoreScreen from "../screens/BackupRestoreScreen";
-import { useTheme } from "react-native-paper";
-import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
-import AppBottomSheet from "../components/AppBottomSheet";
-import MoreActionsContent from "../components/MoreActionsContent";
-import AppBar from "@/components/AppBar";
 import EnvelopeScreen from "@/screens/EnvelopeScreen";
 import BillsScreen from "../screens/BillsScreen";
 import TransactionDetailScreen from "../screens/TransactionDetailScreen";
 import AccountDetailScreen from "../screens/AccountDetailScreen";
 import AssetDetailScreen from "../screens/AssetDetailScreen";
 import LiabilityDetailScreen from "../screens/LiabilityDetailScreen";
-
 import EnvelopeDetailScreen from "../screens/EnvelopeDetailScreen";
 import EntitiesScreen from "../screens/EntitiesScreen";
 import EntityDetailScreen from "../screens/EntityDetailScreen";
 import ReceivablesScreen from "../screens/ReceivablesScreen";
 import ReceivableDetailScreen from "../screens/ReceivableDetailScreen";
-import { RootStackParamList } from "../types";
+import AppBar from "@/components/AppBar";
+import TabBar, { TabMeta } from "@/components/TabBar";
+import MoreSheet from "@/components/MoreSheet";
+import HeaderMenu from "@/components/HeaderMenu";
+import SettingsScreen from "../screens/SettingsScreen";
+import CategoryDetailScreen from "../screens/CategoryDetailScreen";
+import { MainTabParamList, RootStackParamList } from "../types";
+import { useKTheme } from "@/theme/theme";
 
-const Tab = createBottomTabNavigator();
+const Tab = createBottomTabNavigator<MainTabParamList>();
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
+const TAB_META: Record<string, TabMeta> = {
+	Dashboard: { label: "Home", icon: "home-outline", activeIcon: "home" },
+	Accounts: { label: "Accounts", icon: "wallet-outline", activeIcon: "wallet" },
+	Transactions: {
+		label: "Activity",
+		icon: "swap-vertical",
+		activeIcon: "swap-vertical-bold",
+	},
+	Envelopes: {
+		label: "Envelopes",
+		icon: "email-outline",
+		activeIcon: "email",
+	},
+	More: { label: "More", icon: "dots-horizontal-circle-outline", activeIcon: "dots-horizontal-circle" },
+};
+
+const TAB_TITLES: Record<string, string> = {
+	Dashboard: "Kounta",
+	Accounts: "Accounts",
+	Transactions: "Activity",
+	Envelopes: "Envelopes",
+};
+
+const renderTabHeader = ({ route, options }: BottomTabHeaderProps) => (
+	<AppBar
+		large
+		title={TAB_TITLES[route.name] ?? route.name}
+		right={
+			<>
+				{options.headerRight?.({ canGoBack: false })}
+				<HeaderMenu />
+			</>
+		}
+	/>
+);
+
+const renderStackHeader = ({
+	navigation,
+	route,
+	options,
+	back,
+}: NativeStackHeaderProps) => (
+	<AppBar
+		title={(options.title as string | undefined) ?? route.name}
+		onBack={back ? navigation.goBack : undefined}
+		right={options.headerRight?.({ canGoBack: !!back })}
+	/>
+);
+
 const MainTabNavigator: React.FC = () => {
-	const theme = useTheme();
-	const [isBottomSheetVisible, setIsBottomSheetVisible] = useState(false);
+	const navigation =
+		useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+	const [moreVisible, setMoreVisible] = useState(false);
 
-	const openBottomSheet = () => setIsBottomSheetVisible(true);
-	const closeBottomSheet = () => setIsBottomSheetVisible(false);
-
-	const MoreTabButton = (props: BottomTabBarButtonProps) => (
-		<TouchableOpacity {...(props as any)} onPress={openBottomSheet}>
-			{props.children}
-		</TouchableOpacity>
-	);
+	const handleCustomPress = useCallback((routeName: string) => {
+		if (routeName === "More") {
+			setMoreVisible(true);
+			return true;
+		}
+		return false;
+	}, []);
 
 	return (
 		<View style={{ flex: 1 }}>
 			<Tab.Navigator
-				screenOptions={{
-					headerShown: false,
-					tabBarActiveTintColor: theme.colors.primary,
-					tabBarInactiveTintColor: theme.colors.onSurfaceVariant,
-					tabBarStyle: {
-						backgroundColor: theme.colors.surface,
-						height: 80,
-						paddingBottom: 20,
-					},
-				}}
+				tabBar={(props) => (
+					<TabBar {...props} meta={TAB_META} onCustomPress={handleCustomPress} />
+				)}
+				screenOptions={{ header: renderTabHeader }}
 			>
-				<Tab.Screen
-					name="Dashboard"
-					component={DashboardScreen}
-					options={{
-						tabBarLabel: "Dashboard",
-						title: "Kounta",
-						tabBarIcon: ({ color, size }) => (
-							<MaterialCommunityIcons
-								name="view-dashboard"
-								color={color}
-								size={size}
-							/>
-						),
-					}}
-				/>
-				<Tab.Screen
-					name="Accounts"
-					component={AccountsScreen}
-					options={{
-						tabBarLabel: "Accounts",
-						tabBarIcon: ({ color, size }) => (
-							<MaterialCommunityIcons name="bank" color={color} size={size} />
-						),
-					}}
-				/>
-				<Tab.Screen
-					name="Transactions"
-					component={TransactionsScreen}
-					options={{
-						tabBarLabel: "Transactions",
-						tabBarIcon: ({ color, size }) => (
-							<MaterialCommunityIcons
-								name="format-list-bulleted"
-								color={color}
-								size={size}
-							/>
-						),
-					}}
-				/>
-				<Tab.Screen
-					name="Envelopes"
-					component={EnvelopeScreen}
-					options={{
-						tabBarLabel: "Envelopes",
-						tabBarIcon: ({ color, size }) => (
-							<MaterialCommunityIcons
-								name="briefcase"
-								color={color}
-								size={size}
-							/>
-						),
-					}}
-				/>
-				<Tab.Screen
-					name="More"
-					component={View} // Dummy component, as the button handles the action
-					options={{
-						tabBarLabel: "More",
-						tabBarIcon: ({ color, size }) => (
-							<MaterialCommunityIcons
-								name="dots-horizontal"
-								color={color}
-								size={size}
-							/>
-						),
-						tabBarButton: (props) => <MoreTabButton {...props} />,
-					}}
-				/>
+				<Tab.Screen name="Dashboard" component={DashboardScreen} />
+				<Tab.Screen name="Accounts" component={AccountsScreen} />
+				<Tab.Screen name="Transactions" component={TransactionsScreen} />
+				<Tab.Screen name="Envelopes" component={EnvelopeScreen} />
+				{/* Placeholder route; the tab opens the More sheet instead. */}
+				<Tab.Screen name="More" component={View} />
 			</Tab.Navigator>
-			<AppBottomSheet
-				isVisible={isBottomSheetVisible}
-				onClose={closeBottomSheet}
-			>
-				<MoreActionsContent onClose={closeBottomSheet} />
-			</AppBottomSheet>
+			<MoreSheet
+				visible={moreVisible}
+				onDismiss={() => setMoreVisible(false)}
+				onNavigate={(screen) => {
+					setMoreVisible(false);
+					navigation.navigate(screen);
+				}}
+			/>
 		</View>
 	);
 };
 
 const AppNavigator: React.FC = () => {
+	const theme = useKTheme();
 	return (
 		<Stack.Navigator
 			screenOptions={{
-				header: (props: NativeStackHeaderProps) => <AppBar {...props} />,
+				header: renderStackHeader,
+				animation: "slide_from_right",
+				contentStyle: { backgroundColor: theme.colors.background },
 			}}
 		>
-			<Stack.Screen name="Main" component={MainTabNavigator} />
+			<Stack.Screen
+				name="Main"
+				component={MainTabNavigator}
+				options={{ headerShown: false }}
+			/>
 			<Stack.Screen name="Categories" component={CategoriesScreen} />
+			<Stack.Screen
+				name="CategoryDetail"
+				options={{ title: "Category" }}
+				component={CategoryDetailScreen}
+			/>
 			<Stack.Screen name="Assets" component={AssetsScreen} />
 			<Stack.Screen name="Liabilities" component={LiabilitiesScreen} />
 			<Stack.Screen name="Types" component={TypesScreen} />
@@ -161,55 +159,43 @@ const AppNavigator: React.FC = () => {
 				options={{ title: "Backup & Restore" }}
 				component={BackupRestoreScreen}
 			/>
-			<Stack.Screen
-				name="Bills"
-				options={{ title: "Bills" }}
-				component={BillsScreen}
-			/>
-
+			<Stack.Screen name="Settings" component={SettingsScreen} />
+			<Stack.Screen name="Bills" component={BillsScreen} />
 			<Stack.Screen
 				name="TransactionDetail"
-				options={{ title: "Transaction Detail" }}
+				options={{ title: "Transaction" }}
 				component={TransactionDetailScreen}
 			/>
 			<Stack.Screen
 				name="AccountDetail"
-				options={{ title: "Account Detail" }}
+				options={{ title: "Account" }}
 				component={AccountDetailScreen}
 			/>
 			<Stack.Screen
 				name="AssetDetail"
-				options={{ title: "Asset Detail" }}
+				options={{ title: "Asset" }}
 				component={AssetDetailScreen}
 			/>
 			<Stack.Screen
 				name="LiabilityDetail"
-				options={{ title: "Liability Detail" }}
+				options={{ title: "Liability" }}
 				component={LiabilityDetailScreen}
 			/>
 			<Stack.Screen
 				name="EnvelopeDetail"
-				options={{ title: "Envelope Detail" }}
+				options={{ title: "Envelope" }}
 				component={EnvelopeDetailScreen}
 			/>
-			<Stack.Screen
-				name="Entities"
-				options={{ title: "Entities" }}
-				component={EntitiesScreen}
-			/>
+			<Stack.Screen name="Entities" component={EntitiesScreen} />
 			<Stack.Screen
 				name="EntityDetail"
-				options={{ title: "Entity Detail" }}
+				options={{ title: "Entity" }}
 				component={EntityDetailScreen}
 			/>
-			<Stack.Screen
-				name="Receivables"
-				options={{ title: "Receivables" }}
-				component={ReceivablesScreen}
-			/>
+			<Stack.Screen name="Receivables" component={ReceivablesScreen} />
 			<Stack.Screen
 				name="ReceivableDetail"
-				options={{ title: "Receivable Detail" }}
+				options={{ title: "Receivable" }}
 				component={ReceivableDetailScreen}
 			/>
 		</Stack.Navigator>

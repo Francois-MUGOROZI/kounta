@@ -1,341 +1,199 @@
-import React, { useState, useMemo } from "react";
-import { View, StyleSheet, ScrollView, FlatList } from "react-native";
-import {
-	ActivityIndicator,
-	Text,
-	useTheme,
-	IconButton,
-	Snackbar,
-} from "react-native-paper";
+import React, { useLayoutEffect, useMemo, useState } from "react";
+import { StyleSheet, View } from "react-native";
+import { IconButton, Text } from "react-native-paper";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { RootStackParamList, Transaction } from "../types";
-import { useGetAccounts } from "../hooks/account/useGetAccounts";
+import HeroCard from "../components/ui/HeroCard";
+import AmountText from "../components/ui/AmountText";
+import EmptyState from "../components/ui/EmptyState";
+import { SkeletonList } from "../components/ui/Skeleton";
+import { useToast } from "../components/ui/Toast";
+import ActionRow from "../components/ui/ActionRow";
+import StatGrid from "../components/ui/StatGrid";
+import TransactionSectionList, { useDescribedTransactions } from "../components/TransactionSectionList";
+import AccountFormSheet, { AccountFormValues } from "../components/AccountFormSheet";
+import { useQuery } from "../hooks/useQuery";
 import { useGetAccountTypes } from "../hooks/accountType/useGetAccountTypes";
 import { useGetTransactions } from "../hooks/transaction/useGetTransactions";
-import { useGetCategories } from "../hooks/category/useGetCategories";
-import { useGetTransactionTypes } from "../hooks/transactionType/useGetTransactionTypes";
 import { useUpdateAccount } from "../hooks/account/useUpdateAccount";
-import AppCard from "../components/AppCard";
-import AccountFormDialog from "../components/AccountFormDialog";
-import TransactionListItem from "../components/TransactionListItem";
+import { useTransactionComposer } from "../contexts/TransactionComposer";
+import { AccountRepository } from "../repositories/AccountRepository";
+import { Account, RootStackParamList } from "../types";
 import { formatAmount } from "../utils/currency";
+import { maskAccountNumber } from "../utils/format";
+import { isSameMonth, parseLocalDate } from "../utils/date";
+import { getAccountTypeIcon } from "../constants/typeIcons";
+import { spacing, useKTheme } from "../theme/theme";
+import IconBadge from "../components/ui/IconBadge";
 
-type AccountDetailRouteProp = RouteProp<RootStackParamList, "AccountDetail">;
-type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
+type Route = RouteProp<RootStackParamList, "AccountDetail">;
+type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 const AccountDetailScreen = () => {
-	const theme = useTheme();
-	const navigation = useNavigation<NavigationProp>();
-	const route = useRoute<AccountDetailRouteProp>();
-	const { accountId } = route.params;
+	const theme = useKTheme();
+	const navigation = useNavigation<Nav>();
+	const { accountId } = useRoute<Route>().params;
+	const toast = useToast();
+	const { openComposer } = useTransactionComposer();
+	const { accountTypes } = useGetAccountTypes();
+	const { updateAccount } = useUpdateAccount();
+	const [editVisible, setEditVisible] = useState(false);
 
 	const {
-		accounts,
-		loading: loadingAccounts,
-		error: errorAccounts,
-		refresh: refreshAccounts,
-	} = useGetAccounts();
-	const { accountTypes, loading: loadingTypes } = useGetAccountTypes();
-	const transactionFilter = useMemo(() => ({ accountId }), [accountId]);
-	const { transactions, loading: loadingTransactions } =
-		useGetTransactions(transactionFilter);
-	const { categories } = useGetCategories();
-	const { transactionTypes } = useGetTransactionTypes();
-	const { updateAccount } = useUpdateAccount();
+		data: account,
+		loading,
+		error,
+		refresh,
+	} = useQuery<Account | null>((db) => AccountRepository.getById(db, accountId), [accountId], null, "Failed to load account");
+	const filter = useMemo(() => ({ accountId }), [accountId]);
+	const { transactions, loading: loadingTx, refreshing, pullToRefresh } = useGetTransactions(filter);
+	const rows = useDescribedTransactions(transactions);
 
-	const [editDialogVisible, setEditDialogVisible] = useState(false);
-	const [snackbar, setSnackbar] = useState({ visible: false, message: "" });
+	useLayoutEffect(() => {
+		navigation.setOptions({
+			title: account?.name ?? "Account",
+			headerRight: () =>
+				account ? (
+					<IconButton icon="pencil-outline" onPress={() => setEditVisible(true)} accessibilityLabel="Edit account" />
+				) : null,
+		});
+	}, [navigation, account]);
 
-	const account = useMemo(() => {
-		return accounts.find((a) => a.id === accountId) ?? null;
-	}, [accounts, accountId]);
+	const monthFlow = useMemo(() => {
+		const now = new Date();
+		let moneyIn = 0;
+		let moneyOut = 0;
+		transactions.forEach((tx) => {
+			if (!isSameMonth(parseLocalDate(tx.date), now)) return;
+			if (tx.to_account_id === accountId) moneyIn += tx.amount;
+			if (tx.from_account_id === accountId) moneyOut += tx.amount;
+		});
+		return { moneyIn, moneyOut };
+	}, [transactions, accountId]);
 
-	const typeName = useMemo(() => {
-		if (!account) return "";
+	if (loading) {
 		return (
-			accountTypes.find((t) => t.id === account.account_type_id)?.name || ""
+			<View style={[styles.fill, { backgroundColor: theme.colors.background }]}>
+				<SkeletonList rows={6} />
+			</View>
 		);
-	}, [account, accountTypes]);
+	}
 
-	const getAccountName = (id: number) =>
-		accounts.find((a) => a.id === id)?.name || "";
+	if (!account) {
+		return (
+			<View style={[styles.fill, styles.center, { backgroundColor: theme.colors.background }]}>
+				<EmptyState
+					icon={error ? "cloud-alert" : "wallet-outline"}
+					tone={error ? "error" : "default"}
+					title={error ? "Couldn't load this account" : "Account not found"}
+					message={error ?? "It may have been removed."}
+					actionLabel={error ? "Try again" : undefined}
+					onAction={error ? refresh : undefined}
+				/>
+			</View>
+		);
+	}
 
-	const getAccountCurrency = (id: number) =>
-		accounts.find((a) => a.id === id)?.currency || "USD";
-
-	const getCategoryName = (id: number) =>
-		categories.find((c) => c.id === id)?.name || "";
-
-	const getTransactionTypeName = (id: number) =>
-		transactionTypes.find((t) => t.id === id)?.name || "";
-
-	const getAssociationCount = (t: Transaction) =>
-		[
-			t.asset_id,
-			t.liability_id,
-			t.envelope_id,
-			t.bill_id,
-			t.receivable_id,
-			t.entity_id,
-		].filter(Boolean).length;
-
-	const handleEditSubmit = async (data: {
-		name: string;
-		account_type_id: number;
-		currency: string;
-		opening_balance: number;
-		account_number?: string;
-	}) => {
-		try {
-			await updateAccount(accountId, data);
-			setSnackbar({ visible: true, message: "Account updated" });
-			setEditDialogVisible(false);
-			refreshAccounts();
-		} catch (e: any) {
-			setSnackbar({
-				visible: true,
-				message: e.message || "Error updating account",
-			});
-		}
+	const typeName = accountTypes.find((t) => t.id === account.account_type_id)?.name ?? "";
+	const handleEdit = async (values: AccountFormValues) => {
+		await updateAccount(account.id, values);
+		setEditVisible(false);
+		toast.success("Account updated");
 	};
 
-	const isLoading = loadingAccounts || loadingTypes || loadingTransactions;
-
-	if (isLoading) {
-		return (
-			<View
-				style={[styles.centered, { backgroundColor: theme.colors.background }]}
-			>
-				<ActivityIndicator size="large" />
-				<Text variant="bodyLarge" style={{ marginTop: 16 }}>
-					Loading account...
-				</Text>
-			</View>
-		);
-	}
-
-	if (errorAccounts || !account) {
-		return (
-			<View
-				style={[styles.centered, { backgroundColor: theme.colors.background }]}
-			>
-				<Text variant="bodyLarge" style={{ color: theme.colors.error }}>
-					{errorAccounts || "Account not found."}
-				</Text>
-			</View>
-		);
-	}
-
-	const balanceColor =
-		account.current_balance >= 0 ? theme.colors.primary : theme.colors.error;
-
-	return (
-		<View
-			style={[styles.container, { backgroundColor: theme.colors.background }]}
-		>
-			<ScrollView
-				showsVerticalScrollIndicator={false}
-				contentContainerStyle={styles.scrollContent}
-			>
-				{/* Summary Card */}
-				<AppCard title={account.name} subtitle={typeName}>
-					{account.account_number ? (
-						<View style={styles.infoRow}>
-							<Text
-								variant="bodyMedium"
-								style={{ color: theme.colors.onSurfaceVariant }}
-							>
-								Account Number
-							</Text>
-							<Text
-								variant="bodyMedium"
-								style={{ color: theme.colors.onSurface }}
-							>
-								{account.account_number}
-							</Text>
-						</View>
-					) : null}
-
-					<View style={styles.infoRow}>
-						<Text
-							variant="bodyMedium"
-							style={{ color: theme.colors.onSurfaceVariant }}
-						>
-							Currency
-						</Text>
-						<Text
-							variant="bodyMedium"
-							style={{ color: theme.colors.onSurface }}
-						>
-							{account.currency}
-						</Text>
-					</View>
-
-					<View style={styles.infoRow}>
-						<Text
-							variant="bodyMedium"
-							style={{ color: theme.colors.onSurfaceVariant }}
-						>
-							Opening Balance
-						</Text>
-						<Text
-							variant="bodyMedium"
-							style={{ color: theme.colors.onSurface }}
-						>
-							{formatAmount(account.opening_balance, account.currency)}
-						</Text>
-					</View>
-
-					<View style={[styles.infoRow, styles.balanceRow]}>
-						<Text
-							variant="bodyMedium"
-							style={{
-								color: theme.colors.onSurfaceVariant,
-								fontWeight: "600",
-							}}
-						>
-							Current Balance
-						</Text>
-						<Text
-							variant="titleMedium"
-							style={{ color: balanceColor, fontWeight: "bold" }}
-						>
-							{formatAmount(account.current_balance, account.currency)}
-						</Text>
-					</View>
-				</AppCard>
-
-				{/* Edit Button */}
-				<View style={styles.actionsRow}>
-					<IconButton
-						icon="pencil"
-						mode="contained"
-						onPress={() => setEditDialogVisible(true)}
-						iconColor={theme.colors.primary}
-						containerColor={theme.colors.elevation.level3}
+	const header = (
+		<View>
+			<HeroCard>
+				<View style={styles.heroTop}>
+					<IconBadge
+						icon={getAccountTypeIcon(typeName)}
+						color={theme.custom.onHero}
+						background="rgba(255,255,255,0.16)"
 					/>
+					<View style={{ flex: 1, marginLeft: spacing.md }}>
+						<Text variant="labelLarge" style={{ color: theme.custom.onHeroMuted }}>
+							{[typeName, maskAccountNumber(account.account_number)].filter(Boolean).join("  ·  ")}
+						</Text>
+						<Text variant="bodySmall" style={{ color: theme.custom.onHeroMuted }}>
+							Current balance
+						</Text>
+					</View>
 				</View>
+				<AmountText amount={account.current_balance} currency={account.currency} tone="onHero" variant="displaySmall" style={{ marginTop: spacing.md }} />
+			</HeroCard>
 
-				{/* Transactions Section */}
-				<Text
-					variant="titleMedium"
-					style={[styles.sectionHeader, { color: theme.colors.onSurface }]}
-				>
-					Transactions
-				</Text>
-
-				{transactions.length === 0 ? (
-					<View style={styles.emptyState}>
-						<Text
-							variant="bodyLarge"
-							style={{ color: theme.colors.onSurfaceVariant }}
-						>
-							No transactions for this account.
-						</Text>
-					</View>
-				) : (
-					<FlatList
-						data={transactions}
-						keyExtractor={(item) => item.id.toString()}
-						scrollEnabled={false}
-						renderItem={({ item, index }) => {
-							const txTypeName = getTransactionTypeName(
-								item.transaction_type_id,
-							);
-							const isTransfer = txTypeName === "Transfer";
-							const accountName = isTransfer
-								? `${getAccountName(item.from_account_id as number)} → ${getAccountName(item.to_account_id as number)}`
-								: getAccountName(
-										(item.from_account_id || item.to_account_id) as number,
-									);
-							return (
-								<TransactionListItem
-									transaction={item}
-									accountName={accountName}
-									accountCurrency={getAccountCurrency(
-										(item.from_account_id || item.to_account_id) as number,
-									)}
-									categoryName={getCategoryName(item.category_id)}
-									transactionTypeName={txTypeName}
-									associationCount={getAssociationCount(item)}
-									onPress={() =>
-										navigation.navigate("TransactionDetail", {
-											transactionId: item.id,
-										})
-									}
-									index={index}
-								/>
-							);
-						}}
-					/>
-				)}
-			</ScrollView>
-
-			<AccountFormDialog
-				visible={editDialogVisible}
-				onClose={() => setEditDialogVisible(false)}
-				onSubmit={handleEditSubmit}
-				accountTypes={accountTypes}
-				initialAccount={{
-					id: account.id,
-					name: account.name,
-					account_number: account.account_number || undefined,
-					account_type_id: account.account_type_id,
-					currency: account.currency,
-					opening_balance: account.opening_balance,
-				}}
+			<ActionRow
+				actions={[
+					{ label: "Expense", icon: "arrow-top-right", color: theme.custom.expense, background: theme.custom.expenseContainer, onPress: () => openComposer({ type: "Expense", accountId }) },
+					{ label: "Income", icon: "arrow-bottom-left", color: theme.custom.income, background: theme.custom.incomeContainer, onPress: () => openComposer({ type: "Income", accountId }) },
+					{ label: "Transfer", icon: "swap-horizontal", color: theme.custom.transfer, background: theme.custom.transferContainer, onPress: () => openComposer({ type: "Transfer", accountId }) },
+				]}
 			/>
 
-			<Snackbar
-				visible={snackbar.visible}
-				onDismiss={() => setSnackbar({ visible: false, message: "" })}
-				duration={2000}
-			>
-				{snackbar.message}
-			</Snackbar>
+			<StatGrid
+				items={[
+					{ label: "In this month", value: formatAmount(monthFlow.moneyIn, account.currency), tone: "income" },
+					{ label: "Out this month", value: formatAmount(monthFlow.moneyOut, account.currency) },
+					{ label: "Opening balance", value: formatAmount(account.opening_balance, account.currency) },
+					{ label: "Currency", value: account.currency },
+				]}
+			/>
+			{account.account_number ? (
+				<Text variant="bodySmall" selectable style={[styles.number, { color: theme.colors.onSurfaceVariant }]}>
+					{`Account number ${account.account_number}`}
+				</Text>
+			) : null}
+		</View>
+	);
+
+	return (
+		<View style={[styles.fill, { backgroundColor: theme.colors.background }]}>
+			<TransactionSectionList
+				rows={rows}
+				header={header}
+				sectionTitle="Transactions"
+				refreshing={refreshing}
+				onRefresh={pullToRefresh}
+				empty={
+					loadingTx ? (
+						<SkeletonList rows={4} />
+					) : (
+						<EmptyState
+							compact
+							icon="receipt"
+							title="No transactions yet"
+							message="Money in and out of this account will show up here."
+							actionLabel="Add transaction"
+							onAction={() => openComposer({ type: "Expense", accountId })}
+						/>
+					)
+				}
+			/>
+			<AccountFormSheet
+				visible={editVisible}
+				onDismiss={() => setEditVisible(false)}
+				accountTypes={accountTypes}
+				account={account}
+				onSubmit={handleEdit}
+			/>
 		</View>
 	);
 };
 
 const styles = StyleSheet.create({
-	container: {
+	fill: {
 		flex: 1,
 	},
-	scrollContent: {
-		padding: 16,
-		paddingBottom: 32,
-	},
-	centered: {
-		flex: 1,
+	center: {
 		justifyContent: "center",
-		alignItems: "center",
 	},
-	actionsRow: {
+	heroTop: {
 		flexDirection: "row",
-		justifyContent: "flex-end",
-		marginBottom: 8,
-	},
-	infoRow: {
-		flexDirection: "row",
-		justifyContent: "space-between",
 		alignItems: "center",
-		paddingVertical: 6,
 	},
-	balanceRow: {
-		marginTop: 8,
-		paddingTop: 12,
-		borderTopWidth: StyleSheet.hairlineWidth,
-		borderTopColor: "rgba(0,0,0,0.1)",
-	},
-	sectionHeader: {
-		fontWeight: "600",
-		marginTop: 8,
-		marginBottom: 12,
-	},
-	emptyState: {
-		alignItems: "center",
-		paddingVertical: 32,
+	number: {
+		marginTop: spacing.md,
+		marginLeft: spacing.xs,
 	},
 });
 

@@ -1,433 +1,253 @@
-import React, { useState, useMemo } from "react";
-import { View, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
-import {
-	ActivityIndicator,
-	Text,
-	useTheme,
-	IconButton,
-	ProgressBar,
-	Snackbar,
-	Divider,
-} from "react-native-paper";
+import React, { useLayoutEffect, useMemo, useState } from "react";
+import { StyleSheet, View } from "react-native";
+import { IconButton, Text } from "react-native-paper";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import AppCard from "../components/AppCard";
-import TransactionListItem from "../components/TransactionListItem";
-import LiabilityFormDialog from "../components/LiabilityFormDialog";
-import { useGetLiabilities } from "../hooks/liability/useGetLiabilities";
-import { useUpdateLiability } from "../hooks/liability/useUpdateLiability";
+import HeroCard from "../components/ui/HeroCard";
+import Card from "../components/ui/Card";
+import ListItem from "../components/ui/ListItem";
+import IconBadge from "../components/ui/IconBadge";
+import AmountText from "../components/ui/AmountText";
+import EmptyState from "../components/ui/EmptyState";
+import ActionRow from "../components/ui/ActionRow";
+import StatGrid from "../components/ui/StatGrid";
+import ProgressBar from "../components/ui/ProgressBar";
+import { SkeletonList } from "../components/ui/Skeleton";
+import { useToast } from "../components/ui/Toast";
+import TransactionSectionList, { useDescribedTransactions } from "../components/TransactionSectionList";
+import LiabilityFormSheet, { LiabilityFormValues } from "../components/LiabilityFormSheet";
+import { useQuery } from "../hooks/useQuery";
 import { useGetLiabilityTypes } from "../hooks/liabilityType/useGetLiabilityTypes";
-import { useGetTransactions } from "../hooks/transaction/useGetTransactions";
-import { useGetAccounts } from "../hooks/account/useGetAccounts";
-import { useGetCategories } from "../hooks/category/useGetCategories";
-import { useGetTransactionTypes } from "../hooks/transactionType/useGetTransactionTypes";
 import { useGetEntities } from "../hooks/entity/useGetEntities";
+import { useGetTransactions } from "../hooks/transaction/useGetTransactions";
+import { useUpdateLiability } from "../hooks/liability/useUpdateLiability";
+import { useTransactionComposer } from "../contexts/TransactionComposer";
+import { LiabilityRepository } from "../repositories/LiabilityRepository";
+import { Liability, RootStackParamList } from "../types";
 import { formatAmount } from "../utils/currency";
-import { RootStackParamList, Transaction } from "../types";
+import { formatShortDate } from "../utils/date";
+import { getLiabilityTypeIcon } from "../constants/typeIcons";
+import { spacing, useKTheme } from "../theme/theme";
+import { repaidRatio } from "../utils/liability";
 
-type LiabilityDetailRouteProp = RouteProp<
-	RootStackParamList,
-	"LiabilityDetail"
->;
-type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
+type Route = RouteProp<RootStackParamList, "LiabilityDetail">;
+type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 const LiabilityDetailScreen = () => {
-	const theme = useTheme();
-	const navigation = useNavigation<NavigationProp>();
-	const route = useRoute<LiabilityDetailRouteProp>();
-	const { liabilityId } = route.params;
+	const theme = useKTheme();
+	const navigation = useNavigation<Nav>();
+	const { liabilityId } = useRoute<Route>().params;
+	const toast = useToast();
+	const { openComposer } = useTransactionComposer();
+	const { liabilityTypes } = useGetLiabilityTypes();
+	const { entities } = useGetEntities();
+	const { updateLiability } = useUpdateLiability();
+	const [editVisible, setEditVisible] = useState(false);
 
 	const {
-		liabilities,
-		loading: loadingLiabilities,
-		refresh: refreshLiabilities,
-	} = useGetLiabilities();
-	const { updateLiability } = useUpdateLiability();
-	const { liabilityTypes, loading: loadingTypes } = useGetLiabilityTypes();
-	const transactionFilter = useMemo(() => ({ liabilityId }), [liabilityId]);
-	const { transactions, loading: loadingTransactions } =
-		useGetTransactions(transactionFilter);
-	const { accounts } = useGetAccounts();
-	const { categories } = useGetCategories();
-	const { transactionTypes } = useGetTransactionTypes();
-	const { entities } = useGetEntities();
-
-	const [editDialogVisible, setEditDialogVisible] = useState(false);
-	const [snackbar, setSnackbar] = useState({ visible: false, message: "" });
-
-	const liability = useMemo(
-		() => liabilities.find((l) => l.id === liabilityId) ?? null,
-		[liabilities, liabilityId],
+		data: liability,
+		loading,
+		error,
+		refresh,
+	} = useQuery<Liability | null>(
+		(db) => LiabilityRepository.getById(db, liabilityId),
+		[liabilityId],
+		null,
+		"Failed to load liability"
 	);
+	const filter = useMemo(() => ({ liabilityId }), [liabilityId]);
+	const { transactions, loading: loadingTx, refreshing, pullToRefresh } = useGetTransactions(filter);
+	const rows = useDescribedTransactions(transactions);
 
-	const getTypeName = (typeId: number) =>
-		liabilityTypes.find((t) => t.id === typeId)?.name ?? "";
+	useLayoutEffect(() => {
+		navigation.setOptions({
+			title: liability?.name ?? "Liability",
+			headerRight: () =>
+				liability ? (
+					<IconButton icon="pencil-outline" onPress={() => setEditVisible(true)} accessibilityLabel="Edit liability" />
+				) : null,
+		});
+	}, [navigation, liability]);
 
-	const getAccountName = (accountId: number | null | undefined) =>
-		accounts.find((a) => a.id === accountId)?.name ?? "";
-
-	const getAccountCurrency = (accountId: number | null | undefined) =>
-		accounts.find((a) => a.id === accountId)?.currency ?? "USD";
-
-	const getCategoryName = (categoryId: number) =>
-		categories.find((c) => c.id === categoryId)?.name ?? "";
-
-	const getTransactionTypeName = (typeId: number) =>
-		transactionTypes.find((t) => t.id === typeId)?.name ?? "";
-
-	const getEntityName = (entityId: number | null | undefined) =>
-		entities.find((e) => e.id === entityId)?.name ?? "";
-
-	const getAssociationCount = (t: Transaction) =>
-		[
-			t.asset_id,
-			t.liability_id,
-			t.envelope_id,
-			t.bill_id,
-			t.receivable_id,
-			t.entity_id,
-		].filter(Boolean).length;
-
-	const paymentInfo = useMemo(() => {
-		if (!liability) return { paid: 0, percentage: 0 };
-		const paid = liability.total_amount - liability.current_balance;
-		const percentage =
-			liability.total_amount > 0 ? paid / liability.total_amount : 0;
-		return { paid, percentage: Math.min(percentage, 1) };
-	}, [liability]);
-
-	const handleEditSubmit = async (data: {
-		name: string;
-		liability_type_id: number;
-		currency: string;
-		total_amount: number;
-		current_balance: number;
-		notes?: string;
-		entity_id?: number | null;
-	}) => {
-		try {
-			await updateLiability(liabilityId, data);
-			setSnackbar({ visible: true, message: "Liability updated" });
-			setEditDialogVisible(false);
-			refreshLiabilities();
-		} catch (e: any) {
-			setSnackbar({
-				visible: true,
-				message: e.message || "Error updating liability",
-			});
-		}
-	};
-
-	const isLoading = loadingLiabilities || loadingTypes || loadingTransactions;
-
-	if (isLoading) {
+	if (loading) {
 		return (
-			<View
-				style={[
-					styles.container,
-					styles.centered,
-					{ backgroundColor: theme.colors.background },
-				]}
-			>
-				<ActivityIndicator size="large" />
-				<Text variant="bodyLarge" style={{ marginTop: 16 }}>
-					Loading liability details...
-				</Text>
+			<View style={[styles.fill, { backgroundColor: theme.colors.background }]}>
+				<SkeletonList rows={6} />
 			</View>
 		);
 	}
 
 	if (!liability) {
 		return (
-			<View
-				style={[
-					styles.container,
-					styles.centered,
-					{ backgroundColor: theme.colors.background },
-				]}
-			>
-				<Text variant="bodyLarge" style={{ color: theme.colors.error }}>
-					Liability not found.
-				</Text>
+			<View style={[styles.fill, styles.center, { backgroundColor: theme.colors.background }]}>
+				<EmptyState
+					icon={error ? "cloud-alert" : "credit-card-clock-outline"}
+					tone={error ? "error" : "default"}
+					title={error ? "Couldn't load this liability" : "Liability not found"}
+					message={error ?? "It may have been removed."}
+					actionLabel={error ? "Try again" : undefined}
+					onAction={error ? refresh : undefined}
+				/>
 			</View>
 		);
 	}
 
-	return (
-		<View
-			style={[styles.container, { backgroundColor: theme.colors.background }]}
-		>
-			<ScrollView
-				contentContainerStyle={styles.scrollContent}
-				showsVerticalScrollIndicator={false}
-			>
-				{/* Summary Card */}
-				<AppCard
-					title={liability.name}
-					subtitle={getTypeName(liability.liability_type_id)}
-				>
-					<View style={styles.row}>
-						<View style={styles.detailItem}>
-							<Text
-								variant="bodySmall"
-								style={{ color: theme.colors.onSurfaceVariant }}
-							>
-								Currency
-							</Text>
-							<Text variant="titleSmall" style={{ fontWeight: "bold" }}>
-								{liability.currency}
-							</Text>
-						</View>
-						<View style={styles.detailItem}>
-							<Text
-								variant="bodySmall"
-								style={{ color: theme.colors.onSurfaceVariant }}
-							>
-								Total Amount
-							</Text>
-							<Text variant="titleSmall" style={{ fontWeight: "bold" }}>
-								{formatAmount(liability.total_amount, liability.currency)}
-							</Text>
-						</View>
-					</View>
-					<View style={styles.row}>
-						<View style={styles.detailItem}>
-							<Text
-								variant="bodySmall"
-								style={{ color: theme.colors.onSurfaceVariant }}
-							>
-								Remaining Balance
-							</Text>
-							<Text
-								variant="titleSmall"
-								style={{ fontWeight: "bold", color: theme.colors.error }}
-							>
-								{formatAmount(liability.current_balance, liability.currency)}
-							</Text>
-						</View>
-						<View style={styles.detailItem}>
-							<Text
-								variant="bodySmall"
-								style={{ color: theme.colors.onSurfaceVariant }}
-							>
-								Paid
-							</Text>
-							<Text
-								variant="titleSmall"
-								style={{
-									fontWeight: "bold",
-									color: theme.colors.primary,
-								}}
-							>
-								{formatAmount(paymentInfo.paid, liability.currency)}
-							</Text>
-						</View>
-					</View>
+	const typeName = liabilityTypes.find((t) => t.id === liability.liability_type_id)?.name ?? "";
+	const entity = liability.entity_id ? entities.find((e) => e.id === liability.entity_id) : undefined;
+	const paid = liability.total_amount - liability.current_balance;
+	const ratio = repaidRatio(liability);
+	const paidOff = liability.current_balance <= 0;
 
-					{/* Progress Bar */}
-					<View style={styles.progressSection}>
-						<View style={styles.progressHeader}>
-							<Text
-								variant="bodySmall"
-								style={{ color: theme.colors.onSurfaceVariant }}
-							>
-								Payment Progress
-							</Text>
-							<Text
-								variant="bodySmall"
-								style={{
-									color: theme.colors.primary,
-									fontWeight: "bold",
-								}}
-							>
-								{(paymentInfo.percentage * 100).toFixed(1)}%
-							</Text>
-						</View>
-						<ProgressBar
-							progress={paymentInfo.percentage}
-							color={theme.colors.primary}
-							style={styles.progressBar}
-						/>
-					</View>
+	const handleEdit = async (values: LiabilityFormValues) => {
+		await updateLiability(liability.id, values);
+		setEditVisible(false);
+		toast.success("Liability updated");
+	};
 
-					{liability.entity_id ? (
-						<>
-							<Divider style={styles.divider} />
-							<Text
-								variant="bodySmall"
-								style={{ color: theme.colors.onSurfaceVariant }}
-							>
-								Entity
-							</Text>
-							<TouchableOpacity
-								onPress={() =>
-									navigation.navigate("EntityDetail", {
-										entityId: liability.entity_id!,
-									})
-								}
-							>
-								<Text
-									variant="bodyMedium"
-									style={{ color: theme.colors.primary, marginTop: 4 }}
-								>
-									{getEntityName(liability.entity_id)}
-								</Text>
-							</TouchableOpacity>
-						</>
-					) : null}
-
-					{liability.notes ? (
-						<>
-							<Divider style={styles.divider} />
-							<Text
-								variant="bodySmall"
-								style={{ color: theme.colors.onSurfaceVariant }}
-							>
-								Notes
-							</Text>
-							<Text variant="bodyMedium" style={{ marginTop: 4 }}>
-								{liability.notes}
-							</Text>
-						</>
-					) : null}
-					<Divider style={styles.divider} />
-					<Text
-						variant="bodySmall"
-						style={{ color: theme.colors.onSurfaceVariant }}
-					>
-						Created: {new Date(liability.created_at).toLocaleDateString()}
-					</Text>
-				</AppCard>
-
-				{/* Edit Button */}
-				<View style={styles.actionsRow}>
-					<IconButton
-						icon="pencil"
-						mode="contained"
-						onPress={() => setEditDialogVisible(true)}
-						iconColor={theme.colors.primary}
-						containerColor={theme.colors.elevation.level3}
+	const header = (
+		<View>
+			<HeroCard>
+				<View style={styles.heroTop}>
+					<IconBadge
+						icon={paidOff ? "check-circle-outline" : getLiabilityTypeIcon(typeName)}
+						color={theme.custom.onHero}
+						background="rgba(255,255,255,0.16)"
 					/>
-				</View>
-
-				{/* Transactions Section */}
-				<Text
-					variant="titleMedium"
-					style={[styles.sectionTitle, { color: theme.colors.onSurface }]}
-				>
-					Payment History
-				</Text>
-				{transactions.length === 0 ? (
-					<View style={styles.emptyState}>
-						<Text
-							variant="bodyLarge"
-							style={{ color: theme.colors.onSurfaceVariant }}
-						>
-							No payments recorded yet.
+					<View style={{ flex: 1, marginLeft: spacing.md }}>
+						<Text variant="labelLarge" style={{ color: theme.custom.onHeroMuted }}>
+							{typeName || "Liability"}
+						</Text>
+						<Text variant="bodySmall" style={{ color: theme.custom.onHeroMuted }}>
+							{paidOff ? "Fully repaid" : "Still owed"}
 						</Text>
 					</View>
-				) : (
-					transactions.map((transaction, index) => {
-						const typeName = getTransactionTypeName(
-							transaction.transaction_type_id,
-						);
-						const isTransfer = typeName === "Transfer";
-						const accountName = isTransfer
-							? `${getAccountName(transaction.from_account_id)} → ${getAccountName(transaction.to_account_id)}`
-							: getAccountName(
-									transaction.from_account_id || transaction.to_account_id,
-								);
+				</View>
+				<AmountText
+					amount={liability.current_balance}
+					currency={liability.currency}
+					tone="onHero"
+					variant="displaySmall"
+					style={{ marginTop: spacing.md }}
+				/>
+				<ProgressBar
+					progress={ratio}
+					color={theme.custom.onHero}
+					trackColor="rgba(255,255,255,0.18)"
+					height={6}
+					style={{ marginTop: spacing.md }}
+				/>
+				<Text variant="bodySmall" style={{ color: theme.custom.onHeroMuted, marginTop: spacing.sm }}>
+					{`${(ratio * 100).toFixed(1)}% repaid · ${formatAmount(paid, liability.currency)} of ${formatAmount(liability.total_amount, liability.currency)}`}
+				</Text>
+			</HeroCard>
 
-						return (
-							<TransactionListItem
-								key={transaction.id}
-								transaction={transaction}
-								accountName={accountName}
-								accountCurrency={getAccountCurrency(
-									transaction.from_account_id || transaction.to_account_id,
-								)}
-								categoryName={getCategoryName(transaction.category_id)}
-								transactionTypeName={typeName}
-								associationCount={getAssociationCount(transaction)}
-								onPress={() =>
-									navigation.navigate("TransactionDetail", {
-										transactionId: transaction.id,
-									})
-								}
-								index={index}
-							/>
-						);
-					})
-				)}
-			</ScrollView>
-
-			<LiabilityFormDialog
-				visible={editDialogVisible}
-				onClose={() => setEditDialogVisible(false)}
-				onSubmit={handleEditSubmit}
-				liabilityTypes={liabilityTypes}
-				entities={entities}
-				initialLiability={liability}
+			<ActionRow
+				actions={[
+					{
+						label: "Make payment",
+						icon: "cash-check",
+						color: theme.custom.income,
+						background: theme.custom.incomeContainer,
+						disabled: paidOff,
+						onPress: () => openComposer({ type: "Expense", liabilityId }),
+					},
+					{
+						label: "Edit",
+						icon: "pencil-outline",
+						onPress: () => setEditVisible(true),
+					},
+				]}
 			/>
 
-			<Snackbar
-				visible={snackbar.visible}
-				onDismiss={() => setSnackbar({ visible: false, message: "" })}
-				duration={2000}
-			>
-				{snackbar.message}
-			</Snackbar>
+			<StatGrid
+				items={[
+					{ label: "Borrowed", value: formatAmount(liability.total_amount, liability.currency) },
+					{ label: "Repaid", value: formatAmount(paid, liability.currency), tone: "income" },
+					{ label: "Remaining", value: formatAmount(liability.current_balance, liability.currency), tone: paidOff ? "muted" : "expense" },
+					{ label: "Currency", value: liability.currency },
+				]}
+			/>
+
+			{entity ? (
+				<Card padded={false} style={styles.block}>
+					<ListItem
+						title={entity.name}
+						subtitle="Owed to"
+						left={<IconBadge icon={entity.is_individual ? "account-outline" : "domain"} />}
+						chevron
+						onPress={() => navigation.navigate("EntityDetail", { entityId: entity.id })}
+					/>
+				</Card>
+			) : null}
+
+			{liability.notes ? (
+				<Card style={styles.block}>
+					<Text variant="labelMedium" style={{ color: theme.colors.onSurfaceVariant }}>
+						Notes
+					</Text>
+					<Text variant="bodyMedium" style={{ color: theme.colors.onSurface, marginTop: spacing.xs }}>
+						{liability.notes}
+					</Text>
+				</Card>
+			) : null}
+			<Text variant="bodySmall" style={[styles.meta, { color: theme.colors.onSurfaceVariant }]}>
+				{`Added ${formatShortDate(liability.created_at)}`}
+			</Text>
+		</View>
+	);
+
+	return (
+		<View style={[styles.fill, { backgroundColor: theme.colors.background }]}>
+			<TransactionSectionList
+				rows={rows}
+				header={header}
+				sectionTitle="Payment history"
+				refreshing={refreshing}
+				onRefresh={pullToRefresh}
+				empty={
+					loadingTx ? (
+						<SkeletonList rows={4} />
+					) : (
+						<EmptyState
+							compact
+							icon="cash-check"
+							title="No payments yet"
+							message="Record a payment and it will reduce what you owe here."
+							actionLabel={paidOff ? undefined : "Make a payment"}
+							onAction={paidOff ? undefined : () => openComposer({ type: "Expense", liabilityId })}
+						/>
+					)
+				}
+			/>
+			<LiabilityFormSheet
+				visible={editVisible}
+				onDismiss={() => setEditVisible(false)}
+				liabilityTypes={liabilityTypes}
+				entities={entities}
+				liability={liability}
+				onSubmit={handleEdit}
+			/>
 		</View>
 	);
 };
 
 const styles = StyleSheet.create({
-	container: {
+	fill: {
 		flex: 1,
 	},
-	scrollContent: {
-		padding: 16,
-		paddingBottom: 32,
-	},
-	centered: {
+	center: {
 		justifyContent: "center",
+	},
+	heroTop: {
+		flexDirection: "row",
 		alignItems: "center",
 	},
-	row: {
-		flexDirection: "row",
-		justifyContent: "space-between",
-		marginBottom: 12,
+	block: {
+		marginTop: spacing.lg,
 	},
-	detailItem: {
-		flex: 1,
-	},
-	progressSection: {
-		marginBottom: 12,
-	},
-	progressHeader: {
-		flexDirection: "row",
-		justifyContent: "space-between",
-		marginBottom: 6,
-	},
-	progressBar: {
-		height: 8,
-		borderRadius: 4,
-	},
-	divider: {
-		marginVertical: 12,
-	},
-	actionsRow: {
-		flexDirection: "row",
-		justifyContent: "flex-end",
-		marginBottom: 8,
-	},
-	sectionTitle: {
-		fontWeight: "bold",
-		marginBottom: 12,
-	},
-	emptyState: {
-		paddingVertical: 32,
-		alignItems: "center",
+	meta: {
+		marginTop: spacing.md,
+		marginLeft: spacing.xs,
 	},
 });
 

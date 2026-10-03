@@ -1,249 +1,204 @@
-import React, { useState, useMemo } from "react";
-import { View, StyleSheet, FlatList } from "react-native";
-import {
-	FAB,
-	ActivityIndicator,
-	Text,
-	Snackbar,
-	useTheme,
-	Divider,
-} from "react-native-paper";
-import AppCard from "../components/AppCard";
+import React, { useMemo, useState } from "react";
+import { RefreshControl, ScrollView, StyleSheet, View } from "react-native";
+import { AnimatedFAB, Text } from "react-native-paper";
+import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import Card from "../components/ui/Card";
+import ListItem from "../components/ui/ListItem";
+import IconBadge from "../components/ui/IconBadge";
+import AmountText from "../components/ui/AmountText";
+import EmptyState from "../components/ui/EmptyState";
+import HeroCard from "../components/ui/HeroCard";
+import { SkeletonList } from "../components/ui/Skeleton";
+import { useToast } from "../components/ui/Toast";
+import AccountFormSheet, { AccountFormValues } from "../components/AccountFormSheet";
 import { useGetAccounts } from "../hooks/account/useGetAccounts";
 import { useCreateAccount } from "../hooks/account/useCreateAccount";
 import { useUpdateAccount } from "../hooks/account/useUpdateAccount";
 import { useGetAccountTypes } from "../hooks/accountType/useGetAccountTypes";
-import AccountListItem from "../components/AccountListItem";
-import AccountFormDialog from "../components/AccountFormDialog";
+import { getAccountTypeIcon } from "../constants/typeIcons";
 import { Account, RootStackParamList } from "../types";
-import { formatAmount } from "../utils/currency";
-import { useNavigation } from "@react-navigation/native";
-import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { formatAmount, formatCompactAmount } from "../utils/currency";
+import { maskAccountNumber } from "../utils/format";
+import { radius, spacing, useKTheme } from "../theme/theme";
 
-type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
+type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 const AccountsScreen = () => {
-	const navigation = useNavigation<NavigationProp>();
-	const theme = useTheme();
-	const { accounts, loading, error, refresh } = useGetAccounts();
-	const {
-		createAccount,
-		loading: creating,
-		error: createError,
-	} = useCreateAccount();
-	const {
-		updateAccount,
-		loading: updating,
-		error: updateError,
-	} = useUpdateAccount();
-	const {
-		accountTypes,
-		loading: loadingTypes,
-		error: errorTypes,
-	} = useGetAccountTypes();
-	const [modalVisible, setModalVisible] = useState(false);
-	const [editingAccount, setEditingAccount] = useState<Account | null>(null);
-	const [snackbar, setSnackbar] = useState({ visible: false, message: "" });
+	const theme = useKTheme();
+	const navigation = useNavigation<Nav>();
+	const toast = useToast();
+	const { accounts, loading, error, refresh, refreshing, pullToRefresh } = useGetAccounts();
+	const { accountTypes } = useGetAccountTypes();
+	const { createAccount } = useCreateAccount();
+	const { updateAccount } = useUpdateAccount();
+	const [formVisible, setFormVisible] = useState(false);
+	const [editing, setEditing] = useState<Account | null>(null);
+	const [fabExtended, setFabExtended] = useState(true);
 
-	const openAddModal = () => {
-		setEditingAccount(null);
-		setModalVisible(true);
-	};
+	const typeName = (id: number) => accountTypes.find((t) => t.id === id)?.name ?? "Other";
 
-	const openEditModal = (account: Account) => {
-		setEditingAccount(account);
-		setModalVisible(true);
-	};
-
-	const closeModal = () => {
-		setModalVisible(false);
-		setEditingAccount(null);
-	};
-
-	const handleSubmit = async (data: {
-		name: string;
-		account_type_id: number;
-		currency: string;
-		opening_balance: number;
-		account_number?: string;
-	}) => {
-		try {
-			if (editingAccount) {
-				await updateAccount(editingAccount.id, data);
-				setSnackbar({ visible: true, message: "Account updated" });
-			} else {
-				await createAccount({
-					...data,
-					current_balance: data.opening_balance,
-					created_at: new Date().toISOString(),
-				});
-				setSnackbar({ visible: true, message: "Account created" });
-			}
-			closeModal();
-			refresh();
-		} catch (e: any) {
-			setSnackbar({
-				visible: true,
-				message: e.message || "Error saving account",
-			});
-		}
-	};
-
-	const getTypeName = (typeId: number) => {
-		return accountTypes.find((t) => t.id === typeId)?.name || "";
-	};
-
-	// Group accounts by type
-	const groupedAccounts = useMemo(() => {
-		const groups: { [key: string]: Account[] } = {};
-		accounts.forEach((account) => {
-			const typeName = getTypeName(account.account_type_id);
-			if (!groups[typeName]) {
-				groups[typeName] = [];
-			}
-			groups[typeName].push(account);
+	const totals = useMemo(() => {
+		const map: Record<string, { total: number; count: number }> = {};
+		accounts.forEach((a) => {
+			const t = (map[a.currency] ??= { total: 0, count: 0 });
+			t.total += a.current_balance || 0;
+			t.count += 1;
 		});
-		return groups;
-	}, [accounts, accountTypes]);
-
-	const flatListData = useMemo(() => {
-		const data: Array<{ type: "header" | "item"; content: any }> = [];
-		Object.entries(groupedAccounts).forEach(([typeName, accounts]) => {
-			data.push({ type: "header", content: typeName });
-			accounts.forEach((account) => {
-				data.push({ type: "item", content: account });
-			});
-		});
-		return data;
-	}, [groupedAccounts]);
-
-	// Calculate total balances by currency
-	const totalByCurrency = useMemo(() => {
-		const map: { [currency: string]: number } = {};
-		accounts.forEach((acc) => {
-			if (!map[acc.currency]) map[acc.currency] = 0;
-			map[acc.currency] += acc.current_balance || 0;
-		});
-		return map;
+		return Object.entries(map).sort((a, b) => b[1].count - a[1].count);
 	}, [accounts]);
 
-	const anyLoading = loading || creating || updating || loadingTypes;
-	const anyError = error || createError || updateError || errorTypes;
+	const groups = useMemo(() => {
+		const map = new Map<number, Account[]>();
+		accounts.forEach((a) => {
+			const list = map.get(a.account_type_id) ?? [];
+			list.push(a);
+			map.set(a.account_type_id, list);
+		});
+		return Array.from(map.entries())
+			.map(([typeId, list]) => ({
+				typeId,
+				name: typeName(typeId),
+				accounts: [...list].sort((a, b) => b.current_balance - a.current_balance),
+			}))
+			.sort((a, b) => a.name.localeCompare(b.name));
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [accounts, accountTypes]);
+
+	const openCreate = () => {
+		setEditing(null);
+		setFormVisible(true);
+	};
+
+	const handleSubmit = async (values: AccountFormValues) => {
+		if (editing) {
+			await updateAccount(editing.id, values);
+			toast.success("Account updated");
+		} else {
+			await createAccount({
+				...values,
+				current_balance: values.opening_balance,
+				created_at: new Date().toISOString(),
+			});
+			toast.success(`${values.name} added`);
+		}
+		setFormVisible(false);
+	};
+
+	const renderBody = () => {
+		if (loading) return <SkeletonList rows={6} />;
+		if (error && accounts.length === 0) {
+			return (
+				<EmptyState icon="cloud-alert" tone="error" title="Couldn't load accounts" message={error} actionLabel="Try again" onAction={refresh} />
+			);
+		}
+		if (accounts.length === 0) {
+			return (
+				<EmptyState
+					icon="wallet-plus-outline"
+					title="No accounts yet"
+					message="Add the places you keep money — bank, mobile money, cash — to start tracking balances."
+					actionLabel="Add account"
+					onAction={openCreate}
+				/>
+			);
+		}
+		const [main, ...others] = totals;
+		return (
+			<>
+				<HeroCard>
+					<Text variant="labelLarge" style={{ color: theme.custom.onHeroMuted }}>
+						Total balance
+					</Text>
+					<AmountText amount={main[1].total} currency={main[0]} tone="onHero" variant="displaySmall" />
+					<Text variant="bodySmall" style={{ color: theme.custom.onHeroMuted, marginTop: spacing.xs }}>
+						{`${accounts.length} account${accounts.length === 1 ? "" : "s"}`}
+						{others.map(([cur, t]) => `  ·  ${formatCompactAmount(t.total, cur)}`).join("")}
+					</Text>
+				</HeroCard>
+
+				{groups.map((group) => {
+					const groupTotals = group.accounts.reduce<Record<string, number>>((acc, a) => {
+						acc[a.currency] = (acc[a.currency] ?? 0) + a.current_balance;
+						return acc;
+					}, {});
+					return (
+						<View key={group.typeId}>
+							<View style={styles.groupHeader}>
+								<Text variant="titleSmall" style={{ color: theme.colors.onSurface }}>
+									{group.name}
+								</Text>
+								<Text variant="labelMedium" style={{ color: theme.colors.onSurfaceVariant }}>
+									{Object.entries(groupTotals)
+										.map(([cur, v]) => formatCompactAmount(v, cur))
+										.join("  ·  ")}
+								</Text>
+							</View>
+							<Card padded={false}>
+								{group.accounts.map((a, i) => (
+									<ListItem
+										key={a.id}
+										title={a.name}
+										subtitle={[maskAccountNumber(a.account_number), a.currency].filter(Boolean).join("  ·  ")}
+										left={<IconBadge icon={getAccountTypeIcon(group.name)} />}
+										right={<AmountText amount={a.current_balance} currency={a.currency} tone="auto" />}
+										chevron
+										onPress={() => navigation.navigate("AccountDetail", { accountId: a.id })}
+										onLongPress={() => {
+											setEditing(a);
+											setFormVisible(true);
+										}}
+										accessibilityLabel={`${a.name}, ${formatAmount(a.current_balance, a.currency)}`}
+										style={i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.colors.outlineVariant }}
+									/>
+								))}
+							</Card>
+						</View>
+					);
+				})}
+				<Text variant="bodySmall" style={[styles.hint, { color: theme.colors.onSurfaceVariant }]}>
+					Tip: long-press an account to edit it.
+				</Text>
+			</>
+		);
+	};
 
 	return (
-		<View
-			style={[styles.container, { backgroundColor: theme.colors.background }]}
-		>
-			<AppCard
-				title="Total Balance"
-				subtitle="Combined across all accounts"
-				style={styles.totalBalanceContainer}
-			>
-				<Text variant="headlineSmall" style={styles.totalBalanceValue}>
-					{Object.entries(totalByCurrency).map(([cur, val], idx) => (
-						<Text
-							variant="titleMedium"
-							key={cur}
-							style={{ fontWeight: "bold" }}
-						>
-							{formatAmount(val, cur)}
-							{idx < Object.entries(totalByCurrency).length - 1 ? " | " : ""}
-						</Text>
-					))}
-				</Text>
-			</AppCard>
-			{anyLoading ? (
-				<View style={styles.centered}>
-					<ActivityIndicator size="large" />
-					<Text variant="bodyLarge" style={{ marginTop: 16 }}>
-						Loading accounts...
-					</Text>
-				</View>
-			) : anyError ? (
-				<View style={styles.centered}>
-					<Text variant="bodyLarge" style={{ color: theme.colors.error }}>
-						{anyError}
-					</Text>
-				</View>
-			) : (
-				<FlatList
-					data={flatListData}
-					keyExtractor={(item, index) =>
-						item.type === "header"
-							? `header-${item.content}`
-							: `item-${item.content.id}-${index}`
-					}
-					renderItem={({ item }) => {
-						if (item.type === "header") {
-							return (
-								<Text
-									variant="titleMedium"
-									style={[styles.headerText, { color: theme.colors.primary }]}
-								>
-									{item.content}
-								</Text>
-							);
-						} else {
-							const account = item.content as Account;
-							return (
-								<AccountListItem
-									account={account}
-									typeName={getTypeName(account.account_type_id)}
-									onEdit={() => openEditModal(account)}
-									onPress={() =>
-										navigation.navigate("AccountDetail", {
-											accountId: account.id,
-										})
-									}
-								/>
-							);
-						}
-					}}
-					ListEmptyComponent={
-						<View style={styles.centered}>
-							<Text
-								variant="bodyLarge"
-								style={{ color: theme.colors.onSurfaceVariant }}
-							>
-								No accounts yet.
-							</Text>
-						</View>
-					}
-					contentContainerStyle={[
-						flatListData.length === 0 ? styles.centered : undefined,
-						{ paddingBottom: 80 }, // Add padding for FAB
-					]}
-					ItemSeparatorComponent={() => <Divider />}
-				/>
-			)}
-			<FAB
-				icon="plus"
-				style={[styles.fab, { backgroundColor: theme.colors.primary }]}
-				color={theme.colors.onPrimary}
-				onPress={openAddModal}
-				accessibilityLabel="Add Account"
-			/>
-			<AccountFormDialog
-				visible={modalVisible}
-				onClose={closeModal}
-				onSubmit={handleSubmit}
-				accountTypes={accountTypes}
-				initialAccount={
-					editingAccount
-						? {
-								...editingAccount,
-								account_number: editingAccount.account_number || undefined,
-						  }
-						: null
+		<View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+			<ScrollView
+				contentContainerStyle={styles.content}
+				onScroll={(e) => setFabExtended(e.nativeEvent.contentOffset.y <= 8)}
+				scrollEventThrottle={64}
+				refreshControl={
+					<RefreshControl
+						refreshing={refreshing}
+						onRefresh={pullToRefresh}
+						colors={[theme.colors.primary]}
+						progressBackgroundColor={theme.colors.surface}
+					/>
 				}
-			/>
-			<Snackbar
-				visible={snackbar.visible}
-				onDismiss={() => setSnackbar({ visible: false, message: "" })}
-				duration={2000}
 			>
-				{snackbar.message}
-			</Snackbar>
+				{renderBody()}
+			</ScrollView>
+			{accounts.length > 0 ? (
+				<AnimatedFAB
+					icon="plus"
+					label="Add account"
+					extended={fabExtended}
+					onPress={openCreate}
+					style={styles.fab}
+					color={theme.colors.onPrimary}
+					theme={{ colors: { primaryContainer: theme.colors.primary } }}
+					accessibilityLabel="Add account"
+				/>
+			) : null}
+			<AccountFormSheet
+				visible={formVisible}
+				onDismiss={() => setFormVisible(false)}
+				accountTypes={accountTypes}
+				account={editing}
+				onSubmit={handleSubmit}
+			/>
 		</View>
 	);
 };
@@ -251,34 +206,28 @@ const AccountsScreen = () => {
 const styles = StyleSheet.create({
 	container: {
 		flex: 1,
-		padding: 16,
+	},
+	content: {
+		paddingHorizontal: spacing.lg,
+		paddingBottom: 120,
+	},
+	groupHeader: {
+		flexDirection: "row",
+		justifyContent: "space-between",
+		alignItems: "center",
+		marginTop: spacing.xxl,
+		marginBottom: spacing.sm,
+		paddingHorizontal: spacing.xs,
+	},
+	hint: {
+		textAlign: "center",
+		marginTop: spacing.xl,
 	},
 	fab: {
 		position: "absolute",
-		right: 16,
-		bottom: 24,
-	},
-	centered: {
-		flex: 1,
-		justifyContent: "center",
-		alignItems: "center",
-		textAlign: "center",
-		marginTop: 32,
-	},
-	headerContainer: {
-		paddingHorizontal: 16,
-		paddingVertical: 8,
-		marginTop: 8,
-	},
-	headerText: {
-		fontWeight: "600",
-		marginTop: 8,
-	},
-	totalBalanceContainer: {
-		marginBottom: 16,
-	},
-	totalBalanceValue: {
-		fontWeight: "bold",
+		right: spacing.lg,
+		bottom: spacing.lg,
+		borderRadius: radius.lg,
 	},
 });
 

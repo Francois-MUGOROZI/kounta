@@ -6,6 +6,15 @@ import type {
 	EnvelopeTotal,
 } from "../types";
 import { addDays, format } from "date-fns";
+import { LOCAL_DAY_SQL } from "../utils/date";
+
+// Currency of a transaction: its account, else its asset, else its receivable.
+export const TX_CURRENCY_SQL = `COALESCE(fa.currency, ta.currency, ast.currency, rcv.currency)`;
+export const TX_CURRENCY_JOINS = `
+	LEFT JOIN accounts fa ON fa.id = t.from_account_id
+	LEFT JOIN accounts ta ON ta.id = t.to_account_id
+	LEFT JOIN assets ast ON ast.id = t.asset_id
+	LEFT JOIN receivables rcv ON rcv.id = t.receivable_id`;
 
 export const DashboardRepository = {
 	// Get all top-level stats grouped by currency
@@ -178,6 +187,46 @@ export const DashboardRepository = {
 	): Promise<GroupedByType[]> {
 		return await db.getAllAsync(
 			`SELECT r.type as type, r.currency, COUNT(r.id) as count, SUM(r.current_balance) as total FROM receivables r WHERE r.status = 'Active' GROUP BY r.currency, r.type`
+		);
+	},
+
+	/** Income and expense totals per currency for a local-day range. */
+	async getFlowByCurrency(
+		db: SQLiteDatabase,
+		startDate: string,
+		endDate: string
+	): Promise<{ currency: string; income: number; expenses: number }[]> {
+		return await db.getAllAsync(
+			`SELECT ${TX_CURRENCY_SQL} AS currency,
+				SUM(CASE WHEN tt.name = 'Income' THEN t.amount ELSE 0 END) AS income,
+				SUM(CASE WHEN tt.name = 'Expense' THEN t.amount ELSE 0 END) AS expenses
+			 FROM transactions t
+			 JOIN transaction_types tt ON tt.id = t.transaction_type_id
+			 ${TX_CURRENCY_JOINS}
+			 WHERE tt.name IN ('Income', 'Expense')
+			   AND ${LOCAL_DAY_SQL("t.date")} BETWEEN ? AND ?
+			 GROUP BY ${TX_CURRENCY_SQL}`,
+			[startDate, endDate]
+		);
+	},
+
+	/** Expense totals per category and currency for a local-day range, largest first. */
+	async getExpensesByCategoryInRange(
+		db: SQLiteDatabase,
+		startDate: string,
+		endDate: string
+	): Promise<CategoryTotal[]> {
+		return await db.getAllAsync(
+			`SELECT c.id AS categoryId, c.name AS category, ${TX_CURRENCY_SQL} AS currency, SUM(t.amount) AS total
+			 FROM transactions t
+			 JOIN transaction_types tt ON tt.id = t.transaction_type_id
+			 JOIN categories c ON c.id = t.category_id
+			 ${TX_CURRENCY_JOINS}
+			 WHERE tt.name = 'Expense'
+			   AND ${LOCAL_DAY_SQL("t.date")} BETWEEN ? AND ?
+			 GROUP BY c.id, ${TX_CURRENCY_SQL}
+			 ORDER BY total DESC`,
+			[startDate, endDate]
 		);
 	},
 };
