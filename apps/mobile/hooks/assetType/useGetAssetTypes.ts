@@ -1,40 +1,22 @@
-import { useState, useEffect } from "react";
 import { AssetTypeRepository } from "../../repositories/AssetTypeRepository";
-import { useDatabase } from "../../database";
 import { AssetType } from "../../types";
-import { addEventListener, EVENTS } from "../../utils/events";
+import { useQuery } from "../useQuery";
 
 export const useGetAssetTypes = () => {
-	const db = useDatabase();
-	const [assetTypes, setAssetTypes] = useState<AssetType[]>([]);
-	const [loading, setLoading] = useState(true);
-	const [error, setError] = useState<string | null>(null);
+	const { data, loading, refreshing, error, refresh, pullToRefresh } =
+		useQuery<AssetType[]>(
+			(db) => AssetTypeRepository.getAll(db),
+			[],
+			[],
+			"Failed to load asset types"
+		);
 
-	const refresh = async () => {
-		try {
-			setLoading(true);
-			setError(null);
-			const result = await AssetTypeRepository.getAll(db);
-			setAssetTypes(result);
-		} catch (err: any) {
-			setError(err.message || "Failed to fetch asset types");
-		} finally {
-			setLoading(false);
-		}
+	return {
+		assetTypes: data,
+		loading,
+		refreshing,
+		error,
+		refresh,
+		pullToRefresh,
 	};
-
-	useEffect(() => {
-		refresh();
-
-		// Subscribe to global data changes to keep the asset types list in sync
-		const subscription = addEventListener(EVENTS.DATA_CHANGED, () => {
-			refresh();
-		});
-
-		return () => {
-			subscription.remove();
-		};
-	}, []);
-
-	return { assetTypes, loading, error, refresh };
 };

@@ -16,6 +16,7 @@ export function useCreateEnvelope() {
 				await EnvelopeRepository.create(db, envelope);
 			} catch (e: any) {
 				setError(e.message || "Failed to create envelope");
+				throw e;
 			} finally {
 				setLoading(false);
 			}

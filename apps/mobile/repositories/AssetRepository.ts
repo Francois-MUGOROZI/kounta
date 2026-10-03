@@ -34,7 +34,7 @@ export const AssetRepository = {
 		const notes: string | null = asset.notes ?? null;
 
 		await db.runAsync(
-			`INSERT INTO assets (name, asset_type_id, currency, initial_cost, contributions, reinvestments, withdrawals, current_valuation, created_at, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			`INSERT INTO assets (name, asset_type_id, currency, initial_cost, contributions, reinvestments, withdrawals, current_valuation, created_at, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			[
 				name,
 				asset_type_id,

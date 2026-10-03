@@ -1,40 +1,22 @@
-import { useState, useEffect } from "react";
 import { LiabilityTypeRepository } from "../../repositories/LiabilityTypeRepository";
-import { useDatabase } from "../../database";
 import { LiabilityType } from "../../types";
-import { addEventListener, EVENTS } from "../../utils/events";
+import { useQuery } from "../useQuery";
 
 export const useGetLiabilityTypes = () => {
-	const db = useDatabase();
-	const [liabilityTypes, setLiabilityTypes] = useState<LiabilityType[]>([]);
-	const [loading, setLoading] = useState(true);
-	const [error, setError] = useState<string | null>(null);
+	const { data, loading, refreshing, error, refresh, pullToRefresh } =
+		useQuery<LiabilityType[]>(
+			(db) => LiabilityTypeRepository.getAll(db),
+			[],
+			[],
+			"Failed to load liability types"
+		);
 
-	const refresh = async () => {
-		try {
-			setLoading(true);
-			setError(null);
-			const result = await LiabilityTypeRepository.getAll(db);
-			setLiabilityTypes(result);
-		} catch (err: any) {
-			setError(err.message || "Failed to fetch liability types");
-		} finally {
-			setLoading(false);
-		}
+	return {
+		liabilityTypes: data,
+		loading,
+		refreshing,
+		error,
+		refresh,
+		pullToRefresh,
 	};
-
-	useEffect(() => {
-		refresh();
-
-		// Subscribe to global data changes to keep the liability types list in sync
-		const subscription = addEventListener(EVENTS.DATA_CHANGED, () => {
-			refresh();
-		});
-
-		return () => {
-			subscription.remove();
-		};
-	}, []);
-
-	return { liabilityTypes, loading, error, refresh };
 };

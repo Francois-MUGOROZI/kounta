@@ -16,6 +16,7 @@ export function useUpdateBill() {
 				await BillsRepository.updateBill(db, id, updates);
 			} catch (e: any) {
 				setError(e.message || "Failed to update bill");
+				throw e;
 			} finally {
 				setLoading(false);
 			}
@@ -31,6 +32,7 @@ export function useUpdateBill() {
 				await BillsRepository.markAsPaid(db, id);
 			} catch (e: any) {
 				setError(e.message || "Failed to mark bill as paid");
+				throw e;
 			} finally {
 				setLoading(false);
 			}

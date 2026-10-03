@@ -1,280 +1,300 @@
-import React, { useState, useMemo } from "react";
-import { View, StyleSheet, FlatList } from "react-native";
-import {
-	FAB,
-	ActivityIndicator,
-	Text,
-	Snackbar,
-	useTheme,
-	Chip,
-} from "react-native-paper";
-import AppCard from "../components/AppCard";
+import React, { useMemo, useState } from "react";
+import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from "react-native";
+import { AnimatedFAB, Text } from "react-native-paper";
+import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import Card from "../components/ui/Card";
+import HeroCard from "../components/ui/HeroCard";
+import AmountText from "../components/ui/AmountText";
+import EmptyState from "../components/ui/EmptyState";
+import { SkeletonList } from "../components/ui/Skeleton";
+import { useToast } from "../components/ui/Toast";
+import ReceivableFormSheet, { ReceivableFormValues } from "../components/ReceivableFormSheet";
+import { ReceivableRow } from "../components/ReceivableRow";
 import { useGetReceivables } from "../hooks/receivable/useGetReceivables";
 import { useCreateReceivable } from "../hooks/receivable/useCreateReceivable";
 import { useUpdateReceivable } from "../hooks/receivable/useUpdateReceivable";
 import { useGetEntities } from "../hooks/entity/useGetEntities";
-import ReceivableListItem from "../components/ReceivableListItem";
-import ReceivableFormDialog from "../components/ReceivableFormDialog";
-import {
-	Receivable,
-	ReceivableStatus,
-	ReceivableType,
-	RootStackParamList,
-} from "../types";
-import { formatAmount } from "../utils/currency";
-import { useNavigation } from "@react-navigation/native";
-import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { Receivable, ReceivableStatus, RootStackParamList } from "../types";
+import { formatCompactAmount } from "../utils/currency";
+import { radius, spacing, useKTheme } from "../theme/theme";
 
-type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
+type Nav = NativeStackNavigationProp<RootStackParamList>;
+type Filter = ReceivableStatus | "All";
 
-const STATUS_FILTERS: { label: string; value: ReceivableStatus | "All" }[] = [
-	{ label: "All", value: "All" },
-	{ label: "Pending", value: "Pending" },
-	{ label: "Active", value: "Active" },
-	{ label: "Settled", value: "Settled" },
-	{ label: "Written Off", value: "Written-Off" },
+const FILTERS: { value: Filter; label: string }[] = [
+	{ value: "All", label: "All" },
+	{ value: "Active", label: "Active" },
+	{ value: "Pending", label: "Pending" },
+	{ value: "Settled", label: "Settled" },
+	{ value: "Written-Off", label: "Written off" },
 ];
 
+// Open items first, then closed ones.
+const STATUS_ORDER: Record<ReceivableStatus, number> = {
+	Active: 0,
+	Pending: 1,
+	Settled: 2,
+	"Written-Off": 3,
+};
+
 const ReceivablesScreen = () => {
-	const navigation = useNavigation<NavigationProp>();
-	const theme = useTheme();
-	const { receivables, loading, error, refresh } = useGetReceivables();
-	const {
-		createReceivable,
-		loading: creating,
-		error: createError,
-	} = useCreateReceivable();
-	const {
-		updateReceivable,
-		loading: updating,
-		error: updateError,
-	} = useUpdateReceivable();
+	const theme = useKTheme();
+	const navigation = useNavigation<Nav>();
+	const toast = useToast();
+	const { receivables, loading, error, refresh, refreshing, pullToRefresh } = useGetReceivables();
 	const { entities } = useGetEntities();
-	const [modalVisible, setModalVisible] = useState(false);
-	const [editingReceivable, setEditingReceivable] = useState<Receivable | null>(
-		null,
+	const { createReceivable } = useCreateReceivable();
+	const { updateReceivable } = useUpdateReceivable();
+	const [filter, setFilter] = useState<Filter>("All");
+	const [formVisible, setFormVisible] = useState(false);
+	const [editing, setEditing] = useState<Receivable | null>(null);
+	const [fabExtended, setFabExtended] = useState(true);
+
+	const entityName = (id: number) => entities.find((e) => e.id === id)?.name ?? "Unknown";
+
+	const counts = useMemo(() => {
+		const map: Record<Filter, number> = { All: receivables.length, Active: 0, Pending: 0, Settled: 0, "Written-Off": 0 };
+		receivables.forEach((r) => (map[r.status] += 1));
+		return map;
+	}, [receivables]);
+
+	const visible = useMemo(
+		() =>
+			receivables
+				.filter((r) => filter === "All" || r.status === filter)
+				.sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status]),
+		[receivables, filter]
 	);
-	const [statusFilter, setStatusFilter] = useState<ReceivableStatus | "All">(
-		"All",
-	);
-	const [snackbar, setSnackbar] = useState({ visible: false, message: "" });
 
-	const filteredReceivables = useMemo(() => {
-		if (statusFilter === "All") return receivables;
-		return receivables.filter((r) => r.status === statusFilter);
-	}, [receivables, statusFilter]);
-
-	const getEntityName = (entityId: number) =>
-		entities.find((e) => e.id === entityId)?.name ?? "Unknown";
-
-	// Outstanding balance — Active receivables only (stable regardless of filter tab)
-	const activeTotalByCurrency = useMemo(() => {
-		const map: { [currency: string]: number } = {};
+	// Outstanding = Active balances only, independent of the selected filter.
+	const outstanding = useMemo(() => {
+		const map: Record<string, number> = {};
 		receivables
 			.filter((r) => r.status === "Active")
-			.forEach((r) => {
-				map[r.currency] = (map[r.currency] ?? 0) + (r.current_balance || 0);
-			});
-		return map;
+			.forEach((r) => (map[r.currency] = (map[r.currency] ?? 0) + (r.current_balance || 0)));
+		return Object.entries(map).sort((a, b) => b[1] - a[1]);
 	}, [receivables]);
 
-	// All-time principal — every receivable ever created, regardless of status
-	const principalTotalByCurrency = useMemo(() => {
-		const map: { [currency: string]: number } = {};
-		receivables.forEach((r) => {
-			map[r.currency] = (map[r.currency] ?? 0) + (r.principal || 0);
-		});
-		return map;
+	// Every receivable ever tracked, by principal.
+	const principalTotals = useMemo(() => {
+		const map: Record<string, number> = {};
+		receivables.forEach((r) => (map[r.currency] = (map[r.currency] ?? 0) + (r.principal || 0)));
+		return Object.entries(map);
 	}, [receivables]);
 
-	const openAddModal = () => {
-		setEditingReceivable(null);
-		setModalVisible(true);
+	const openCreate = () => {
+		setEditing(null);
+		setFormVisible(true);
 	};
 
-	const openEditModal = (receivable: Receivable) => {
-		setEditingReceivable(receivable);
-		setModalVisible(true);
-	};
-
-	const closeModal = () => {
-		setModalVisible(false);
-		setEditingReceivable(null);
-	};
-
-	const handleSubmit = async (data: {
-		entity_id: number;
-		title: string;
-		type: ReceivableType;
-		currency: string;
-		principal: number;
-		interest_rate: number;
-		requires_outflow: boolean;
-		due_date?: string;
-		notes?: string;
-	}) => {
-		try {
-			if (editingReceivable) {
-				await updateReceivable(editingReceivable.id, data);
-				setSnackbar({ visible: true, message: "Receivable updated" });
-			} else {
-				await createReceivable({
-					...data,
-					// Repository handles current_balance and status based on requires_outflow
-					current_balance: 0,
-					status: "Pending",
-					due_date: data.due_date ?? null,
-					notes: data.notes ?? null,
-					created_at: new Date().toISOString(),
-				});
-				setSnackbar({ visible: true, message: "Receivable created" });
-			}
-			closeModal();
-			refresh();
-		} catch (e: any) {
-			setSnackbar({
-				visible: true,
-				message: e.message || "Error saving receivable",
+	const handleSubmit = async (values: ReceivableFormValues) => {
+		if (editing) {
+			await updateReceivable(editing.id, values);
+			toast.success("Receivable updated");
+		} else {
+			await createReceivable({
+				...values,
+				// The repository sets the starting balance and status from requires_outflow.
+				current_balance: 0,
+				status: "Pending",
+				created_at: new Date().toISOString(),
 			});
+			toast.success(
+				values.requires_outflow
+					? "Receivable added — record the lending transfer to activate it"
+					: "Receivable added"
+			);
 		}
+		setFormVisible(false);
 	};
 
-	const anyLoading = loading || creating || updating;
-	const anyError = error || createError || updateError;
+	const renderBody = () => {
+		if (loading) return <SkeletonList rows={6} />;
+		if (error && receivables.length === 0) {
+			return <EmptyState icon="cloud-alert" tone="error" title="Couldn't load receivables" message={error} actionLabel="Try again" onAction={refresh} />;
+		}
+		if (receivables.length === 0) {
+			return (
+				<EmptyState
+					icon="hand-coin-outline"
+					title="Nobody owes you anything"
+					message="Track money you've lent or are waiting to receive — loans, IOUs, deposits, refunds."
+					actionLabel="Add receivable"
+					onAction={openCreate}
+				/>
+			);
+		}
+		const [main, ...others] = outstanding;
+		return (
+			<>
+				<HeroCard>
+					<Text variant="labelLarge" style={{ color: theme.custom.onHeroMuted }}>
+						Owed to you
+					</Text>
+					{main ? (
+						<AmountText amount={main[1]} currency={main[0]} tone="onHero" variant="displaySmall" />
+					) : (
+						<Text variant="displaySmall" style={{ color: theme.custom.onHero }}>
+							Nothing
+						</Text>
+					)}
+					<Text variant="bodySmall" style={{ color: theme.custom.onHeroMuted, marginTop: spacing.xs }}>
+						{[
+							`${counts.Active} active`,
+							...others.map(([cur, v]) => formatCompactAmount(v, cur)),
+						].join("  ·  ")}
+					</Text>
+					<View style={[styles.heroFoot, { borderTopColor: "rgba(255,255,255,0.16)" }]}>
+						<Text variant="labelSmall" style={{ color: theme.custom.onHeroMuted }}>
+							Tracked in total
+						</Text>
+						<Text variant="titleSmall" style={{ color: theme.custom.onHero }}>
+							{principalTotals.map(([cur, v]) => formatCompactAmount(v, cur)).join("  ·  ")}
+						</Text>
+					</View>
+				</HeroCard>
+
+				<ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsScroll} contentContainerStyle={styles.chips}>
+					{FILTERS.map((f) => {
+						const active = filter === f.value;
+						const fg = active ? theme.colors.onPrimaryContainer : theme.colors.onSurfaceVariant;
+						return (
+							<Pressable
+								key={f.value}
+								onPress={() => setFilter(f.value)}
+								accessibilityRole="button"
+								accessibilityState={{ selected: active }}
+								style={[
+									styles.chip,
+									{
+										backgroundColor: active ? theme.colors.primaryContainer : theme.colors.surface,
+										borderColor: active ? theme.colors.primaryContainer : theme.colors.outlineVariant,
+									},
+								]}
+							>
+								<Text variant="labelLarge" style={{ color: fg }}>
+									{f.label}
+								</Text>
+								<Text variant="labelMedium" style={{ color: fg, opacity: 0.7 }}>
+									{counts[f.value]}
+								</Text>
+							</Pressable>
+						);
+					})}
+				</ScrollView>
+
+				{visible.length === 0 ? (
+					<EmptyState
+						compact
+						icon="filter-remove-outline"
+						title={`No ${FILTERS.find((f) => f.value === filter)?.label.toLowerCase()} receivables`}
+						actionLabel="Show all"
+						actionIcon="filter-remove-outline"
+						onAction={() => setFilter("All")}
+					/>
+				) : (
+					<Card padded={false}>
+						{visible.map((r, i) => (
+							<ReceivableRow
+								key={r.id}
+								receivable={r}
+								entityName={entityName(r.entity_id)}
+								divider={i > 0}
+								onPress={() => navigation.navigate("ReceivableDetail", { receivableId: r.id })}
+								onLongPress={
+									r.status === "Settled" || r.status === "Written-Off"
+										? undefined
+										: () => {
+												setEditing(r);
+												setFormVisible(true);
+										  }
+								}
+							/>
+						))}
+					</Card>
+				)}
+			</>
+		);
+	};
 
 	return (
-		<View
-			style={[styles.container, { backgroundColor: theme.colors.background }]}
-		>
-			<AppCard
-				title="Receivables"
-				subtitle="Money owed to you"
-				style={styles.headerCard}
+		<View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+			<ScrollView
+				contentContainerStyle={styles.content}
+				onScroll={(e) => setFabExtended(e.nativeEvent.contentOffset.y <= 8)}
+				scrollEventThrottle={64}
+				refreshControl={
+					<RefreshControl
+						refreshing={refreshing}
+						onRefresh={pullToRefresh}
+						colors={[theme.colors.primary]}
+						progressBackgroundColor={theme.colors.surface}
+					/>
+				}
 			>
-				<View style={{ gap: 4 }}>
-					<Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant }}>
-						Outstanding (Active)
-					</Text>
-					<Text variant="titleMedium" style={{ fontWeight: "bold" }}>
-						{Object.keys(activeTotalByCurrency).length > 0
-							? Object.entries(activeTotalByCurrency).map(([cur, val], idx, arr) => (
-								<Text key={cur} variant="titleMedium" style={{ fontWeight: "bold" }}>
-									{formatAmount(val, cur)}{idx < arr.length - 1 ? "  |  " : ""}
-								</Text>
-							))
-							: "—"
-						}
-					</Text>
-					<Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant, marginTop: 4 }}>
-						Total Ever Tracked (Principal)
-					</Text>
-					<Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
-						{Object.entries(principalTotalByCurrency).map(([cur, val], idx, arr) => (
-							<Text key={cur} variant="bodyMedium">
-								{formatAmount(val, cur)}{idx < arr.length - 1 ? "  |  " : ""}
-							</Text>
-						))}
-					</Text>
-				</View>
-			</AppCard>
-
-			{/* Status Filter Chips */}
-			<View style={styles.chipRow}>
-				{STATUS_FILTERS.map((sf) => (
-					<Chip
-						key={sf.value}
-						selected={statusFilter === sf.value}
-						onPress={() => setStatusFilter(sf.value)}
-						style={styles.chip}
-					>
-						{sf.label}
-					</Chip>
-				))}
-			</View>
-
-			{anyLoading ? (
-				<View style={styles.centered}>
-					<ActivityIndicator size="large" />
-					<Text variant="bodyLarge" style={{ marginTop: 16 }}>
-						Loading receivables...
-					</Text>
-				</View>
-			) : anyError ? (
-				<View style={styles.centered}>
-					<Text variant="bodyLarge" style={{ color: theme.colors.error }}>
-						{anyError}
-					</Text>
-				</View>
-			) : (
-				<FlatList
-					data={filteredReceivables}
-					keyExtractor={(item) => item.id.toString()}
-					renderItem={({ item }) => (
-						<ReceivableListItem
-							receivable={item}
-							entityName={getEntityName(item.entity_id)}
-							onEdit={() => openEditModal(item)}
-							onPress={() =>
-								navigation.navigate("ReceivableDetail", {
-									receivableId: item.id,
-								})
-							}
-						/>
-					)}
-					ListEmptyComponent={
-						<View style={styles.centered}>
-							<Text
-								variant="bodyLarge"
-								style={{ color: theme.colors.onSurfaceVariant }}
-							>
-								No receivables found.
-							</Text>
-						</View>
-					}
-					contentContainerStyle={{ paddingHorizontal: 16 }}
+				{renderBody()}
+			</ScrollView>
+			{receivables.length > 0 ? (
+				<AnimatedFAB
+					icon="plus"
+					label="Add receivable"
+					extended={fabExtended}
+					onPress={openCreate}
+					style={styles.fab}
+					color={theme.colors.onPrimary}
+					theme={{ colors: { primaryContainer: theme.colors.primary } }}
+					accessibilityLabel="Add receivable"
 				/>
-			)}
-			<FAB
-				icon="plus"
-				style={[styles.fab, { backgroundColor: theme.colors.primary }]}
-				onPress={openAddModal}
-				color={theme.colors.onPrimary}
-			/>
-			<ReceivableFormDialog
-				visible={modalVisible}
-				onClose={closeModal}
-				onSubmit={handleSubmit}
+			) : null}
+			<ReceivableFormSheet
+				visible={formVisible}
+				onDismiss={() => setFormVisible(false)}
 				entities={entities}
-				initialReceivable={editingReceivable}
+				receivable={editing}
+				onSubmit={handleSubmit}
 			/>
-			<Snackbar
-				visible={snackbar.visible}
-				onDismiss={() => setSnackbar({ visible: false, message: "" })}
-				duration={2000}
-			>
-				{snackbar.message}
-			</Snackbar>
 		</View>
 	);
 };
 
 const styles = StyleSheet.create({
-	container: { flex: 1 },
-	headerCard: { margin: 16, marginBottom: 8 },
-	chipRow: {
-		flexDirection: "row",
-		paddingHorizontal: 16,
-		marginBottom: 8,
-		gap: 8,
-	},
-	chip: { marginRight: 4 },
-	centered: {
+	container: {
 		flex: 1,
-		justifyContent: "center",
-		alignItems: "center",
-		padding: 32,
 	},
-	fab: { position: "absolute", margin: 16, right: 0, bottom: 0 },
+	content: {
+		paddingHorizontal: spacing.lg,
+		paddingBottom: 120,
+	},
+	heroFoot: {
+		marginTop: spacing.lg,
+		paddingTop: spacing.md,
+		borderTopWidth: 1,
+	},
+	chipsScroll: {
+		marginHorizontal: -spacing.lg,
+		marginTop: spacing.lg,
+		marginBottom: spacing.md,
+	},
+	chips: {
+		paddingHorizontal: spacing.lg,
+		gap: spacing.sm,
+	},
+	chip: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: 6,
+		height: 36,
+		paddingHorizontal: spacing.md,
+		borderRadius: radius.pill,
+		borderWidth: 1,
+	},
+	fab: {
+		position: "absolute",
+		right: spacing.lg,
+		bottom: spacing.lg,
+		borderRadius: radius.lg,
+	},
 });
 
 export default ReceivablesScreen;

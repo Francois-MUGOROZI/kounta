@@ -1,40 +1,22 @@
-import { useState, useEffect, useCallback } from "react";
-import { useDatabase } from "../../database";
 import { AccountTypeRepository } from "../../repositories/AccountTypeRepository";
 import { AccountType } from "../../types";
-import { addEventListener, EVENTS } from "../../utils/events";
+import { useQuery } from "../useQuery";
 
 export function useGetAccountTypes() {
-	const db = useDatabase();
-	const [accountTypes, setAccountTypes] = useState<AccountType[]>([]);
-	const [loading, setLoading] = useState(true);
-	const [error, setError] = useState<string | null>(null);
+	const { data, loading, refreshing, error, refresh, pullToRefresh } =
+		useQuery<AccountType[]>(
+			(db) => AccountTypeRepository.getAll(db),
+			[],
+			[],
+			"Failed to load account types"
+		);
 
-	const fetchAccountTypes = useCallback(async () => {
-		setLoading(true);
-		setError(null);
-		try {
-			const data = await AccountTypeRepository.getAll(db);
-			setAccountTypes(data);
-		} catch (e: any) {
-			setError(e.message || "Failed to load account types");
-		} finally {
-			setLoading(false);
-		}
-	}, [db]);
-
-	useEffect(() => {
-		fetchAccountTypes();
-
-		// Subscribe to global data changes to keep the account types list in sync
-		const subscription = addEventListener(EVENTS.DATA_CHANGED, () => {
-			fetchAccountTypes();
-		});
-
-		return () => {
-			subscription.remove();
-		};
-	}, [fetchAccountTypes]);
-
-	return { accountTypes, loading, error, refresh: fetchAccountTypes };
+	return {
+		accountTypes: data,
+		loading,
+		refreshing,
+		error,
+		refresh,
+		pullToRefresh,
+	};
 }

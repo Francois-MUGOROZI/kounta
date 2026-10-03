@@ -1,38 +1,23 @@
-import { useState, useEffect, useCallback } from "react";
-import { useDatabase } from "../../database";
 import { AccountRepository } from "../../repositories/AccountRepository";
-import { addEventListener, EVENTS } from "../../utils/events";
+import { useQuery } from "../useQuery";
 
 /**
  * Lightweight hook that returns account balance totals grouped by currency.
  * Uses a single aggregate SQL query instead of fetching all account rows.
  */
 export function useAccountTotalsByCurrency() {
-	const db = useDatabase();
-	const [totals, setTotals] = useState<{ [currency: string]: number }>({});
-	const [loading, setLoading] = useState(true);
-
-	const fetch = useCallback(async () => {
-		setLoading(true);
-		try {
+	const { data, loading } = useQuery<{ [currency: string]: number }>(
+		async (db) => {
 			const rows = await AccountRepository.getTotalsByCurrency(db);
 			const map: { [currency: string]: number } = {};
 			rows.forEach((r) => {
 				map[r.currency] = r.total ?? 0;
 			});
-			setTotals(map);
-		} catch {
-			// Silently fail — totals are supplementary
-		} finally {
-			setLoading(false);
-		}
-	}, [db]);
+			return map;
+		},
+		[],
+		{}
+	);
 
-	useEffect(() => {
-		fetch();
-		const subscription = addEventListener(EVENTS.DATA_CHANGED, fetch);
-		return () => subscription.remove();
-	}, [fetch]);
-
-	return { totals, loading };
+	return { totals: data, loading };
 }

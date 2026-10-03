@@ -2,7 +2,7 @@
 	"expo": {
 		"name": "Kounta",
 		"slug": "kounta",
-		"version": "2.1.0",
+		"version": "3.0.0",
 		"orientation": "portrait",
 		"icon": "./assets/images/icon.png",
 		"scheme": "kounta",
@@ -34,7 +34,10 @@
 					"image": "./assets/images/splash-icon.png",
 					"imageWidth": 200,
 					"resizeMode": "contain",
-					"backgroundColor": "#ffffff"
+					"backgroundColor": "#ffffff",
+					"dark": {
+						"backgroundColor": "#0B0B0D"
+					}
 				}
 			],
 			"expo-sqlite"

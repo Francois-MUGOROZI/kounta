@@ -1,494 +1,230 @@
-import React, { useMemo } from "react";
-import { View, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
-import {
-	ActivityIndicator,
-	Text,
-	useTheme,
-	Avatar,
-	Divider,
-	Surface,
-} from "react-native-paper";
+import React from "react";
+import { ScrollView, StyleSheet, View } from "react-native";
+import { Text } from "react-native-paper";
+import { SQLiteDatabase } from "expo-sqlite";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { RootStackParamList } from "../types";
-import { useGetTransactionById } from "../hooks/transaction/useGetTransactionById";
-import { useGetAccounts } from "../hooks/account/useGetAccounts";
-import { useGetCategories } from "../hooks/category/useGetCategories";
-import { useGetTransactionTypes } from "../hooks/transactionType/useGetTransactionTypes";
-import { useGetAssets } from "../hooks/asset/useGetAssets";
-import { useGetLiabilities } from "../hooks/liability/useGetLiabilities";
-import { useGetEnvelopes } from "../hooks/envelope/useGetEnvelope";
-import { useGetBills } from "../hooks/bill/useGetBills";
-import { useGetReceivables } from "../hooks/receivable/useGetReceivables";
-import { useGetEntities } from "../hooks/entity/useGetEntities";
+import Card from "../components/ui/Card";
+import ListItem from "../components/ui/ListItem";
+import IconBadge from "../components/ui/IconBadge";
+import EmptyState from "../components/ui/EmptyState";
+import { Skeleton } from "../components/ui/Skeleton";
+import type { IconName } from "../components/ui/icons";
+import { useQuery } from "../hooks/useQuery";
+import { useTransactionPresenter } from "../hooks/transaction/useTransactionPresenter";
+import { RootStackParamList, Transaction } from "../types";
 import { formatTransactionAmount } from "../utils/currency";
-import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
-import AppCard from "../components/AppCard";
+import { formatLongDate } from "../utils/date";
+import { radius, spacing, tabularNums, useKTheme } from "../theme/theme";
 
-type TransactionDetailRouteProp = RouteProp<
-	RootStackParamList,
-	"TransactionDetail"
->;
-type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
+type Route = RouteProp<RootStackParamList, "TransactionDetail">;
+type Nav = NativeStackNavigationProp<RootStackParamList>;
+
+interface Linked {
+	transaction: Transaction | null;
+	fromAccount?: { id: number; name: string } | null;
+	toAccount?: { id: number; name: string } | null;
+	asset?: { id: number; name: string } | null;
+	liability?: { id: number; name: string } | null;
+	envelope?: { id: number; name: string } | null;
+	bill?: { id: number; name: string } | null;
+	receivable?: { id: number; name: string } | null;
+	entity?: { id: number; name: string } | null;
+}
+
+type Named = { id: number; name: string };
+
+/** One query for the transaction and the names of everything it touches. */
+const loadTransaction = async (db: SQLiteDatabase, id: number): Promise<Linked> => {
+	const transaction = await db.getFirstAsync<Transaction>("SELECT * FROM transactions WHERE id = ?", [id]);
+	if (!transaction) return { transaction: null };
+	const one = (sql: string, ref?: number | null) =>
+		ref ? db.getFirstAsync<Named>(sql, [ref]) : Promise.resolve(null);
+	const [fromAccount, toAccount, asset, liability, envelope, bill, receivable, entity] = await Promise.all([
+		one("SELECT id, name FROM accounts WHERE id = ?", transaction.from_account_id),
+		one("SELECT id, name FROM accounts WHERE id = ?", transaction.to_account_id),
+		one("SELECT id, name FROM assets WHERE id = ?", transaction.asset_id),
+		one("SELECT id, name FROM liabilities WHERE id = ?", transaction.liability_id),
+		one("SELECT id, name FROM envelopes WHERE id = ?", transaction.envelope_id),
+		one("SELECT id, name FROM bills WHERE id = ?", transaction.bill_id),
+		one("SELECT id, title AS name FROM receivables WHERE id = ?", transaction.receivable_id),
+		one("SELECT id, name FROM entities WHERE id = ?", transaction.entity_id),
+	]);
+	return { transaction, fromAccount, toAccount, asset, liability, envelope, bill, receivable, entity };
+};
 
 const TransactionDetailScreen = () => {
-	const theme = useTheme();
-	const navigation = useNavigation<NavigationProp>();
-	const route = useRoute<TransactionDetailRouteProp>();
-	const { transactionId } = route.params;
-
-	const { transaction, loading, error } = useGetTransactionById(transactionId);
-	const { accounts } = useGetAccounts();
-	const { categories } = useGetCategories();
-	const { transactionTypes } = useGetTransactionTypes();
-	const { assets } = useGetAssets();
-	const { liabilities } = useGetLiabilities();
-	const { envelopes } = useGetEnvelopes();
-	const { bills } = useGetBills();
-	const { receivables } = useGetReceivables();
-	const { entities } = useGetEntities();
-
-	const transactionTypeName = useMemo(() => {
-		if (!transaction) return "";
-		return (
-			transactionTypes.find((t) => t.id === transaction.transaction_type_id)
-				?.name || ""
-		);
-	}, [transaction, transactionTypes]);
-
-	const isIncome = transactionTypeName === "Income";
-	const isTransfer = transactionTypeName === "Transfer";
-
-	const getIcon = () => {
-		if (isTransfer) return "bank-transfer";
-		if (isIncome) return "arrow-down-circle";
-		return "arrow-up-circle";
-	};
-
-	const getIconColor = () => {
-		if (isTransfer) return theme.colors.secondary;
-		if (isIncome) return theme.colors.primary;
-		return theme.colors.error;
-	};
-
-	const getAmountColor = () => {
-		if (isTransfer) return theme.colors.secondary;
-		if (isIncome) return theme.colors.primary;
-		return theme.colors.error;
-	};
-
-	const categoryName = useMemo(() => {
-		if (!transaction) return "";
-		return (
-			categories.find((c) => c.id === transaction.category_id)?.name || "—"
-		);
-	}, [transaction, categories]);
-
-	const accountCurrency = useMemo(() => {
-		if (!transaction) return "USD";
-		const accountId = transaction.from_account_id || transaction.to_account_id;
-		if (accountId) {
-			const acctCurrency = accounts.find((a) => a.id === accountId)?.currency;
-			if (acctCurrency) return acctCurrency;
-		}
-		// Fall back to asset currency for asset-only transfers
-		if (transaction.asset_id) {
-			const assetCurrency = assets.find(
-				(a) => a.id === transaction.asset_id
-			)?.currency;
-			if (assetCurrency) return assetCurrency;
-		}
-		return "USD";
-	}, [transaction, accounts, assets]);
-
-	const accountDisplay = useMemo(() => {
-		if (!transaction) return "";
-		if (isTransfer) {
-			const from = transaction.from_account_id
-				? accounts.find((a) => a.id === transaction.from_account_id)?.name ||
-				  "—"
-				: transaction.asset_id
-				? assets.find((a) => a.id === transaction.asset_id)?.name || "—"
-				: transaction.receivable_id
-				? receivables.find((r) => r.id === transaction.receivable_id)?.title || "—"
-				: "—";
-			const to = transaction.to_account_id
-				? accounts.find((a) => a.id === transaction.to_account_id)?.name || "—"
-				: transaction.asset_id
-				? assets.find((a) => a.id === transaction.asset_id)?.name || "—"
-				: transaction.receivable_id
-				? receivables.find((r) => r.id === transaction.receivable_id)?.title || "—"
-				: "—";
-			// Reinvest: both sides are the same asset
-			if (from === to && from !== "—") return from;
-			return `${from} → ${to}`;
-		}
-		const accountId = transaction.from_account_id || transaction.to_account_id;
-		if (!accountId) return "—";
-		return accounts.find((a) => a.id === accountId)?.name || "—";
-	}, [transaction, accounts, assets, receivables, isTransfer]);
-
-	const formattedDate = useMemo(() => {
-		if (!transaction) return "";
-		return new Date(transaction.date).toLocaleDateString(undefined, {
-			weekday: "long",
-			year: "numeric",
-			month: "long",
-			day: "numeric",
-		});
-	}, [transaction]);
-
-	// Build associations list
-	const associations = useMemo(() => {
-		if (!transaction) return [];
-		const items: {
-			icon: string;
-			label: string;
-			value: string;
-			navigable: boolean;
-			onPress?: () => void;
-		}[] = [];
-
-		if (transaction.asset_id) {
-			const asset = assets.find((a) => a.id === transaction.asset_id);
-			items.push({
-				icon: "diamond-stone",
-				label: "Asset",
-				value: asset?.name || `#${transaction.asset_id}`,
-				navigable: true,
-				onPress: () =>
-					navigation.navigate("AssetDetail", {
-						assetId: transaction.asset_id!,
-					}),
-			});
-		}
-
-		if (transaction.liability_id) {
-			const liability = liabilities.find(
-				(l) => l.id === transaction.liability_id
-			);
-			items.push({
-				icon: "credit-card-outline",
-				label: "Liability",
-				value: liability?.name || `#${transaction.liability_id}`,
-				navigable: true,
-				onPress: () =>
-					navigation.navigate("LiabilityDetail", {
-						liabilityId: transaction.liability_id!,
-					}),
-			});
-		}
-
-		if (transaction.envelope_id) {
-			const envelope = envelopes.find((e) => e.id === transaction.envelope_id);
-			items.push({
-				icon: "email-outline",
-				label: "Envelope",
-				value: envelope?.name || `#${transaction.envelope_id}`,
-				navigable: true,
-				onPress: () =>
-					navigation.navigate("EnvelopeDetail", {
-						envelopeId: transaction.envelope_id!,
-					}),
-			});
-		}
-
-		if (transaction.bill_id) {
-			const bill = (bills as any[])?.find(
-				(b: any) => b.id === transaction.bill_id
-			);
-			items.push({
-				icon: "receipt",
-				label: "Bill",
-				value: bill?.name || `#${transaction.bill_id}`,
-				navigable: false,
-			});
-		}
-
-		if (transaction.receivable_id) {
-			const receivable = receivables.find(
-				(r) => r.id === transaction.receivable_id
-			);
-			items.push({
-				icon: "hand-coin",
-				label: "Receivable",
-				value: receivable?.title || `#${transaction.receivable_id}`,
-				navigable: true,
-				onPress: () =>
-					navigation.navigate("ReceivableDetail", {
-						receivableId: transaction.receivable_id!,
-					}),
-			});
-		}
-
-		if (transaction.entity_id) {
-			const entity = entities.find((e) => e.id === transaction.entity_id);
-			items.push({
-				icon: "account-outline",
-				label: "Entity",
-				value: entity?.name || `#${transaction.entity_id}`,
-				navigable: true,
-				onPress: () =>
-					navigation.navigate("EntityDetail", {
-						entityId: transaction.entity_id!,
-					}),
-			});
-		}
-
-		return items;
-	}, [
-		transaction,
-		assets,
-		liabilities,
-		envelopes,
-		bills,
-		receivables,
-		entities,
-		navigation,
-	]);
+	const theme = useKTheme();
+	const navigation = useNavigation<Nav>();
+	const { transactionId } = useRoute<Route>().params;
+	const { describe } = useTransactionPresenter();
+	const { data, loading, error, refresh } = useQuery<Linked>(
+		(db) => loadTransaction(db, transactionId),
+		[transactionId],
+		{ transaction: null },
+		"Failed to load transaction"
+	);
 
 	if (loading) {
 		return (
-			<View
-				style={[styles.centered, { backgroundColor: theme.colors.background }]}
-			>
-				<ActivityIndicator size="large" />
-				<Text variant="bodyLarge" style={{ marginTop: 16 }}>
-					Loading transaction...
-				</Text>
+			<View style={[styles.fill, { backgroundColor: theme.colors.background, padding: spacing.lg }]}>
+				<Skeleton height={220} borderRadius={radius.xxl} />
+				<Skeleton height={180} borderRadius={radius.xl} style={{ marginTop: spacing.lg }} />
 			</View>
 		);
 	}
 
-	if (error || !transaction) {
+	const tx = data.transaction;
+	if (!tx) {
 		return (
-			<View
-				style={[styles.centered, { backgroundColor: theme.colors.background }]}
-			>
-				<Text variant="bodyLarge" style={{ color: theme.colors.error }}>
-					{error || "Transaction not found."}
-				</Text>
+			<View style={[styles.fill, styles.center, { backgroundColor: theme.colors.background }]}>
+				<EmptyState
+					icon={error ? "cloud-alert" : "receipt"}
+					tone={error ? "error" : "default"}
+					title={error ? "Couldn't load this transaction" : "Transaction not found"}
+					message={error ?? "It may have been removed."}
+					actionLabel={error ? "Try again" : undefined}
+					onAction={error ? refresh : undefined}
+				/>
 			</View>
 		);
 	}
+
+	const view = describe(tx);
+	const palette = {
+		income: { fg: theme.custom.income, bg: theme.custom.incomeContainer },
+		expense: { fg: theme.custom.expense, bg: theme.custom.expenseContainer },
+		transfer: { fg: theme.custom.transfer, bg: theme.custom.transferContainer },
+	}[view.kind];
+	const amountColor = view.kind === "income" ? theme.custom.income : view.kind === "transfer" ? theme.custom.transfer : theme.colors.onSurface;
+
+	const detailRows: { label: string; value: string; icon: IconName; onPress?: () => void }[] = [];
+	detailRows.push({ label: "Type", value: view.typeName, icon: view.kind === "transfer" ? "swap-horizontal" : view.kind === "income" ? "arrow-bottom-left" : "arrow-top-right" });
+	if (view.categoryName && tx.category_id) {
+		const categoryId = tx.category_id;
+		detailRows.push({
+			label: "Category",
+			value: view.categoryName,
+			icon: "shape-outline",
+			onPress: () => navigation.navigate("CategoryDetail", { categoryId }),
+		});
+	}
+	if (data.fromAccount) {
+		const acc = data.fromAccount;
+		detailRows.push({ label: view.kind === "transfer" ? "From" : "Paid from", value: acc.name, icon: "wallet-outline", onPress: () => navigation.navigate("AccountDetail", { accountId: acc.id }) });
+	}
+	if (data.toAccount) {
+		const acc = data.toAccount;
+		detailRows.push({ label: view.kind === "transfer" ? "To" : "Received into", value: acc.name, icon: "wallet-plus-outline", onPress: () => navigation.navigate("AccountDetail", { accountId: acc.id }) });
+	}
+	detailRows.push({ label: "Date", value: formatLongDate(tx.date), icon: "calendar-blank-outline" });
+
+	const links: { label: string; value: string; icon: IconName; onPress?: () => void }[] = [];
+	if (data.asset) {
+		const a = data.asset;
+		links.push({ label: "Asset", value: a.name, icon: "diamond-stone", onPress: () => navigation.navigate("AssetDetail", { assetId: a.id }) });
+	}
+	if (data.receivable) {
+		const r = data.receivable;
+		links.push({ label: "Receivable", value: r.name, icon: "hand-coin-outline", onPress: () => navigation.navigate("ReceivableDetail", { receivableId: r.id }) });
+	}
+	if (data.envelope) {
+		const e = data.envelope;
+		links.push({ label: "Envelope", value: e.name, icon: "email-outline", onPress: () => navigation.navigate("EnvelopeDetail", { envelopeId: e.id }) });
+	}
+	if (data.liability) {
+		const l = data.liability;
+		links.push({ label: "Liability", value: l.name, icon: "credit-card-clock-outline", onPress: () => navigation.navigate("LiabilityDetail", { liabilityId: l.id }) });
+	}
+	if (data.bill) {
+		links.push({ label: "Bill", value: data.bill.name, icon: "calendar-clock-outline", onPress: () => navigation.navigate("Bills") });
+	}
+	if (data.entity) {
+		const en = data.entity;
+		links.push({ label: "Entity", value: en.name, icon: "account-group-outline", onPress: () => navigation.navigate("EntityDetail", { entityId: en.id }) });
+	}
+
+	const renderRows = (rows: typeof detailRows) =>
+		rows.map((row, i) => (
+			<ListItem
+				key={row.label}
+				title={row.value}
+				subtitle={row.label}
+				left={<IconBadge icon={row.icon} size={36} background={theme.colors.surfaceVariant} color={theme.colors.onSurfaceVariant} />}
+				chevron={!!row.onPress}
+				onPress={row.onPress}
+				style={i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.colors.outlineVariant }}
+			/>
+		));
 
 	return (
-		<ScrollView
-			style={[styles.container, { backgroundColor: theme.colors.background }]}
-			contentContainerStyle={styles.scrollContent}
-			showsVerticalScrollIndicator={false}
-		>
-			{/* Header Card */}
-			<Surface
-				style={[styles.headerCard, { backgroundColor: theme.colors.surface }]}
-				elevation={2}
-			>
-				<View style={styles.headerRow}>
-					<Avatar.Icon
-						size={40}
-						icon={getIcon()}
-						style={{ backgroundColor: theme.colors.elevation.level3 }}
-						color={getIconColor()}
-					/>
-					<View style={styles.headerInfo}>
-						<Text variant="titleMedium" style={styles.description}>
-							{transaction.description}
-						</Text>
-						<Text
-							variant="bodySmall"
-							style={{ color: theme.colors.onSurfaceVariant }}
-						>
-							{formattedDate}
-						</Text>
-					</View>
-				</View>
-				<Text
-					variant="titleLarge"
-					style={[styles.amount, { color: getAmountColor() }]}
-				>
-					{formatTransactionAmount(
-						transaction.amount,
-						accountCurrency,
-						isIncome,
-						isTransfer
-					)}
+		<ScrollView style={[styles.fill, { backgroundColor: theme.colors.background }]} contentContainerStyle={styles.content}>
+			<Card style={styles.hero}>
+				<IconBadge icon={view.icon} size={56} rounded="full" color={palette.fg} background={palette.bg} />
+				<Text variant="displaySmall" style={[styles.amount, { color: amountColor, ...tabularNums }]} numberOfLines={1} adjustsFontSizeToFit>
+					{formatTransactionAmount(tx.amount, view.currency, view.kind === "income", view.kind === "transfer")}
 				</Text>
-			</Surface>
+				<Text variant="titleMedium" style={[styles.title, { color: theme.colors.onSurface }]}>
+					{view.title}
+				</Text>
+				<Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant, textAlign: "center" }}>
+					{view.kind === "transfer" ? view.subtitle : formatLongDate(tx.date)}
+				</Text>
+			</Card>
 
-			{/* Details Section */}
-			<AppCard title="Details" style={styles.section}>
-				<DetailRow
-					icon="tag-outline"
-					label="Category"
-					value={categoryName}
-					theme={theme}
-				/>
-				<Divider style={styles.divider} />
-				<DetailRow
-					icon="bank"
-					label={isTransfer ? "Accounts" : "Account"}
-					value={accountDisplay}
-					theme={theme}
-				/>
-				<Divider style={styles.divider} />
-				<DetailRow
-					icon="swap-horizontal"
-					label="Type"
-					value={transactionTypeName}
-					theme={theme}
-				/>
-			</AppCard>
+			<Text variant="labelMedium" style={[styles.groupTitle, { color: theme.colors.onSurfaceVariant }]}>
+				DETAILS
+			</Text>
+			<Card padded={false}>{renderRows(detailRows)}</Card>
 
-			{/* Associations Section */}
-			{associations.length > 0 && (
-				<AppCard title="Associations" style={styles.section}>
-					{associations.map((assoc, index) => (
-						<React.Fragment key={assoc.label}>
-							{index > 0 && <Divider style={styles.divider} />}
-							<TouchableOpacity
-								style={styles.associationRow}
-								disabled={!assoc.navigable}
-								onPress={assoc.onPress}
-								activeOpacity={0.6}
-							>
-								<MaterialCommunityIcons
-									name={assoc.icon}
-									size={20}
-									color={theme.colors.onSurfaceVariant}
-									style={styles.rowIcon}
-								/>
-								<Text
-									variant="bodyMedium"
-									style={[
-										styles.rowLabel,
-										{ color: theme.colors.onSurfaceVariant },
-									]}
-								>
-									{assoc.label}
-								</Text>
-								<Text
-									variant="bodyMedium"
-									style={[
-										styles.rowValue,
-										{
-											color: assoc.navigable
-												? theme.colors.primary
-												: theme.colors.onSurface,
-										},
-									]}
-								>
-									{assoc.value}
-								</Text>
-								{assoc.navigable && (
-									<MaterialCommunityIcons
-										name="chevron-right"
-										size={20}
-										color={theme.colors.onSurfaceVariant}
-									/>
-								)}
-							</TouchableOpacity>
-						</React.Fragment>
-					))}
-				</AppCard>
-			)}
+			{links.length > 0 ? (
+				<>
+					<Text variant="labelMedium" style={[styles.groupTitle, { color: theme.colors.onSurfaceVariant }]}>
+						LINKED TO
+					</Text>
+					<Card padded={false}>{renderRows(links)}</Card>
+				</>
+			) : null}
+
+			<Text variant="bodySmall" style={[styles.footnote, { color: theme.colors.onSurfaceVariant }]}>
+				{"Transactions can't be edited once saved, so your balances always add up."}
+			</Text>
 		</ScrollView>
 	);
 };
 
-/** Reusable row for the Details card */
-const DetailRow: React.FC<{
-	icon: string;
-	label: string;
-	value: string;
-	theme: {
-		colors: {
-			onSurfaceVariant: string;
-			onSurface: string;
-		};
-	};
-}> = ({ icon, label, value, theme }) => (
-	<View style={styles.detailRow}>
-		<MaterialCommunityIcons
-			name={icon}
-			size={20}
-			color={theme.colors.onSurfaceVariant}
-			style={styles.rowIcon}
-		/>
-		<Text
-			variant="bodyMedium"
-			style={[styles.rowLabel, { color: theme.colors.onSurfaceVariant }]}
-		>
-			{label}
-		</Text>
-		<Text
-			variant="bodyMedium"
-			style={[styles.rowValue, { color: theme.colors.onSurface }]}
-		>
-			{value}
-		</Text>
-	</View>
-);
-
 const styles = StyleSheet.create({
-	container: {
+	fill: {
 		flex: 1,
 	},
-	scrollContent: {
-		padding: 16,
-		paddingBottom: 32,
-	},
-	centered: {
-		flex: 1,
+	center: {
 		justifyContent: "center",
+	},
+	content: {
+		padding: spacing.lg,
+		paddingBottom: spacing.xxxl * 2,
+	},
+	hero: {
 		alignItems: "center",
-	},
-	headerCard: {
-		borderRadius: 16,
-		padding: 16,
-		marginBottom: 12,
-	},
-	headerRow: {
-		flexDirection: "row",
-		alignItems: "center",
-		marginBottom: 16,
-	},
-	headerInfo: {
-		flex: 1,
-		marginLeft: 16,
-	},
-	description: {
-		fontWeight: "600",
+		paddingVertical: spacing.xxl,
 	},
 	amount: {
-		fontWeight: "bold",
+		marginTop: spacing.lg,
+	},
+	title: {
+		marginTop: spacing.xs,
 		textAlign: "center",
 	},
-	section: {
-		marginBottom: 12,
+	groupTitle: {
+		marginTop: spacing.xl,
+		marginBottom: spacing.sm,
+		marginLeft: spacing.xs,
+		letterSpacing: 0.8,
 	},
-	detailRow: {
-		flexDirection: "row",
-		alignItems: "center",
-		paddingVertical: 10,
-	},
-	associationRow: {
-		flexDirection: "row",
-		alignItems: "center",
-		paddingVertical: 10,
-	},
-	rowIcon: {
-		marginRight: 12,
-	},
-	rowLabel: {
-		width: 90,
-	},
-	rowValue: {
-		flex: 1,
-		textAlign: "right",
-		fontWeight: "500",
-	},
-	divider: {
-		marginVertical: 2,
+	footnote: {
+		textAlign: "center",
+		marginTop: spacing.xl,
+		paddingHorizontal: spacing.xl,
 	},
 });
 

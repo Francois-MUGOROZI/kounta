@@ -10,8 +10,14 @@ export const useClearDatabase = () => {
 	const clear = async () => {
 		setLoading(true);
 		setError(null);
-		await clearDatabase(db);
-		setLoading(false);
+		try {
+			await clearDatabase(db);
+		} catch (e: any) {
+			setError(e?.message || "Failed to clear data");
+			throw e;
+		} finally {
+			setLoading(false);
+		}
 	};
 
 	return { clear, loading, error };

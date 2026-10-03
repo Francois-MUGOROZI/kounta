@@ -16,6 +16,7 @@ export function useCreateCategory() {
 				await CategoryRepository.create(db, category);
 			} catch (e: any) {
 				setError(e.message || "Failed to create category");
+				throw e;
 			} finally {
 				setLoading(false);
 			}

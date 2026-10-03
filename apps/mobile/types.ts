@@ -1,3 +1,5 @@
+import type { NavigatorScreenParams } from "@react-navigation/native";
+
 // Dashboard Aggregation Types
 export interface DashboardTotals {
 	currency: string;
@@ -19,6 +21,7 @@ export interface GroupedByType {
 }
 
 export interface CategoryTotal {
+	categoryId?: number;
 	category: string;
 	total: number;
 	currency: string;
@@ -285,14 +288,25 @@ export type TransactionFilter = {
 	entityId?: number;
 };
 
+// Bottom tabs inside the "Main" stack screen
+export type MainTabParamList = {
+	Dashboard: undefined;
+	Accounts: undefined;
+	Transactions: undefined;
+	Envelopes: undefined;
+	More: undefined;
+};
+
 // React Navigation root stack param list
 export type RootStackParamList = {
-	Main: undefined;
+	Main: NavigatorScreenParams<MainTabParamList> | undefined;
 	Categories: undefined;
 	Assets: undefined;
 	Liabilities: undefined;
 	Types: undefined;
 	BackupRestore: undefined;
+	Settings: undefined;
+	CategoryDetail: { categoryId: number };
 	Bills: undefined;
 	TransactionDetail: { transactionId: number };
 	AccountDetail: { accountId: number };

@@ -15,6 +15,7 @@ export function useCreateAccountType() {
 				await AccountTypeRepository.create(db, name);
 			} catch (e: any) {
 				setError(e.message || "Failed to create account type");
+				throw e;
 			} finally {
 				setLoading(false);
 			}

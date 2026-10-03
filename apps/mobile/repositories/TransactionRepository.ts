@@ -2,6 +2,10 @@ import { SQLiteDatabase } from "expo-sqlite";
 import { Transaction, TransactionFilter } from "../types";
 import { emitEvent, EVENTS } from "../utils/events";
 import { BillsRepository } from "./BillsRepository";
+import { LOCAL_DAY_SQL, toLocalISODate, parseLocalDate } from "../utils/date";
+
+// Thousands separators for amounts quoted in validation messages.
+const fmt = (n: number) => n.toLocaleString("en-US");
 
 // ─── Private side-effect helpers ──────────────────────────────────────────────
 // Each helper owns exactly one domain. Called only after all validation passes.
@@ -65,7 +69,7 @@ async function buildFallbackDescription(
 	assetId: number | null | undefined,
 	receivableId: number | null | undefined
 ): Promise<string> {
-	const formattedDate = new Date(date).toLocaleDateString(undefined, {
+	const formattedDate = parseLocalDate(date).toLocaleDateString(undefined, {
 		month: "short",
 		day: "numeric",
 		year: "numeric",
@@ -242,11 +246,11 @@ export const TransactionRepository = {
 				params.push(filter.categoryId);
 			}
 			if (filter.startDate) {
-				where.push("date >= ?");
+				where.push(`${LOCAL_DAY_SQL("date")} >= ?`);
 				params.push(filter.startDate);
 			}
 			if (filter.endDate) {
-				where.push("date <= ?");
+				where.push(`${LOCAL_DAY_SQL("date")} <= ?`);
 				params.push(filter.endDate);
 			}
 			if (filter.accountId) {
@@ -281,8 +285,26 @@ export const TransactionRepository = {
 		if (where.length > 0) {
 			query += " WHERE " + where.join(" AND ");
 		}
-		query += " ORDER BY date DESC, id DESC";
+		query += ` ORDER BY ${LOCAL_DAY_SQL("date")} DESC, id DESC`;
 		return await db.getAllAsync<Transaction>(query, params);
+	},
+
+	/** Latest transactions in one currency (by their account, asset or receivable). */
+	async getRecentInCurrency(
+		db: SQLiteDatabase,
+		currency: string,
+		limit: number
+	): Promise<Transaction[]> {
+		return await db.getAllAsync<Transaction>(
+			`SELECT t.* FROM transactions t
+			 LEFT JOIN accounts fa ON fa.id = t.from_account_id
+			 LEFT JOIN accounts ta ON ta.id = t.to_account_id
+			 LEFT JOIN assets ast ON ast.id = t.asset_id
+			 LEFT JOIN receivables rcv ON rcv.id = t.receivable_id
+			 WHERE COALESCE(fa.currency, ta.currency, ast.currency, rcv.currency, 'RWF') = ?
+			 ORDER BY ${LOCAL_DAY_SQL("t.date")} DESC, t.id DESC LIMIT ?`,
+			[currency, limit]
+		);
 	},
 
 	async getById(db: SQLiteDatabase, id: number): Promise<Transaction | null> {
@@ -343,7 +365,7 @@ export const TransactionRepository = {
 			description: rawDescription = "",
 			amount = 0,
 			transaction_type_id = 0,
-			date = new Date().toISOString(),
+			date = toLocalISODate(),
 			category_id = null,
 			asset_id = null,
 			liability_id = null,
@@ -404,7 +426,7 @@ export const TransactionRepository = {
 				}
 				if (amount !== receivable.principal) {
 					throw new Error(
-						`Lending amount must equal the principal (${receivable.principal})`
+						`Lending amount must equal the principal (${fmt(receivable.principal)})`
 					);
 				}
 			} else if (typeName === "Transfer" && to_account_id && !from_account_id) {
@@ -417,9 +439,9 @@ export const TransactionRepository = {
 				if (amount > receivable.current_balance) {
 					const interestPortion = amount - receivable.current_balance;
 					throw new Error(
-						`Payment (${amount}) exceeds remaining balance (${receivable.current_balance}). ` +
-						`Record ${receivable.current_balance} as the principal payment, ` +
-						`then record ${interestPortion} as Interest income separately.`
+						`Payment (${fmt(amount)}) exceeds remaining balance (${fmt(receivable.current_balance)}). ` +
+						`Record ${fmt(receivable.current_balance)} as the principal payment, ` +
+						`then record ${fmt(interestPortion)} as Interest income separately.`
 					);
 				}
 			}

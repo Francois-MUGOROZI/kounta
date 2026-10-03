@@ -10,14 +10,14 @@ export interface Currency {
 }
 
 export const CURRENCIES: Currency[] = [
-	{ code: "RWF", name: "Rwandan Franc", symbol: "RWF", decimalPlaces: 0 },
+	{ code: "RWF", name: "Rwandan Franc", symbol: "RF", decimalPlaces: 0 },
 	{ code: "USD", name: "US Dollar", symbol: "$", decimalPlaces: 2 },
 	{ code: "EUR", name: "Euro", symbol: "€", decimalPlaces: 2 },
 	{ code: "GBP", name: "British Pound", symbol: "£", decimalPlaces: 2 },
 	{ code: "JPY", name: "Japanese Yen", symbol: "¥", decimalPlaces: 0 },
 	{ code: "CAD", name: "Canadian Dollar", symbol: "C$", decimalPlaces: 2 },
 	{ code: "AUD", name: "Australian Dollar", symbol: "A$", decimalPlaces: 2 },
-	{ code: "CHF", name: "Swiss Franc", symbol: "CHF", decimalPlaces: 2 },
+	{ code: "CHF", name: "Swiss Franc", symbol: "Fr.", decimalPlaces: 2 },
 	{ code: "CNY", name: "Chinese Yuan", symbol: "¥", decimalPlaces: 2 },
 	{ code: "INR", name: "Indian Rupee", symbol: "₹", decimalPlaces: 2 },
 	{ code: "BRL", name: "Brazilian Real", symbol: "R$", decimalPlaces: 2 },
@@ -132,5 +132,18 @@ export const getPopularCurrencyOptions = () => {
 	return getPopularCurrencies().map((currency) => ({
 		label: `${currency.name} (${currency.code})`,
 		value: currency.code,
+	}));
+};
+
+/**
+ * Every currency for a picker — popular ones first — with the symbol as a hint.
+ */
+export const getCurrencyPickerOptions = () => {
+	const popular = getPopularCurrencies();
+	const popularCodes = popular.map((c) => c.code);
+	return [...popular, ...CURRENCIES.filter((c) => !popularCodes.includes(c.code))].map((c) => ({
+		value: c.code,
+		label: `${c.code} · ${c.name}`,
+		trailing: c.symbol !== c.code ? c.symbol : undefined,
 	}));
 };

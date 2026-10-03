@@ -1,75 +1,68 @@
-import React, { useMemo } from "react";
-import { Appbar, Menu } from "react-native-paper";
-import { NativeStackHeaderProps } from "@react-navigation/native-stack";
-import { getFocusedRouteNameFromRoute } from "@react-navigation/native";
-import { useAppTheme } from "../contexts/ThemeContext";
+import React from "react";
+import { StyleSheet, View } from "react-native";
+import { Appbar, Text } from "react-native-paper";
+import { spacing, useKTheme } from "../theme/theme";
 
-const AppBar: React.FC<NativeStackHeaderProps> = ({
-	navigation,
-	route,
-	options,
-	back,
-}) => {
-	const [visible, setVisible] = React.useState(false);
-	const openMenu = () => setVisible(true);
-	const closeMenu = () => setVisible(false);
-	const { theme, isDark, toggleTheme } = useAppTheme();
+interface AppBarProps {
+	title: string;
+	subtitle?: string;
+	onBack?: () => void;
+	/** Large, left-aligned title used on top-level tabs. */
+	large?: boolean;
+	right?: React.ReactNode;
+}
 
-	const themeIcon = !isDark ? "weather-night" : "white-balance-sunny";
-
-	const title = useMemo(() => {
-		if (route.name === "Main") {
-			const tabRoute = getFocusedRouteNameFromRoute(route) || "Kounta";
-			return tabRoute;
-		}
-		return options.title ?? route.name;
-	}, [options, route]);
-
+/** Flat header that blends into the screen background. */
+const AppBar: React.FC<AppBarProps> = ({ title, subtitle, onBack, large, right }) => {
+	const theme = useKTheme();
 	return (
 		<Appbar.Header
-			elevated
-			style={{
-				backgroundColor: !isDark ? theme.colors.primary : theme.colors.surface,
-			}}
+			mode="small"
+			elevated={false}
+			style={[styles.header, { backgroundColor: theme.colors.background }]}
 		>
-			{back ? (
-				<Appbar.BackAction
-					onPress={navigation.goBack}
-					color={!isDark ? theme.colors.onPrimary : theme.colors.onSurface}
-				/>
+			{onBack ? (
+				<Appbar.BackAction onPress={onBack} accessibilityLabel="Go back" />
 			) : null}
-			<Appbar.Content
-				title={title}
-				color={!isDark ? theme.colors.onPrimary : theme.colors.onSurface}
-			/>
-			{!back && (
-				<>
-					<Appbar.Action
-						icon={themeIcon}
-						color={!isDark ? theme.colors.onPrimary : theme.colors.onSurface}
-						onPress={toggleTheme}
-					/>
-					<Menu
-						visible={visible}
-						onDismiss={closeMenu}
-						anchor={
-							<Appbar.Action
-								icon="account-circle"
-								color={
-									!isDark ? theme.colors.onPrimary : theme.colors.onSurface
-								}
-								onPress={openMenu}
-							/>
-						}
+			<View style={[styles.titleWrap, !onBack && styles.titleWrapRoot]}>
+				<Text
+					variant={large ? "headlineSmall" : "titleLarge"}
+					numberOfLines={1}
+					style={{ color: theme.colors.onBackground }}
+					accessibilityRole="header"
+				>
+					{title}
+				</Text>
+				{subtitle ? (
+					<Text
+						variant="bodySmall"
+						numberOfLines={1}
+						style={{ color: theme.colors.onSurfaceVariant }}
 					>
-						<Menu.Item onPress={() => {}} title="Profile" />
-						<Menu.Item onPress={() => {}} title="Settings" />
-						<Menu.Item onPress={() => {}} title="Logout" />
-					</Menu>
-				</>
-			)}
+						{subtitle}
+					</Text>
+				) : null}
+			</View>
+			{right ? <View style={styles.right}>{right}</View> : null}
 		</Appbar.Header>
 	);
 };
+
+const styles = StyleSheet.create({
+	header: {
+		paddingRight: spacing.xs,
+	},
+	titleWrap: {
+		flex: 1,
+		justifyContent: "center",
+	},
+	titleWrapRoot: {
+		paddingLeft: spacing.lg,
+	},
+	right: {
+		flexDirection: "row",
+		alignItems: "center",
+	},
+});
 
 export default AppBar;

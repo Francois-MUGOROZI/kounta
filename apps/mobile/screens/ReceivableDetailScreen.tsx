@@ -1,521 +1,324 @@
-import React, { useState, useMemo } from "react";
-import { View, StyleSheet, ScrollView } from "react-native";
-import {
-	ActivityIndicator,
-	Text,
-	useTheme,
-	IconButton,
-	ProgressBar,
-	Snackbar,
-	Divider,
-	Button,
-	Dialog,
-	Portal,
-} from "react-native-paper";
+import React, { useLayoutEffect, useMemo, useState } from "react";
+import { StyleSheet, View } from "react-native";
+import { IconButton, Text } from "react-native-paper";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import AppCard from "../components/AppCard";
-import TransactionListItem from "../components/TransactionListItem";
-import ReceivableFormDialog from "../components/ReceivableFormDialog";
-import { useGetReceivables } from "../hooks/receivable/useGetReceivables";
-import { useUpdateReceivable } from "../hooks/receivable/useUpdateReceivable";
-import { useWriteOffReceivable } from "../hooks/receivable/useWriteOffReceivable";
+import HeroCard from "../components/ui/HeroCard";
+import AmountText from "../components/ui/AmountText";
+import Card from "../components/ui/Card";
+import ListItem from "../components/ui/ListItem";
+import EmptyState from "../components/ui/EmptyState";
+import ProgressBar from "../components/ui/ProgressBar";
+import ActionRow, { RowAction } from "../components/ui/ActionRow";
+import StatGrid, { Stat } from "../components/ui/StatGrid";
+import { SkeletonList } from "../components/ui/Skeleton";
+import { useToast } from "../components/ui/Toast";
+import { useConfirm } from "../components/ui/Confirm";
+import TransactionSectionList, { useDescribedTransactions } from "../components/TransactionSectionList";
+import ReceivableFormSheet, { ReceivableFormValues } from "../components/ReceivableFormSheet";
+import {
+	ReceivableStatusPill,
+	receivableCollected,
+	receivableTypeIcon,
+	receivableTypeLabel,
+} from "../components/ReceivableRow";
+import { EntityAvatar } from "../components/EntityAvatar";
+import { useQuery } from "../hooks/useQuery";
 import { useGetEntities } from "../hooks/entity/useGetEntities";
 import { useGetTransactions } from "../hooks/transaction/useGetTransactions";
-import { useGetAccounts } from "../hooks/account/useGetAccounts";
-import { useGetCategories } from "../hooks/category/useGetCategories";
-import { useGetTransactionTypes } from "../hooks/transactionType/useGetTransactionTypes";
+import { useUpdateReceivable } from "../hooks/receivable/useUpdateReceivable";
+import { useWriteOffReceivable } from "../hooks/receivable/useWriteOffReceivable";
+import { useTransactionComposer } from "../contexts/TransactionComposer";
+import { ReceivableRepository } from "../repositories/ReceivableRepository";
+import { Receivable, RootStackParamList } from "../types";
 import { formatAmount } from "../utils/currency";
-import { RootStackParamList, Transaction } from "../types";
+import { daysUntil, formatShortDate } from "../utils/date";
+import { spacing, useKTheme } from "../theme/theme";
+import IconBadge from "../components/ui/IconBadge";
 
-type ReceivableDetailRouteProp = RouteProp<
-	RootStackParamList,
-	"ReceivableDetail"
->;
-type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
+type Route = RouteProp<RootStackParamList, "ReceivableDetail">;
+type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 const ReceivableDetailScreen = () => {
-	const theme = useTheme();
-	const navigation = useNavigation<NavigationProp>();
-	const route = useRoute<ReceivableDetailRouteProp>();
-	const { receivableId } = route.params;
-
-	const {
-		receivables,
-		loading: loadingReceivables,
-		refresh: refreshReceivables,
-	} = useGetReceivables();
+	const theme = useKTheme();
+	const navigation = useNavigation<Nav>();
+	const { receivableId } = useRoute<Route>().params;
+	const toast = useToast();
+	const confirm = useConfirm();
+	const { openComposer } = useTransactionComposer();
+	const { entities } = useGetEntities();
 	const { updateReceivable } = useUpdateReceivable();
 	const { writeOffReceivable } = useWriteOffReceivable();
-	const { entities } = useGetEntities();
-	const transactionFilter = useMemo(() => ({ receivableId }), [receivableId]);
-	const { transactions, loading: loadingTransactions } =
-		useGetTransactions(transactionFilter);
-	const { accounts } = useGetAccounts();
-	const { categories } = useGetCategories();
-	const { transactionTypes } = useGetTransactionTypes();
+	const [editVisible, setEditVisible] = useState(false);
 
-	const [editDialogVisible, setEditDialogVisible] = useState(false);
-	const [writeOffDialogVisible, setWriteOffDialogVisible] = useState(false);
-	const [snackbar, setSnackbar] = useState({ visible: false, message: "" });
-
-	const receivable = useMemo(
-		() => receivables.find((r) => r.id === receivableId) ?? null,
-		[receivables, receivableId],
+	const {
+		data: receivable,
+		loading,
+		error,
+		refresh,
+	} = useQuery<Receivable | null>(
+		(db) => ReceivableRepository.getById(db, receivableId),
+		[receivableId],
+		null,
+		"Failed to load receivable"
 	);
+	const filter = useMemo(() => ({ receivableId }), [receivableId]);
+	const { transactions, loading: loadingTx, refreshing, pullToRefresh } = useGetTransactions(filter);
+	const rows = useDescribedTransactions(transactions);
 
-	const entityName = useMemo(() => {
-		if (!receivable) return "";
+	// Settled and written-off receivables are final — no further edits.
+	const isOpen = !!receivable && (receivable.status === "Active" || receivable.status === "Pending");
+
+	useLayoutEffect(() => {
+		navigation.setOptions({
+			title: receivable?.title ?? "Receivable",
+			headerRight: () =>
+				isOpen ? (
+					<IconButton icon="pencil-outline" onPress={() => setEditVisible(true)} accessibilityLabel="Edit receivable" />
+				) : null,
+		});
+	}, [navigation, receivable, isOpen]);
+
+	if (loading) {
 		return (
-			entities.find((e) => e.id === receivable.entity_id)?.name ?? "Unknown"
-		);
-	}, [receivable, entities]);
-
-	const getAccountName = (accountId: number | null | undefined) =>
-		accounts.find((a) => a.id === accountId)?.name ?? "";
-
-	const getAccountCurrency = (accountId: number | null | undefined) =>
-		accounts.find((a) => a.id === accountId)?.currency ?? "USD";
-
-	const getCategoryName = (categoryId: number) =>
-		categories.find((c) => c.id === categoryId)?.name ?? "";
-
-	const getTransactionTypeName = (typeId: number) =>
-		transactionTypes.find((t) => t.id === typeId)?.name ?? "";
-
-	const getAssociationCount = (t: Transaction) =>
-		[
-			t.asset_id,
-			t.liability_id,
-			t.envelope_id,
-			t.bill_id,
-			t.receivable_id,
-			t.entity_id,
-		].filter(Boolean).length;
-
-	const paymentInfo = useMemo(() => {
-		if (!receivable) return { collected: 0, percentage: 0, isPendingOutflow: false };
-		// Pending outflow receivables haven't been activated yet — show no progress
-		if (receivable.status === "Pending" && receivable.requires_outflow) {
-			return { collected: 0, percentage: 0, isPendingOutflow: true };
-		}
-		const collected = receivable.principal - receivable.current_balance;
-		const percentage =
-			receivable.principal > 0 ? collected / receivable.principal : 0;
-		return { collected, percentage: Math.min(percentage, 1), isPendingOutflow: false };
-	}, [receivable]);
-
-	const handleEditSubmit = async (data: any) => {
-		try {
-			await updateReceivable(receivableId, data);
-			setSnackbar({ visible: true, message: "Receivable updated" });
-			setEditDialogVisible(false);
-			refreshReceivables();
-		} catch (e: any) {
-			setSnackbar({
-				visible: true,
-				message: e.message || "Error updating receivable",
-			});
-		}
-	};
-
-	const handleWriteOff = async () => {
-		try {
-			await writeOffReceivable(receivableId);
-			setSnackbar({ visible: true, message: "Receivable written off" });
-			setWriteOffDialogVisible(false);
-			refreshReceivables();
-		} catch (e: any) {
-			setSnackbar({
-				visible: true,
-				message: e.message || "Error writing off receivable",
-			});
-		}
-	};
-
-	const isLoading = loadingReceivables || loadingTransactions;
-
-	if (isLoading) {
-		return (
-			<View
-				style={[
-					styles.container,
-					styles.centered,
-					{ backgroundColor: theme.colors.background },
-				]}
-			>
-				<ActivityIndicator size="large" />
-				<Text variant="bodyLarge" style={{ marginTop: 16 }}>
-					Loading receivable details...
-				</Text>
+			<View style={[styles.fill, { backgroundColor: theme.colors.background }]}>
+				<SkeletonList rows={6} />
 			</View>
 		);
 	}
 
 	if (!receivable) {
 		return (
-			<View
-				style={[
-					styles.container,
-					styles.centered,
-					{ backgroundColor: theme.colors.background },
-				]}
-			>
-				<Text variant="bodyLarge" style={{ color: theme.colors.error }}>
-					Receivable not found.
-				</Text>
+			<View style={[styles.fill, styles.center, { backgroundColor: theme.colors.background }]}>
+				<EmptyState
+					icon={error ? "cloud-alert" : "hand-coin-outline"}
+					tone={error ? "error" : "default"}
+					title={error ? "Couldn't load this receivable" : "Receivable not found"}
+					message={error ?? "It may have been removed."}
+					actionLabel={error ? "Try again" : undefined}
+					onAction={error ? refresh : undefined}
+				/>
 			</View>
 		);
 	}
 
-	return (
-		<View
-			style={[styles.container, { backgroundColor: theme.colors.background }]}
-		>
-			<ScrollView
-				contentContainerStyle={styles.scrollContent}
-				showsVerticalScrollIndicator={false}
-			>
-				{/* Summary Card */}
-				<AppCard
-					title={receivable.title}
-					subtitle={`${entityName} · ${receivable.type}`}
-				>
-					<View style={styles.row}>
-						<View style={styles.detailItem}>
-							<Text
-								variant="bodySmall"
-								style={{ color: theme.colors.onSurfaceVariant }}
-							>
-								Currency
-							</Text>
-							<Text variant="titleSmall" style={{ fontWeight: "bold" }}>
-								{receivable.currency}
-							</Text>
-						</View>
-						<View style={styles.detailItem}>
-							<Text
-								variant="bodySmall"
-								style={{ color: theme.colors.onSurfaceVariant }}
-							>
-								Principal
-							</Text>
-							<Text variant="titleSmall" style={{ fontWeight: "bold" }}>
-								{formatAmount(receivable.principal, receivable.currency)}
-							</Text>
-						</View>
-					</View>
-					<View style={styles.row}>
-						<View style={styles.detailItem}>
-							<Text
-								variant="bodySmall"
-								style={{ color: theme.colors.onSurfaceVariant }}
-							>
-								Remaining
-							</Text>
-							<Text
-								variant="titleSmall"
-								style={{
-									fontWeight: "bold",
-									color:
-										receivable.current_balance > 0
-											? theme.colors.secondary
-											: theme.colors.primary,
-								}}
-							>
-								{formatAmount(receivable.current_balance, receivable.currency)}
-							</Text>
-						</View>
-						<View style={styles.detailItem}>
-							<Text
-								variant="bodySmall"
-								style={{ color: theme.colors.onSurfaceVariant }}
-							>
-								Collected
-							</Text>
-							<Text
-								variant="titleSmall"
-								style={{ fontWeight: "bold", color: theme.colors.primary }}
-							>
-								{formatAmount(paymentInfo.collected, receivable.currency)}
-							</Text>
-						</View>
-					</View>
+	const entity = entities.find((e) => e.id === receivable.entity_id);
+	const awaitingFunds = receivable.status === "Pending" && !!receivable.requires_outflow;
+	const collected = receivableCollected(receivable);
+	const progress = receivable.principal > 0 ? Math.min(collected / receivable.principal, 1) : 0;
+	const cur = receivable.currency;
 
-					{receivable.interest_rate > 0 && (
-						<View style={styles.row}>
-							<View style={styles.detailItem}>
-								<Text
-									variant="bodySmall"
-									style={{ color: theme.colors.onSurfaceVariant }}
-								>
-									Interest Rate
-								</Text>
-								<Text variant="titleSmall" style={{ fontWeight: "bold" }}>
-									{receivable.interest_rate}%
-								</Text>
-							</View>
-							{receivable.due_date && (
-								<View style={styles.detailItem}>
-									<Text
-										variant="bodySmall"
-										style={{ color: theme.colors.onSurfaceVariant }}
-									>
-										Due Date
-									</Text>
-									<Text variant="titleSmall" style={{ fontWeight: "bold" }}>
-										{new Date(receivable.due_date).toLocaleDateString()}
-									</Text>
-								</View>
-							)}
-						</View>
-					)}
+	const handleEdit = async (values: ReceivableFormValues) => {
+		await updateReceivable(receivable.id, values);
+		setEditVisible(false);
+		toast.success("Receivable updated");
+	};
 
-					{!receivable.interest_rate && receivable.due_date && (
-						<View style={styles.row}>
-							<View style={styles.detailItem}>
-								<Text
-									variant="bodySmall"
-									style={{ color: theme.colors.onSurfaceVariant }}
-								>
-									Due Date
-								</Text>
-								<Text variant="titleSmall" style={{ fontWeight: "bold" }}>
-									{new Date(receivable.due_date).toLocaleDateString()}
-								</Text>
-							</View>
-						</View>
-					)}
+	const handleWriteOff = async () => {
+		const ok = await confirm({
+			title: "Write off this receivable?",
+			message: `You'll stop expecting the remaining ${formatAmount(
+				receivable.current_balance,
+				cur
+			)} and your net worth will drop by that amount. This can't be undone.`,
+			confirmLabel: "Write off",
+			destructive: true,
+		});
+		if (!ok) return;
+		try {
+			await writeOffReceivable(receivable.id);
+			toast.success("Receivable written off");
+		} catch (e) {
+			toast.error(e instanceof Error ? e.message : "Couldn't write off the receivable");
+		}
+	};
 
-					{/* Progress Bar — hidden for Pending outflow receivables */}
-					{paymentInfo.isPendingOutflow ? (
-						<Text
-							variant="bodySmall"
-							style={{ color: theme.colors.outline, marginBottom: 12 }}
-						>
-							⚠ Awaiting lending transfer to activate this receivable.
+	const actions: RowAction[] = [];
+	if (awaitingFunds) {
+		actions.push({
+			label: "Lend",
+			icon: "cash-fast",
+			color: theme.custom.transfer,
+			background: theme.custom.transferContainer,
+			onPress: () => openComposer({ type: "Transfer", transferDirection: "account-to-receivable", receivableId: receivable.id }),
+		});
+	}
+	if (receivable.status === "Active") {
+		actions.push({
+			label: "Record repayment",
+			icon: "cash-check",
+			color: theme.custom.income,
+			background: theme.custom.incomeContainer,
+			onPress: () => openComposer({ type: "Transfer", transferDirection: "receivable-to-account", receivableId: receivable.id }),
+		});
+	}
+	if (isOpen) {
+		actions.push({
+			label: "Write off",
+			icon: "close-circle-outline",
+			color: theme.custom.expense,
+			background: theme.custom.expenseContainer,
+			onPress: handleWriteOff,
+		});
+	}
+
+	const dueDays = receivable.due_date ? daysUntil(receivable.due_date) : null;
+	const stats: Stat[] = [
+		{ label: "Principal", value: formatAmount(receivable.principal, cur) },
+		{ label: "Collected", value: formatAmount(collected, cur), tone: collected > 0 ? "income" : "default" },
+		{ label: "Interest rate", value: receivable.interest_rate > 0 ? `${receivable.interest_rate}%` : "None" },
+		{
+			label: "Due date",
+			value: receivable.due_date ? formatShortDate(receivable.due_date) : "Not set",
+			tone: isOpen && dueDays !== null && dueDays < 0 ? "expense" : "default",
+			caption:
+				isOpen && dueDays !== null
+					? dueDays < 0
+						? `${-dueDays} day${dueDays === -1 ? "" : "s"} overdue`
+						: dueDays === 0
+						? "Due today"
+						: `In ${dueDays} day${dueDays === 1 ? "" : "s"}`
+					: undefined,
+		},
+	];
+
+	const statusNote =
+		awaitingFunds
+			? "Waiting for the lending transfer. Tap Lend to record the money leaving your account — the receivable becomes active at its full principal."
+			: receivable.status === "Settled"
+			? "Fully repaid. Nice."
+			: receivable.status === "Written-Off"
+			? `Written off with ${formatAmount(receivable.current_balance, cur)} still unpaid.`
+			: null;
+
+	const header = (
+		<View>
+			<HeroCard>
+				<View style={styles.heroTop}>
+					<IconBadge icon={receivableTypeIcon(receivable.type)} color={theme.custom.onHero} background="rgba(255,255,255,0.16)" />
+					<View style={{ flex: 1, marginLeft: spacing.md }}>
+						<Text variant="labelLarge" style={{ color: theme.custom.onHeroMuted }}>
+							{receivableTypeLabel(receivable.type)}
 						</Text>
-					) : (
-						<View style={styles.progressSection}>
-							<View style={styles.progressHeader}>
-								<Text
-									variant="bodySmall"
-									style={{ color: theme.colors.onSurfaceVariant }}
-								>
-									Collection Progress
-								</Text>
-								<Text
-									variant="bodySmall"
-									style={{ color: theme.colors.primary, fontWeight: "bold" }}
-								>
-									{(paymentInfo.percentage * 100).toFixed(1)}%
-								</Text>
-							</View>
-							<ProgressBar
-								progress={paymentInfo.percentage}
-								color={theme.colors.primary}
-								style={styles.progressBar}
-							/>
-						</View>
-					)}
-
-					<View
-						style={{ flexDirection: "row", alignItems: "center", marginTop: 8 }}
-					>
-						<Text
-							variant="bodySmall"
-							style={{ color: theme.colors.onSurfaceVariant }}
-						>
-							Status:{" "}
-						</Text>
-						<Text
-							variant="bodySmall"
-							style={{
-								fontWeight: "bold",
-								color:
-									receivable.status === "Pending"
-										? theme.colors.outline
-										: receivable.status === "Active"
-											? theme.colors.secondary
-											: receivable.status === "Settled"
-												? theme.colors.primary
-												: theme.colors.error,
-							}}
-						>
-							{receivable.status}
-							{receivable.status === "Pending" &&
-								" — awaiting lending transfer"}
+						<Text variant="bodySmall" style={{ color: theme.custom.onHeroMuted }}>
+							{awaitingFunds ? "To be lent" : "Still owed to you"}
 						</Text>
 					</View>
+					<ReceivableStatusPill status={receivable.status} onHero />
+				</View>
+				<AmountText
+					amount={awaitingFunds ? receivable.principal : receivable.current_balance}
+					currency={cur}
+					tone="onHero"
+					variant="displaySmall"
+					style={{ marginTop: spacing.md }}
+				/>
+				{!awaitingFunds ? (
+					<View style={{ marginTop: spacing.md }}>
+						<ProgressBar progress={progress} height={6} color={theme.custom.onHero} trackColor="rgba(255,255,255,0.2)" />
+						<Text variant="bodySmall" style={{ color: theme.custom.onHeroMuted, marginTop: 6 }}>
+							{`${Math.round(progress * 100)}% collected`}
+						</Text>
+					</View>
+				) : null}
+			</HeroCard>
 
-					{receivable.notes ? (
-						<>
-							<Divider style={styles.divider} />
-							<Text
-								variant="bodySmall"
-								style={{ color: theme.colors.onSurfaceVariant }}
-							>
-								Notes
-							</Text>
-							<Text variant="bodyMedium" style={{ marginTop: 4 }}>
-								{receivable.notes}
-							</Text>
-						</>
-					) : null}
-					<Divider style={styles.divider} />
-					<Text
-						variant="bodySmall"
-						style={{ color: theme.colors.onSurfaceVariant }}
-					>
-						Created: {new Date(receivable.created_at).toLocaleDateString()}
+			{actions.length > 0 ? <ActionRow actions={actions} /> : null}
+
+			{statusNote ? (
+				<View style={[styles.note, { backgroundColor: theme.colors.surfaceVariant }]}>
+					<Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+						{statusNote}
 					</Text>
-				</AppCard>
+				</View>
+			) : null}
 
-				{/* Action Buttons — hidden for finalized receivables */}
-				{receivable.status !== "Settled" && receivable.status !== "Written-Off" && (
-					<View style={styles.actionsRow}>
-						<IconButton
-							icon="pencil"
-							mode="contained"
-							onPress={() => setEditDialogVisible(true)}
-							iconColor={theme.colors.primary}
-							containerColor={theme.colors.elevation.level3}
+			<StatGrid items={stats} />
+
+			{entity ? (
+				<Card padded={false} style={{ marginTop: spacing.lg }}>
+					<ListItem
+						title={entity.name}
+						subtitle={entity.is_individual ? "Owes you · Person" : "Owes you · Organisation"}
+						left={<EntityAvatar name={entity.name} individual={!!entity.is_individual} />}
+						chevron
+						onPress={() => navigation.navigate("EntityDetail", { entityId: entity.id })}
+					/>
+				</Card>
+			) : null}
+
+			{receivable.notes ? (
+				<Card style={{ marginTop: spacing.lg }}>
+					<Text variant="labelMedium" style={{ color: theme.colors.onSurfaceVariant }}>
+						Notes
+					</Text>
+					<Text variant="bodyMedium" selectable style={{ color: theme.colors.onSurface, marginTop: spacing.xs }}>
+						{receivable.notes}
+					</Text>
+				</Card>
+			) : null}
+			<Text variant="bodySmall" style={[styles.created, { color: theme.colors.onSurfaceVariant }]}>
+				{`Added ${formatShortDate(receivable.created_at)}`}
+			</Text>
+		</View>
+	);
+
+	return (
+		<View style={[styles.fill, { backgroundColor: theme.colors.background }]}>
+			<TransactionSectionList
+				rows={rows}
+				header={header}
+				sectionTitle="Payment history"
+				refreshing={refreshing}
+				onRefresh={pullToRefresh}
+				empty={
+					loadingTx ? (
+						<SkeletonList rows={3} />
+					) : (
+						<EmptyState
+							compact
+							icon="receipt"
+							title="No payments yet"
+							message={
+								awaitingFunds
+									? "The lending transfer and repayments will show up here."
+									: "Repayments you record will show up here."
+							}
 						/>
-						{(receivable.status === "Active" ||
-							receivable.status === "Pending") && (
-							<IconButton
-								icon="close-circle"
-								mode="contained"
-								onPress={() => setWriteOffDialogVisible(true)}
-								iconColor={theme.colors.error}
-								containerColor={theme.colors.elevation.level3}
-							/>
-						)}
-					</View>
-				)}
-
-				{/* Payment History */}
-				<Text
-					variant="titleMedium"
-					style={[styles.sectionTitle, { color: theme.colors.onSurface }]}
-				>
-					Payment History
-				</Text>
-				{transactions.length === 0 ? (
-					<View style={styles.emptyState}>
-						<Text
-							variant="bodyLarge"
-							style={{ color: theme.colors.onSurfaceVariant }}
-						>
-							No transactions recorded yet.
-						</Text>
-					</View>
-				) : (
-					transactions.map((transaction, index) => {
-						const typeName = getTransactionTypeName(
-							transaction.transaction_type_id,
-						);
-						const isTransfer = typeName === "Transfer";
-						const accountName = isTransfer
-							? `${getAccountName(transaction.from_account_id)} → ${getAccountName(transaction.to_account_id)}`
-							: getAccountName(
-									transaction.from_account_id || transaction.to_account_id,
-								);
-
-						return (
-							<TransactionListItem
-								key={transaction.id}
-								transaction={transaction}
-								accountName={accountName}
-								accountCurrency={getAccountCurrency(
-									transaction.from_account_id || transaction.to_account_id,
-								)}
-								categoryName={getCategoryName(transaction.category_id)}
-								transactionTypeName={typeName}
-								associationCount={getAssociationCount(transaction)}
-								onPress={() =>
-									navigation.navigate("TransactionDetail", {
-										transactionId: transaction.id,
-									})
-								}
-								index={index}
-							/>
-						);
-					})
-				)}
-			</ScrollView>
-
-			<ReceivableFormDialog
-				visible={editDialogVisible}
-				onClose={() => setEditDialogVisible(false)}
-				onSubmit={handleEditSubmit}
-				entities={entities}
-				initialReceivable={receivable}
+					)
+				}
 			/>
-
-			{/* Write-off Confirmation Dialog */}
-			<Portal>
-				<Dialog
-					visible={writeOffDialogVisible}
-					onDismiss={() => setWriteOffDialogVisible(false)}
-				>
-					<Dialog.Title>Write Off Receivable</Dialog.Title>
-					<Dialog.Content>
-						<Text variant="bodyMedium">
-							Are you sure you want to write off this receivable? The remaining
-							balance of{" "}
-							{formatAmount(receivable.current_balance, receivable.currency)}{" "}
-							will be lost and your net worth will decrease.
-						</Text>
-					</Dialog.Content>
-					<Dialog.Actions>
-						<Button onPress={() => setWriteOffDialogVisible(false)}>
-							Cancel
-						</Button>
-						<Button onPress={handleWriteOff} textColor={theme.colors.error}>
-							Write Off
-						</Button>
-					</Dialog.Actions>
-				</Dialog>
-			</Portal>
-
-			<Snackbar
-				visible={snackbar.visible}
-				onDismiss={() => setSnackbar({ visible: false, message: "" })}
-				duration={2000}
-			>
-				{snackbar.message}
-			</Snackbar>
+			<ReceivableFormSheet
+				visible={editVisible}
+				onDismiss={() => setEditVisible(false)}
+				entities={entities}
+				receivable={receivable}
+				onSubmit={handleEdit}
+			/>
 		</View>
 	);
 };
 
 const styles = StyleSheet.create({
-	container: { flex: 1 },
-	scrollContent: { padding: 16, paddingBottom: 32 },
-	centered: { justifyContent: "center", alignItems: "center" },
-	row: {
-		flexDirection: "row",
-		justifyContent: "space-between",
-		marginBottom: 12,
+	fill: {
+		flex: 1,
 	},
-	detailItem: { flex: 1 },
-	progressSection: { marginBottom: 12 },
-	progressHeader: {
-		flexDirection: "row",
-		justifyContent: "space-between",
-		marginBottom: 6,
+	center: {
+		justifyContent: "center",
 	},
-	progressBar: { height: 8, borderRadius: 4 },
-	divider: { marginVertical: 12 },
-	actionsRow: {
+	heroTop: {
 		flexDirection: "row",
-		justifyContent: "flex-end",
-		marginBottom: 8,
-		gap: 8,
+		alignItems: "center",
 	},
-	sectionTitle: { fontWeight: "bold", marginBottom: 12 },
-	emptyState: { paddingVertical: 32, alignItems: "center" },
+	note: {
+		marginTop: spacing.lg,
+		padding: spacing.md,
+		borderRadius: 12,
+	},
+	created: {
+		marginTop: spacing.md,
+		marginLeft: spacing.xs,
+	},
 });
 
 export default ReceivableDetailScreen;

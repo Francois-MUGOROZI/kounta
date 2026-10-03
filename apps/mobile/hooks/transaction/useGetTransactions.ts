@@ -1,40 +1,22 @@
-import { useState, useEffect, useCallback } from "react";
 import { TransactionRepository } from "../../repositories/TransactionRepository";
-import { useDatabase } from "../../database";
 import { Transaction, TransactionFilter } from "../../types";
-import { addEventListener, EVENTS } from "../../utils/events";
+import { useQuery } from "../useQuery";
 
 export const useGetTransactions = (filter?: TransactionFilter) => {
-	const db = useDatabase();
-	const [transactions, setTransactions] = useState<Transaction[]>([]);
-	const [loading, setLoading] = useState(true);
-	const [error, setError] = useState<string | null>(null);
+	const { data, loading, refreshing, error, refresh, pullToRefresh } =
+		useQuery<Transaction[]>(
+			(db) => TransactionRepository.getAll(db, filter),
+			[JSON.stringify(filter ?? null)],
+			[],
+			"Failed to load transactions"
+		);
 
-	const refresh = useCallback(async () => {
-		try {
-			setLoading(true);
-			setError(null);
-			const result = await TransactionRepository.getAll(db, filter);
-			setTransactions(result);
-		} catch (err: any) {
-			setError(err.message || "Failed to fetch transactions");
-		} finally {
-			setLoading(false);
-		}
-	}, [db, filter]);
-
-	useEffect(() => {
-		refresh();
-
-		// Subscribe to global data changes to keep the transactions list in sync
-		const subscription = addEventListener(EVENTS.DATA_CHANGED, () => {
-			refresh();
-		});
-
-		return () => {
-			subscription.remove();
-		};
-	}, [refresh]);
-
-	return { transactions, loading, error, refresh };
+	return {
+		transactions: data,
+		loading,
+		refreshing,
+		error,
+		refresh,
+		pullToRefresh,
+	};
 };

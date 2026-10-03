@@ -16,6 +16,7 @@ export function useCreateBill() {
 				await BillsRepository.createBill(db, bill);
 			} catch (e: any) {
 				setError(e.message || "Failed to create bill");
+				throw e;
 			} finally {
 				setLoading(false);
 			}
