@@ -1,9 +1,7 @@
-import { useState, useEffect, useCallback } from "react";
-import { useDatabase } from "../../database";
 import { TransactionRepository } from "../../repositories/TransactionRepository";
 import { LiabilityRepository } from "../../repositories/LiabilityRepository";
 import { ReceivableRepository } from "../../repositories/ReceivableRepository";
-import { addEventListener, EVENTS } from "../../utils/events";
+import { useQuery } from "../useQuery";
 
 export type EntityCurrencySummary = {
 	income: number;
@@ -19,17 +17,10 @@ export type EntityCurrencySummary = {
  * this never loads the entity's individual transactions/liabilities/receivables.
  */
 export const useEntityFinancialSummary = (entityId: number) => {
-	const db = useDatabase();
-	const [summaries, setSummaries] = useState<{
+	const { data, loading, error, refresh } = useQuery<{
 		[currency: string]: EntityCurrencySummary;
-	}>({});
-	const [loading, setLoading] = useState(true);
-	const [error, setError] = useState<string | null>(null);
-
-	const refresh = useCallback(async () => {
-		try {
-			setLoading(true);
-			setError(null);
+	}>(
+		async (db) => {
 			const [transactionTotals, liabilityTotals, receivableTotals] =
 				await Promise.all([
 					TransactionRepository.getEntityTotalsByCurrency(db, entityId),
@@ -68,21 +59,12 @@ export const useEntityFinancialSummary = (entityId: number) => {
 				ensure(r.currency).receivable = r.total;
 			});
 
-			setSummaries(result);
-		} catch (err: any) {
-			setError(err.message || "Failed to fetch entity financial summary");
-		} finally {
-			setLoading(false);
-		}
-	}, [db, entityId]);
+			return result;
+		},
+		[entityId],
+		{},
+		"Failed to fetch entity financial summary"
+	);
 
-	useEffect(() => {
-		refresh();
-		const subscription = addEventListener(EVENTS.DATA_CHANGED, refresh);
-		return () => {
-			subscription.remove();
-		};
-	}, [refresh]);
-
-	return { summaries, loading, error, refresh };
+	return { summaries: data, loading, error, refresh };
 };

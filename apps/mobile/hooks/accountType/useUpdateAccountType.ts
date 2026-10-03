@@ -15,6 +15,7 @@ export function useUpdateAccountType() {
 				await AccountTypeRepository.update(db, id, name);
 			} catch (e: any) {
 				setError(e.message || "Failed to update account type");
+				throw e;
 			} finally {
 				setLoading(false);
 			}

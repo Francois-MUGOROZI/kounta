@@ -16,6 +16,7 @@ export function useUpdateAccount() {
 				await AccountRepository.update(db, id, updates);
 			} catch (e: any) {
 				setError(e.message || "Failed to update account");
+				throw e;
 			} finally {
 				setLoading(false);
 			}

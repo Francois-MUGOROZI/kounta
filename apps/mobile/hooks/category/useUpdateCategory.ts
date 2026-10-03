@@ -16,6 +16,7 @@ export function useUpdateCategory() {
 				await CategoryRepository.update(db, id, updates);
 			} catch (e: any) {
 				setError(e.message || "Failed to update category");
+				throw e;
 			} finally {
 				setLoading(false);
 			}

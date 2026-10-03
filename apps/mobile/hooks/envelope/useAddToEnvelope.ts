@@ -15,6 +15,7 @@ export function useAddToEnvelope() {
 				await EnvelopeRepository.addToEnvelope(db, envelopeId, amount);
 			} catch (e: any) {
 				setError(e.message || "Failed to add to envelope");
+				throw e;
 			} finally {
 				setLoading(false);
 			}

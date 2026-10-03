@@ -358,6 +358,7 @@ export function useDatabaseInitialization() {
 	const [isInitialized, setIsInitialized] = React.useState(false);
 	const [isInitializing, setIsInitializing] = React.useState(true);
 	const [error, setError] = React.useState<string | null>(null);
+	const [attempt, setAttempt] = React.useState(0);
 
 	React.useEffect(() => {
 		let isMounted = true;
@@ -387,9 +388,11 @@ export function useDatabaseInitialization() {
 		return () => {
 			isMounted = false;
 		};
-	}, [db]);
+	}, [db, attempt]);
 
-	return { isInitialized, isInitializing, error };
+	const retry = React.useCallback(() => setAttempt((n) => n + 1), []);
+
+	return { isInitialized, isInitializing, error, retry };
 }
 
 // Known application tables — used as an allowlist in clearDatabase
@@ -432,5 +435,7 @@ export async function clearDatabase(db: any) {
 		await initDatabase(db);
 	} catch (error) {
 		console.log("Clear database error:", error);
+		// Let the caller tell the user — a silent failure would look like success.
+		throw error;
 	}
 }

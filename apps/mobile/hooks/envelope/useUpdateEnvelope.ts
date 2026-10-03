@@ -16,6 +16,7 @@ export function useUpdateEnvelope() {
 				await EnvelopeRepository.update(db, id, updates);
 			} catch (e: any) {
 				setError(e.message || "Failed to update envelope");
+				throw e;
 			} finally {
 				setLoading(false);
 			}

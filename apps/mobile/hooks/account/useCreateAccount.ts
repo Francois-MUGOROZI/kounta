@@ -16,6 +16,7 @@ export function useCreateAccount() {
 				await AccountRepository.create(db, account);
 			} catch (e: any) {
 				setError(e.message || "Failed to create account");
+				throw e;
 			} finally {
 				setLoading(false);
 			}
