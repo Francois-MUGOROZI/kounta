@@ -113,6 +113,12 @@ const TransactionDetailScreen = () => {
 		const acc = data.fromAccount;
 		detailRows.push({ label: view.kind === "transfer" ? "From" : "Paid from", value: acc.name, icon: "wallet-outline", onPress: () => navigation.navigate("AccountDetail", { accountId: acc.id }) });
 	}
+	// A charge is paid from the debt it adds to, not from an account.
+	const isCharge = !data.fromAccount && !data.toAccount && view.kind === "expense" && !!data.liability;
+	if (isCharge && data.liability) {
+		const l = data.liability;
+		detailRows.push({ label: "Paid from", value: `${l.name} (debt)`, icon: "credit-card-clock-outline", onPress: () => navigation.navigate("LiabilityDetail", { liabilityId: l.id }) });
+	}
 	if (data.toAccount) {
 		const acc = data.toAccount;
 		detailRows.push({ label: view.kind === "transfer" ? "To" : "Received into", value: acc.name, icon: "wallet-plus-outline", onPress: () => navigation.navigate("AccountDetail", { accountId: acc.id }) });
@@ -132,7 +138,7 @@ const TransactionDetailScreen = () => {
 		const e = data.envelope;
 		links.push({ label: "Envelope", value: e.name, icon: "email-outline", onPress: () => navigation.navigate("EnvelopeDetail", { envelopeId: e.id }) });
 	}
-	if (data.liability) {
+	if (data.liability && !isCharge) {
 		const l = data.liability;
 		links.push({ label: "Liability", value: l.name, icon: "credit-card-clock-outline", onPress: () => navigation.navigate("LiabilityDetail", { liabilityId: l.id }) });
 	}

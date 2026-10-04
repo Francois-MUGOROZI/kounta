@@ -20,6 +20,7 @@ import { useQuery } from "../hooks/useQuery";
 import { useGetLiabilityTypes } from "../hooks/liabilityType/useGetLiabilityTypes";
 import { useGetEntities } from "../hooks/entity/useGetEntities";
 import { useGetTransactions } from "../hooks/transaction/useGetTransactions";
+import { useGetTransactionTypes } from "../hooks/transactionType/useGetTransactionTypes";
 import { useUpdateLiability } from "../hooks/liability/useUpdateLiability";
 import { useTransactionComposer } from "../contexts/TransactionComposer";
 import { LiabilityRepository } from "../repositories/LiabilityRepository";
@@ -28,7 +29,7 @@ import { formatAmount } from "../utils/currency";
 import { formatShortDate } from "../utils/date";
 import { getLiabilityTypeIcon } from "../constants/typeIcons";
 import { spacing, useKTheme } from "../theme/theme";
-import { repaidRatio } from "../utils/liability";
+import { liabilityBreakdown, repaidRatio } from "../utils/liability";
 
 type Route = RouteProp<RootStackParamList, "LiabilityDetail">;
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -58,6 +59,14 @@ const LiabilityDetailScreen = () => {
 	const filter = useMemo(() => ({ liabilityId }), [liabilityId]);
 	const { transactions, loading: loadingTx, refreshing, pullToRefresh } = useGetTransactions(filter);
 	const rows = useDescribedTransactions(transactions);
+	const { transactionTypes } = useGetTransactionTypes();
+	const breakdown = useMemo(
+		() =>
+			liability
+				? liabilityBreakdown(liability, transactions, (id) => transactionTypes.find((t) => t.id === id)?.name)
+				: null,
+		[liability, transactions, transactionTypes]
+	);
 
 	useLayoutEffect(() => {
 		navigation.setOptions({
@@ -144,11 +153,18 @@ const LiabilityDetailScreen = () => {
 			<ActionRow
 				actions={[
 					{
-						label: "Make payment",
+						label: "Pay back",
 						icon: "cash-check",
 						color: theme.custom.income,
 						background: theme.custom.incomeContainer,
 						disabled: paidOff,
+						onPress: () => openComposer({ type: "Transfer", transferDirection: "account-to-liability", liabilityId }),
+					},
+					{
+						label: "Add charge",
+						icon: "percent-outline",
+						color: theme.custom.expense,
+						background: theme.custom.expenseContainer,
 						onPress: () => openComposer({ type: "Expense", liabilityId }),
 					},
 					{
@@ -159,14 +175,18 @@ const LiabilityDetailScreen = () => {
 				]}
 			/>
 
-			<StatGrid
-				items={[
-					{ label: "Borrowed", value: formatAmount(liability.total_amount, liability.currency) },
-					{ label: "Repaid", value: formatAmount(paid, liability.currency), tone: "income" },
-					{ label: "Remaining", value: formatAmount(liability.current_balance, liability.currency), tone: paidOff ? "muted" : "expense" },
-					{ label: "Currency", value: liability.currency },
-				]}
-			/>
+			{breakdown ? (
+				<StatGrid
+					items={[
+						{ label: "Borrowed", value: formatAmount(breakdown.borrowed, liability.currency) },
+						{ label: "Interest & charges", value: formatAmount(breakdown.charges, liability.currency) },
+						{ label: "Total to repay", value: formatAmount(liability.total_amount, liability.currency) },
+						{ label: "Paid back", value: formatAmount(breakdown.paidBack, liability.currency), tone: "income" },
+						{ label: "Principal left", value: formatAmount(breakdown.principalLeft, liability.currency), tone: paidOff ? "muted" : "expense" },
+						{ label: "Charges left", value: formatAmount(breakdown.chargesLeft, liability.currency), tone: breakdown.chargesLeft > 0 ? "expense" : "muted" },
+					]}
+				/>
+			) : null}
 
 			{entity ? (
 				<Card padded={false} style={styles.block}>
@@ -201,7 +221,7 @@ const LiabilityDetailScreen = () => {
 			<TransactionSectionList
 				rows={rows}
 				header={header}
-				sectionTitle="Payment history"
+				sectionTitle="History"
 				refreshing={refreshing}
 				onRefresh={pullToRefresh}
 				empty={
@@ -211,10 +231,10 @@ const LiabilityDetailScreen = () => {
 						<EmptyState
 							compact
 							icon="cash-check"
-							title="No payments yet"
+							title="No activity yet"
 							message="Record a payment and it will reduce what you owe here."
-							actionLabel={paidOff ? undefined : "Make a payment"}
-							onAction={paidOff ? undefined : () => openComposer({ type: "Expense", liabilityId })}
+							actionLabel={paidOff ? undefined : "Pay back"}
+							onAction={paidOff ? undefined : () => openComposer({ type: "Transfer", transferDirection: "account-to-liability", liabilityId })}
 						/>
 					)
 				}

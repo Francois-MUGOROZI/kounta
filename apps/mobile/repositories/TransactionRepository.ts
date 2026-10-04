@@ -45,7 +45,7 @@ async function applyAccountSideEffects(
 
 async function getNameById(
 	db: SQLiteDatabase,
-	table: "accounts" | "assets" | "receivables",
+	table: "accounts" | "assets" | "receivables" | "liabilities",
 	id: number
 ): Promise<string | null> {
 	const column = table === "receivables" ? "title" : "name";
@@ -67,7 +67,8 @@ async function buildFallbackDescription(
 	fromAccountId: number | null | undefined,
 	toAccountId: number | null | undefined,
 	assetId: number | null | undefined,
-	receivableId: number | null | undefined
+	receivableId: number | null | undefined,
+	liabilityId: number | null | undefined
 ): Promise<string> {
 	const formattedDate = parseLocalDate(date).toLocaleDateString(undefined, {
 		month: "short",
@@ -86,6 +87,8 @@ async function buildFallbackDescription(
 	if (typeName === "Transfer") {
 		const sourceLabel = fromAccountId
 			? await getNameById(db, "accounts", fromAccountId)
+			: liabilityId && toAccountId
+			? await getNameById(db, "liabilities", liabilityId)
 			: receivableId && toAccountId
 			? await getNameById(db, "receivables", receivableId)
 			: assetId && toAccountId
@@ -94,6 +97,8 @@ async function buildFallbackDescription(
 
 		const destinationLabel = toAccountId
 			? await getNameById(db, "accounts", toAccountId)
+			: liabilityId && fromAccountId
+			? await getNameById(db, "liabilities", liabilityId)
 			: receivableId && fromAccountId
 			? await getNameById(db, "receivables", receivableId)
 			: assetId && fromAccountId
@@ -113,15 +118,28 @@ async function buildFallbackDescription(
 	return `${typeName} — ${formattedDate}`;
 }
 
+// How a transaction moves a liability: loan cash in, interest/fee charged, or repaid.
+type LiabilityMovement = "borrow" | "charge" | "repay";
+
 async function applyLiabilitySideEffect(
 	db: SQLiteDatabase,
+	movement: LiabilityMovement,
 	amount: number,
 	liabilityId: number
 ): Promise<void> {
-	await db.runAsync(
-		"UPDATE liabilities SET current_balance = CASE WHEN current_balance - ? < 0 THEN 0 ELSE current_balance - ? END WHERE id = ?",
-		[amount, amount, liabilityId]
-	);
+	if (movement === "repay") {
+		// amount has already been validated to not exceed current_balance
+		await db.runAsync(
+			"UPDATE liabilities SET current_balance = current_balance - ? WHERE id = ?",
+			[amount, liabilityId]
+		);
+	} else {
+		// Borrowing and interest both add to what is owed
+		await db.runAsync(
+			"UPDATE liabilities SET current_balance = current_balance + ?, total_amount = total_amount + ? WHERE id = ?",
+			[amount, amount, liabilityId]
+		);
+	}
 }
 
 async function applyEnvelopeSideEffect(
@@ -226,6 +244,218 @@ async function applyReceivableSideEffect(
 	}
 }
 
+// Classifies a liability-linked transaction, rejecting shapes the model doesn't allow.
+function liabilityMovementFor(
+	typeName: string,
+	fromAccountId: number | null | undefined,
+	toAccountId: number | null | undefined
+): LiabilityMovement {
+	if (typeName === "Transfer") {
+		if (toAccountId && !fromAccountId) return "borrow";
+		if (fromAccountId && !toAccountId) return "repay";
+		throw new Error("A liability transfer needs exactly one account");
+	}
+	if (typeName === "Expense") {
+		if (fromAccountId || toAccountId) {
+			throw new Error(
+				"An expense linked to a liability is a charge (interest, fee or penalty) and can't use an account"
+			);
+		}
+		return "charge";
+	}
+	throw new Error(`${typeName} can't be linked to a liability`);
+}
+
+// ─── Transaction writer ───────────────────────────────────────────────────────
+// Validates and writes one transaction with its side effects. Must run inside
+// an open SQL transaction; callers own BEGIN/COMMIT and the change event.
+
+export async function insertTransaction(
+	db: SQLiteDatabase,
+	transaction: Omit<Transaction, "id">
+): Promise<number> {
+	const {
+		description: rawDescription = "",
+		amount = 0,
+		transaction_type_id = 0,
+		date = toLocalISODate(),
+		category_id = null,
+		asset_id = null,
+		liability_id = null,
+		from_account_id = null,
+		to_account_id = null,
+		envelope_id = null,
+		bill_id = null,
+		receivable_id = null,
+		entity_id = null,
+	} = transaction;
+
+	// ── Step 1: Resolve transaction type name ─────────────────────────────
+	const typeRow = await db.getFirstAsync<{ name: string }>(
+		"SELECT name FROM transaction_types WHERE id = ?",
+		[transaction_type_id]
+	);
+	if (!typeRow) {
+		throw new Error(`Unknown transaction type id: ${transaction_type_id}`);
+	}
+	const typeName = typeRow.name;
+
+	const description = rawDescription.trim()
+		? rawDescription.trim()
+		: await buildFallbackDescription(
+				db,
+				typeName,
+				date,
+				category_id,
+				from_account_id,
+				to_account_id,
+				asset_id,
+				receivable_id,
+				liability_id
+			);
+
+	// ── Step 2: Pre-fetch and validate — ALL checks before any DB write ───
+	let receivable: ReceivableSnapshot | null = null;
+
+	if (receivable_id) {
+		receivable = await db.getFirstAsync<ReceivableSnapshot>(
+			"SELECT current_balance, status, requires_outflow, principal FROM receivables WHERE id = ?",
+			[receivable_id]
+		);
+		if (!receivable) {
+			throw new Error(`Receivable #${receivable_id} not found`);
+		}
+
+		if (typeName === "Transfer" && from_account_id && !to_account_id) {
+			// Lending path: Account → Receivable
+			if (!receivable.requires_outflow) {
+				throw new Error(
+					"This receivable does not require a lending transfer"
+				);
+			}
+			if (receivable.status !== "Pending") {
+				throw new Error(
+					"Lending transfer is only allowed on Pending receivables"
+				);
+			}
+			if (amount !== receivable.principal) {
+				throw new Error(
+					`Lending amount must equal the principal (${fmt(receivable.principal)})`
+				);
+			}
+		} else if (typeName === "Transfer" && to_account_id && !from_account_id) {
+			// Payment received: Receivable → Account
+			if (receivable.status !== "Active") {
+				throw new Error(
+					`Cannot receive payment on a ${receivable.status} receivable`
+				);
+			}
+			if (amount > receivable.current_balance) {
+				const interestPortion = amount - receivable.current_balance;
+				throw new Error(
+					`Payment (${fmt(amount)}) exceeds remaining balance (${fmt(receivable.current_balance)}). ` +
+					`Record ${fmt(receivable.current_balance)} as the principal payment, ` +
+					`then record ${fmt(interestPortion)} as Interest income separately.`
+				);
+			}
+		}
+	}
+
+	let liabilityMovement: LiabilityMovement | null = null;
+
+	if (liability_id) {
+		const liability = await db.getFirstAsync<{ current_balance: number; currency: string }>(
+			"SELECT current_balance, currency FROM liabilities WHERE id = ?",
+			[liability_id]
+		);
+		if (!liability) {
+			throw new Error(`Liability #${liability_id} not found`);
+		}
+
+		liabilityMovement = liabilityMovementFor(typeName, from_account_id, to_account_id);
+		if (liabilityMovement === "charge" && (bill_id || envelope_id)) {
+			throw new Error("A liability charge isn't paid from anything, so it can't use a bill or envelope");
+		}
+
+		const accountId = from_account_id ?? to_account_id;
+		if (accountId) {
+			const account = await db.getFirstAsync<{ currency: string }>(
+				"SELECT currency FROM accounts WHERE id = ?",
+				[accountId]
+			);
+			if (account && account.currency !== liability.currency) {
+				throw new Error(
+					`The account is in ${account.currency} but the liability is in ${liability.currency}`
+				);
+			}
+		}
+
+		if (liabilityMovement === "repay" && amount > liability.current_balance) {
+			const excess = amount - liability.current_balance;
+			throw new Error(
+				`Payment (${fmt(amount)}) exceeds what you still owe (${fmt(liability.current_balance)}). ` +
+				`Use Add charge on the liability for the extra ${fmt(excess)} first, then record the payment.`
+			);
+		}
+	}
+
+	// ── Step 3: Write the row and its side effects ────────────────────────
+	const result = await db.runAsync(
+		`INSERT INTO transactions
+			(description, amount, transaction_type_id, date, category_id,
+			 asset_id, liability_id, from_account_id, to_account_id,
+			 envelope_id, bill_id, receivable_id, entity_id)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		[
+			description,
+			amount,
+			transaction_type_id,
+			date,
+			category_id,
+			asset_id,
+			liability_id,
+			from_account_id,
+			to_account_id,
+			envelope_id,
+			bill_id,
+			receivable_id,
+			entity_id,
+		]
+	);
+	const insertedId = result.lastInsertRowId;
+
+	await applyAccountSideEffects(
+		db, typeName, amount, from_account_id, to_account_id
+	);
+
+	if (liability_id && liabilityMovement) {
+		await applyLiabilitySideEffect(db, liabilityMovement, amount, liability_id);
+	}
+
+	if (envelope_id && typeName === "Expense") {
+		await applyEnvelopeSideEffect(db, amount, envelope_id);
+	}
+
+	if (bill_id && typeName === "Expense") {
+		await applyBillSideEffect(db, amount, bill_id, insertedId);
+	}
+
+	if (asset_id) {
+		await applyAssetSideEffect(
+			db, typeName, amount, asset_id, from_account_id, to_account_id
+		);
+	}
+
+	if (receivable_id && receivable) {
+		await applyReceivableSideEffect(
+			db, typeName, amount, receivable_id, receivable,
+			from_account_id, to_account_id
+		);
+	}
+
+	return insertedId;
+}
+
 // ─── Repository ───────────────────────────────────────────────────────────────
 
 export const TransactionRepository = {
@@ -289,7 +519,7 @@ export const TransactionRepository = {
 		return await db.getAllAsync<Transaction>(query, params);
 	},
 
-	/** Latest transactions in one currency (by their account, asset or receivable). */
+	/** Latest transactions in one currency (by their account, asset, receivable or liability). */
 	async getRecentInCurrency(
 		db: SQLiteDatabase,
 		currency: string,
@@ -301,7 +531,8 @@ export const TransactionRepository = {
 			 LEFT JOIN accounts ta ON ta.id = t.to_account_id
 			 LEFT JOIN assets ast ON ast.id = t.asset_id
 			 LEFT JOIN receivables rcv ON rcv.id = t.receivable_id
-			 WHERE COALESCE(fa.currency, ta.currency, ast.currency, rcv.currency, 'RWF') = ?
+			 LEFT JOIN liabilities lia ON lia.id = t.liability_id
+			 WHERE COALESCE(fa.currency, ta.currency, ast.currency, rcv.currency, lia.currency, 'RWF') = ?
 			 ORDER BY ${LOCAL_DAY_SQL("t.date")} DESC, t.id DESC LIMIT ?`,
 			[currency, limit]
 		);
@@ -325,15 +556,16 @@ export const TransactionRepository = {
 			total: number;
 		}>(
 			`SELECT
-				COALESCE(a.currency, ast.currency, 'RWF') as currency,
+				COALESCE(a.currency, ast.currency, lia.currency, 'RWF') as currency,
 				tt.name as typeName,
 				SUM(t.amount) as total
 			 FROM transactions t
 			 JOIN transaction_types tt ON t.transaction_type_id = tt.id
 			 LEFT JOIN accounts a ON a.id = COALESCE(t.from_account_id, t.to_account_id)
 			 LEFT JOIN assets ast ON ast.id = t.asset_id
+			 LEFT JOIN liabilities lia ON lia.id = t.liability_id
 			 WHERE t.entity_id = ? AND tt.name IN ('Income', 'Expense')
-			 GROUP BY COALESCE(a.currency, ast.currency, 'RWF'), tt.name`,
+			 GROUP BY COALESCE(a.currency, ast.currency, lia.currency, 'RWF'), tt.name`,
 			[entityId]
 		);
 
@@ -361,157 +593,18 @@ export const TransactionRepository = {
 		db: SQLiteDatabase,
 		transaction: Omit<Transaction, "id">
 	): Promise<number> {
-		const {
-			description: rawDescription = "",
-			amount = 0,
-			transaction_type_id = 0,
-			date = toLocalISODate(),
-			category_id = null,
-			asset_id = null,
-			liability_id = null,
-			from_account_id = null,
-			to_account_id = null,
-			envelope_id = null,
-			bill_id = null,
-			receivable_id = null,
-			entity_id = null,
-		} = transaction;
-
-		// ── Step 1: Resolve transaction type name ─────────────────────────────
-		const typeRow = await db.getFirstAsync<{ name: string }>(
-			"SELECT name FROM transaction_types WHERE id = ?",
-			[transaction_type_id]
-		);
-		if (!typeRow) {
-			throw new Error(`Unknown transaction type id: ${transaction_type_id}`);
-		}
-		const typeName = typeRow.name;
-
-		const description = rawDescription.trim()
-			? rawDescription.trim()
-			: await buildFallbackDescription(
-					db,
-					typeName,
-					date,
-					category_id,
-					from_account_id,
-					to_account_id,
-					asset_id,
-					receivable_id
-				);
-
-		// ── Step 2: Pre-fetch and validate — ALL checks before any DB write ───
-		let receivable: ReceivableSnapshot | null = null;
-
-		if (receivable_id) {
-			receivable = await db.getFirstAsync<ReceivableSnapshot>(
-				"SELECT current_balance, status, requires_outflow, principal FROM receivables WHERE id = ?",
-				[receivable_id]
-			);
-			if (!receivable) {
-				throw new Error(`Receivable #${receivable_id} not found`);
-			}
-
-			if (typeName === "Transfer" && from_account_id && !to_account_id) {
-				// Lending path: Account → Receivable
-				if (!receivable.requires_outflow) {
-					throw new Error(
-						"This receivable does not require a lending transfer"
-					);
-				}
-				if (receivable.status !== "Pending") {
-					throw new Error(
-						"Lending transfer is only allowed on Pending receivables"
-					);
-				}
-				if (amount !== receivable.principal) {
-					throw new Error(
-						`Lending amount must equal the principal (${fmt(receivable.principal)})`
-					);
-				}
-			} else if (typeName === "Transfer" && to_account_id && !from_account_id) {
-				// Payment received: Receivable → Account
-				if (receivable.status !== "Active") {
-					throw new Error(
-						`Cannot receive payment on a ${receivable.status} receivable`
-					);
-				}
-				if (amount > receivable.current_balance) {
-					const interestPortion = amount - receivable.current_balance;
-					throw new Error(
-						`Payment (${fmt(amount)}) exceeds remaining balance (${fmt(receivable.current_balance)}). ` +
-						`Record ${fmt(receivable.current_balance)} as the principal payment, ` +
-						`then record ${fmt(interestPortion)} as Interest income separately.`
-					);
-				}
-			}
-		}
-
-		// ── Step 3: Execute all writes atomically ─────────────────────────────
 		let insertedId = 0;
 
 		await db.execAsync("BEGIN");
 		try {
-			const result = await db.runAsync(
-				`INSERT INTO transactions
-					(description, amount, transaction_type_id, date, category_id,
-					 asset_id, liability_id, from_account_id, to_account_id,
-					 envelope_id, bill_id, receivable_id, entity_id)
-				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-				[
-					description,
-					amount,
-					transaction_type_id,
-					date,
-					category_id,
-					asset_id,
-					liability_id,
-					from_account_id,
-					to_account_id,
-					envelope_id,
-					bill_id,
-					receivable_id,
-					entity_id,
-				]
-			);
-			insertedId = result.lastInsertRowId;
-
-			await applyAccountSideEffects(
-				db, typeName, amount, from_account_id, to_account_id
-			);
-
-			if (liability_id && typeName === "Expense") {
-				await applyLiabilitySideEffect(db, amount, liability_id);
-			}
-
-			if (envelope_id && typeName === "Expense") {
-				await applyEnvelopeSideEffect(db, amount, envelope_id);
-			}
-
-			if (bill_id && typeName === "Expense") {
-				await applyBillSideEffect(db, amount, bill_id, insertedId);
-			}
-
-			if (asset_id) {
-				await applyAssetSideEffect(
-					db, typeName, amount, asset_id, from_account_id, to_account_id
-				);
-			}
-
-			if (receivable_id && receivable) {
-				await applyReceivableSideEffect(
-					db, typeName, amount, receivable_id, receivable,
-					from_account_id, to_account_id
-				);
-			}
-
+			insertedId = await insertTransaction(db, transaction);
 			await db.execAsync("COMMIT");
 		} catch (e) {
 			await db.execAsync("ROLLBACK");
 			throw e;
 		}
 
-		// ── Step 4: Notify UI only after a confirmed commit ───────────────────
+		// Notify UI only after a confirmed commit
 		emitEvent(EVENTS.DATA_CHANGED);
 		return insertedId;
 	},
