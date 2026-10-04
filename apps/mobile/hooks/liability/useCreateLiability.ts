@@ -9,12 +9,18 @@ export const useCreateLiability = () => {
 	const [error, setError] = useState<string | null>(null);
 
 	const createLiability = async (
-		liability: Omit<Liability, "id">
+		liability: Omit<Liability, "id">,
+		/** When the loan cash reached an account, records it (and any interest) too. */
+		loan?: { accountId: number; cashReceived: number; chargeCategoryId?: number | null }
 	): Promise<void> => {
 		try {
 			setLoading(true);
 			setError(null);
-			await LiabilityRepository.create(db, liability);
+			if (loan) {
+				await LiabilityRepository.createWithLoan(db, liability, loan);
+			} else {
+				await LiabilityRepository.create(db, liability);
+			}
 		} catch (err: any) {
 			setError(err.message || "Failed to create liability");
 			throw err;

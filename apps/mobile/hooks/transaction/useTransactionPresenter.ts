@@ -13,6 +13,7 @@ interface Lookups {
 	accounts: Record<number, Named>;
 	assets: Record<number, Named>;
 	receivables: Record<number, Named>;
+	liabilities: Record<number, Named>;
 }
 
 const EMPTY: Lookups = {
@@ -21,10 +22,11 @@ const EMPTY: Lookups = {
 	accounts: {},
 	assets: {},
 	receivables: {},
+	liabilities: {},
 };
 
 const loadLookups = async (db: SQLiteDatabase): Promise<Lookups> => {
-	const [types, categories, accounts, assets, receivables] = await Promise.all([
+	const [types, categories, accounts, assets, receivables, liabilities] = await Promise.all([
 		db.getAllAsync<{ id: number; name: string }>("SELECT id, name FROM transaction_types"),
 		db.getAllAsync<{ id: number; name: string }>("SELECT id, name FROM categories"),
 		db.getAllAsync<{ id: number; name: string; currency: string }>(
@@ -36,6 +38,9 @@ const loadLookups = async (db: SQLiteDatabase): Promise<Lookups> => {
 		db.getAllAsync<{ id: number; name: string; currency: string }>(
 			"SELECT id, title AS name, currency FROM receivables"
 		),
+		db.getAllAsync<{ id: number; name: string; currency: string }>(
+			"SELECT id, name, currency FROM liabilities"
+		),
 	]);
 	const byId = <T extends { id: number }, V>(rows: T[], map: (r: T) => V) =>
 		Object.fromEntries(rows.map((r) => [r.id, map(r)])) as Record<number, V>;
@@ -45,6 +50,7 @@ const loadLookups = async (db: SQLiteDatabase): Promise<Lookups> => {
 		accounts: byId(accounts, (r) => ({ name: r.name, currency: r.currency })),
 		assets: byId(assets, (r) => ({ name: r.name, currency: r.currency })),
 		receivables: byId(receivables, (r) => ({ name: r.name, currency: r.currency })),
+		liabilities: byId(liabilities, (r) => ({ name: r.name, currency: r.currency })),
 	};
 };
 
@@ -82,12 +88,13 @@ export function useTransactionPresenter() {
 			const account = (id?: number | null) => (id ? lookups.accounts[id] : undefined);
 			const asset = tx.asset_id ? lookups.assets[tx.asset_id] : undefined;
 			const receivable = tx.receivable_id ? lookups.receivables[tx.receivable_id] : undefined;
+			const liability = tx.liability_id ? lookups.liabilities[tx.liability_id] : undefined;
 			const from = account(tx.from_account_id);
 			const to = account(tx.to_account_id);
 			const categoryName = tx.category_id ? lookups.categories[tx.category_id] ?? "" : "";
 
 			const currency =
-				from?.currency ?? to?.currency ?? asset?.currency ?? receivable?.currency ?? "RWF";
+				from?.currency ?? to?.currency ?? asset?.currency ?? receivable?.currency ?? liability?.currency ?? "RWF";
 
 			let fromLabel = "";
 			let toLabel = "";
@@ -95,7 +102,7 @@ export function useTransactionPresenter() {
 			let icon: IconName;
 
 			if (kind === "transfer") {
-				const counterpart = receivable?.name ?? asset?.name ?? "";
+				const counterpart = liability?.name ?? receivable?.name ?? asset?.name ?? "";
 				fromLabel = from?.name ?? counterpart;
 				toLabel = to?.name ?? counterpart;
 				if (!from && !to && asset) {
@@ -103,10 +110,12 @@ export function useTransactionPresenter() {
 					icon = "autorenew";
 				} else {
 					subtitle = `${fromLabel || "—"} → ${toLabel || "—"}`;
-					icon = receivable ? "hand-coin-outline" : asset ? "chart-line" : "swap-horizontal";
+					icon = liability ? "credit-card-clock-outline" : receivable ? "hand-coin-outline" : asset ? "chart-line" : "swap-horizontal";
 				}
 			} else {
-				const accountName = (from ?? to)?.name ?? asset?.name ?? "";
+				// A charge has no account: it is "paid from" the debt it adds to.
+				const accountName =
+					(from ?? to)?.name ?? asset?.name ?? (liability ? `${liability.name} (debt)` : "");
 				fromLabel = kind === "expense" ? accountName : "";
 				toLabel = kind === "income" ? accountName : "";
 				subtitle = [categoryName, accountName].filter(Boolean).join(" · ");
@@ -114,7 +123,7 @@ export function useTransactionPresenter() {
 			}
 
 			const linkCount = [
-				tx.liability_id,
+				kind !== "transfer" ? tx.liability_id : null,
 				tx.envelope_id,
 				tx.bill_id,
 				tx.entity_id,

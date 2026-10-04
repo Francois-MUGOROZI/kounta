@@ -25,7 +25,7 @@ import { useGetTransactionTypes } from "../../hooks/transactionType/useGetTransa
 import { useGetAccounts } from "../../hooks/account/useGetAccounts";
 import { useGetCategories } from "../../hooks/category/useGetCategories";
 import { useGetAssets } from "../../hooks/asset/useGetAssets";
-import { useGetActiveLiabilities } from "../../hooks/liability/useGetActiveLiabilities";
+import { useGetLiabilities } from "../../hooks/liability/useGetLiabilities";
 import { useGetEnvelopes } from "../../hooks/envelope/useGetEnvelope";
 import { useGetBills } from "../../hooks/bill/useGetBills";
 import { useGetReceivables } from "../../hooks/receivable/useGetReceivables";
@@ -39,7 +39,8 @@ export type TransferDirection =
 	| "asset-to-account"
 	| "reinvest-into-asset"
 	| "account-to-receivable"
-	| "receivable-to-account";
+	| "receivable-to-account"
+	| "account-to-liability";
 
 export interface TransactionPreset {
 	type?: TransactionKindName;
@@ -63,6 +64,7 @@ const DIRECTIONS: Option<TransferDirection>[] = [
 	{ value: "reinvest-into-asset", label: "Reinvest returns", description: "Earnings kept inside the asset", icon: "autorenew" },
 	{ value: "account-to-receivable", label: "Lend money", description: "Account → receivable (activates it)", icon: "hand-coin-outline" },
 	{ value: "receivable-to-account", label: "Receive a repayment", description: "Receivable → account", icon: "cash-check" },
+	{ value: "account-to-liability", label: "Pay back a liability", description: "Account → liability (reduces what you owe)", icon: "credit-card-clock-outline" },
 ];
 
 const TYPE_ICONS: Record<TransactionKindName, IconName> = {
@@ -79,7 +81,7 @@ interface FormBodyProps {
 }
 
 type Errors = Partial<
-	Record<"amount" | "category" | "account" | "from" | "to" | "asset" | "receivable", string>
+	Record<"amount" | "category" | "account" | "from" | "to" | "asset" | "receivable" | "liability", string>
 >;
 
 const TRANSFER_MESSAGES: Record<TransferDirection, string> = {
@@ -89,6 +91,7 @@ const TRANSFER_MESSAGES: Record<TransferDirection, string> = {
 	"reinvest-into-asset": "Reinvestment recorded",
 	"account-to-receivable": "Loan recorded",
 	"receivable-to-account": "Repayment recorded",
+	"account-to-liability": "Payment recorded",
 };
 
 const successMessageFor = (type: TransactionKindName, direction: TransferDirection, paidBill: boolean) => {
@@ -110,7 +113,7 @@ const FormBody: React.FC<FormBodyProps> = ({ preset, onCancel, onSubmit }) => {
 	const { accounts } = useGetAccounts();
 	const { categories } = useGetCategories();
 	const { assets } = useGetAssets();
-	const { liabilities } = useGetActiveLiabilities();
+	const { liabilities } = useGetLiabilities();
 	const { envelopes } = useGetEnvelopes();
 	const { bills } = useGetBills(undefined, true);
 	const { receivables } = useGetReceivables();
@@ -148,7 +151,7 @@ const FormBody: React.FC<FormBodyProps> = ({ preset, onCancel, onSubmit }) => {
 	const [categoryId, setCategoryId] = useState<number | null>(preset.categoryId ?? null);
 	const initialType = preset.type ?? "Expense";
 	const transferFromSide =
-		["account-to-account", "account-to-asset", "account-to-receivable"].includes(
+		["account-to-account", "account-to-asset", "account-to-receivable", "account-to-liability"].includes(
 			preset.transferDirection ?? "account-to-account"
 		);
 	const [fromAccountId, setFromAccountId] = useState<number | null>(
@@ -248,13 +251,16 @@ const FormBody: React.FC<FormBodyProps> = ({ preset, onCancel, onSubmit }) => {
 
 	const liabilityOptions = useMemo<Option<number>[]>(
 		() =>
-			liabilities.map((l) => ({
-				value: l.id,
-				label: l.name,
-				trailing: formatAmount(l.current_balance, l.currency),
-				icon: "credit-card-clock-outline",
-			})),
-		[liabilities]
+			liabilities
+				// Only debts with something left to pay back, plus one opened from its own page.
+				.filter((l) => l.current_balance > 0 || l.id === preset.liabilityId)
+				.map((l) => ({
+					value: l.id,
+					label: l.name,
+					trailing: formatAmount(l.current_balance, l.currency),
+					icon: "credit-card-clock-outline",
+				})),
+		[liabilities, preset.liabilityId]
 	);
 
 	const billOptions = useMemo<Option<number>[]>(
@@ -279,10 +285,13 @@ const FormBody: React.FC<FormBodyProps> = ({ preset, onCancel, onSubmit }) => {
 	);
 
 	const isTransfer = type === "Transfer";
+	// An expense on a liability is a charge (interest, fee, penalty): it adds to the debt, no account pays it.
+	// Only possible when opened from a liability's page ("Add charge").
+	const isLiabilityCharge = type === "Expense" && locked.liability && !!liabilityId;
 	const showFrom =
 		!isTransfer
-			? type === "Expense"
-			: ["account-to-account", "account-to-asset", "account-to-receivable"].includes(direction);
+			? type === "Expense" && !isLiabilityCharge
+			: ["account-to-account", "account-to-asset", "account-to-receivable", "account-to-liability"].includes(direction);
 	const showTo =
 		!isTransfer
 			? type === "Income"
@@ -292,19 +301,23 @@ const FormBody: React.FC<FormBodyProps> = ({ preset, onCancel, onSubmit }) => {
 		["account-to-asset", "asset-to-account", "reinvest-into-asset"].includes(direction);
 	const showReceivable =
 		isTransfer && ["account-to-receivable", "receivable-to-account"].includes(direction);
+	const showLiabilityForTransfer = isTransfer && direction === "account-to-liability";
 
 	const currency = useMemo(() => {
-		const acc = accounts.find((a) => a.id === (fromAccountId ?? toAccountId));
+		// A charge is in the liability's currency; any remembered account is ignored.
+		const acc = isLiabilityCharge ? undefined : accounts.find((a) => a.id === (fromAccountId ?? toAccountId));
 		if (acc) return acc.currency;
 		const ast = assets.find((a) => a.id === assetId);
 		if (ast) return ast.currency;
 		const rcv = receivables.find((r) => r.id === receivableId);
 		if (rcv) return rcv.currency;
+		const lia = liabilities.find((l) => l.id === liabilityId);
+		if (lia) return lia.currency;
 		// Nothing chosen yet: use the currency most accounts are in.
 		const counts: Record<string, number> = {};
 		accounts.forEach((a) => (counts[a.currency] = (counts[a.currency] ?? 0) + 1));
 		return Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0] ?? "RWF";
-	}, [accounts, assets, receivables, fromAccountId, toAccountId, assetId, receivableId]);
+	}, [accounts, assets, receivables, liabilities, fromAccountId, toAccountId, assetId, receivableId, liabilityId, isLiabilityCharge]);
 
 	// With a single account there's nothing to choose (account-to-account needs two).
 	useEffect(() => {
@@ -322,10 +335,15 @@ const FormBody: React.FC<FormBodyProps> = ({ preset, onCancel, onSubmit }) => {
 	}, [direction, receivableId, receivables]);
 
 	const repaymentHint = useMemo(() => {
-		if (direction !== "receivable-to-account" || !isTransfer) return undefined;
+		if (!isTransfer) return undefined;
+		if (direction === "account-to-liability") {
+			const lia = liabilities.find((l) => l.id === liabilityId);
+			return lia ? `Still owed: ${formatAmount(lia.current_balance, lia.currency)}` : undefined;
+		}
+		if (direction !== "receivable-to-account") return undefined;
 		const rcv = receivables.find((r) => r.id === receivableId);
 		return rcv ? `Outstanding: ${formatAmount(rcv.current_balance, rcv.currency)}` : undefined;
-	}, [direction, isTransfer, receivables, receivableId]);
+	}, [direction, isTransfer, receivables, receivableId, liabilities, liabilityId]);
 
 	const currencyMismatch = useMemo(() => {
 		if (!isTransfer || direction !== "account-to-account") return false;
@@ -335,7 +353,7 @@ const FormBody: React.FC<FormBodyProps> = ({ preset, onCancel, onSubmit }) => {
 	}, [isTransfer, direction, accounts, fromAccountId, toAccountId]);
 
 	const directionHasFrom = (d: TransferDirection) =>
-		["account-to-account", "account-to-asset", "account-to-receivable"].includes(d);
+		["account-to-account", "account-to-asset", "account-to-receivable", "account-to-liability"].includes(d);
 
 	/** Puts the locked account on the side the type/direction uses. */
 	const placeLockedAccount = (nextType: TransactionKindName, nextDirection: TransferDirection) => {
@@ -368,9 +386,10 @@ const FormBody: React.FC<FormBodyProps> = ({ preset, onCancel, onSubmit }) => {
 		}
 		if (next !== "Expense") {
 			if (!locked.envelope) setEnvelopeId(null);
-			if (!locked.liability) setLiabilityId(null);
 			if (!locked.bill) setBillId(null);
 		}
+		// A liability picked for a transfer must not carry over into another type.
+		if (!locked.liability) setLiabilityId(null);
 		if (next === "Transfer") {
 			setDirection(nextDirection);
 			if (!locked.asset) setAssetId(null);
@@ -389,6 +408,7 @@ const FormBody: React.FC<FormBodyProps> = ({ preset, onCancel, onSubmit }) => {
 		}
 		if (!locked.asset) setAssetId(null);
 		if (!locked.receivable) setReceivableId(null);
+		if (!locked.liability) setLiabilityId(null);
 		setErrors({});
 	};
 
@@ -399,6 +419,7 @@ const FormBody: React.FC<FormBodyProps> = ({ preset, onCancel, onSubmit }) => {
 				if (locked.account && d.value === "reinvest-into-asset") return false;
 				if (locked.asset && !["account-to-asset", "asset-to-account", "reinvest-into-asset"].includes(d.value)) return false;
 				if (locked.receivable && !["account-to-receivable", "receivable-to-account"].includes(d.value)) return false;
+				if (locked.liability && d.value !== "account-to-liability") return false;
 				return true;
 			}),
 		// eslint-disable-next-line react-hooks/exhaustive-deps
@@ -416,9 +437,10 @@ const FormBody: React.FC<FormBodyProps> = ({ preset, onCancel, onSubmit }) => {
 				e.to = "Pick a different account";
 			if (showAssetForTransfer && !assetId) e.asset = "Choose an asset";
 			if (showReceivable && !receivableId) e.receivable = "Choose a receivable";
+			if (showLiabilityForTransfer && !liabilityId) e.liability = "Choose a liability";
 		} else {
 			if (!categoryId) e.category = "Choose a category";
-			if (!fromAccountId && !toAccountId) e.account = "Choose an account";
+			if (!isLiabilityCharge && !fromAccountId && !toAccountId) e.account = "Choose an account";
 		}
 		return e;
 	};
@@ -427,7 +449,7 @@ const FormBody: React.FC<FormBodyProps> = ({ preset, onCancel, onSubmit }) => {
 	useEffect(() => {
 		if (attempted) setErrors(validate());
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [attempted, amount, categoryId, fromAccountId, toAccountId, assetId, receivableId, direction, type]);
+	}, [attempted, amount, categoryId, fromAccountId, toAccountId, assetId, receivableId, liabilityId, direction, type]);
 
 	const handleSave = async () => {
 		setAttempted(true);
@@ -459,15 +481,17 @@ const FormBody: React.FC<FormBodyProps> = ({ preset, onCancel, onSubmit }) => {
 			} else if (direction === "account-to-receivable") {
 				from = toId(fromAccountId);
 				receivable = toId(receivableId);
-			} else {
+			} else if (direction === "receivable-to-account") {
 				to = toId(toAccountId);
 				receivable = toId(receivableId);
+			} else {
+				from = toId(fromAccountId);
 			}
 		} else if (type === "Income") {
 			to = toId(toAccountId);
 			asset = toId(assetId);
 		} else {
-			from = toId(fromAccountId);
+			from = isLiabilityCharge ? undefined : toId(fromAccountId);
 			asset = toId(assetId);
 		}
 
@@ -484,8 +508,8 @@ const FormBody: React.FC<FormBodyProps> = ({ preset, onCancel, onSubmit }) => {
 					date,
 					asset_id: asset,
 					receivable_id: receivable,
-					liability_id: type === "Expense" ? toId(liabilityId) : undefined,
-					envelope_id: type === "Expense" ? toId(envelopeId) : undefined,
+					liability_id: isLiabilityCharge || showLiabilityForTransfer ? toId(liabilityId) : undefined,
+					envelope_id: type === "Expense" && !isLiabilityCharge ? toId(envelopeId) : undefined,
 					bill_id: type === "Expense" ? toId(billId) : undefined,
 					entity_id: !isTransfer ? toId(entityId) : undefined,
 				},
@@ -587,6 +611,19 @@ const FormBody: React.FC<FormBodyProps> = ({ preset, onCancel, onSubmit }) => {
 				/>
 			) : null}
 
+			{showLiabilityForTransfer ? (
+				<SelectField
+					label="Paying back"
+					value={liabilityId}
+					options={liabilityOptions}
+					onChange={setLiabilityId}
+					icon="credit-card-clock-outline"
+					locked={locked.liability}
+					error={errors.liability}
+					emptyMessage="No liabilities with a balance to pay back."
+				/>
+			) : null}
+
 			{showAssetForTransfer ? (
 				<SelectField
 					label={direction === "asset-to-account" ? "From asset" : "Asset"}
@@ -614,7 +651,8 @@ const FormBody: React.FC<FormBodyProps> = ({ preset, onCancel, onSubmit }) => {
 				/>
 			) : null}
 
-			{type === "Expense" ? (
+			{/* A charge isn't paid from anything, so no envelope either. */}
+			{type === "Expense" && !isLiabilityCharge ? (
 				<SelectField
 					label="Envelope (optional)"
 					value={envelopeId}
@@ -681,7 +719,7 @@ const FormBody: React.FC<FormBodyProps> = ({ preset, onCancel, onSubmit }) => {
 					>
 						<MaterialCommunityIcons name="link-variant" size={18} color={theme.colors.primary} />
 						<Text variant="labelLarge" style={{ color: theme.colors.primary, flex: 1, marginLeft: spacing.sm }}>
-							{`Link to an asset, entity${type === "Expense" ? " or liability" : ""}`}
+							Link to an asset or entity
 							{moreCount ? ` (${moreCount})` : ""}
 						</Text>
 						<MaterialCommunityIcons
@@ -712,31 +750,27 @@ const FormBody: React.FC<FormBodyProps> = ({ preset, onCancel, onSubmit }) => {
 								clearable
 								emptyMessage="No entities yet. Add them under More › Entities."
 							/>
-							{type === "Expense" ? (
-								<>
-									<SelectField
-										label="Liability"
-										value={liabilityId}
-										options={liabilityOptions}
-										onChange={setLiabilityId}
-										icon="credit-card-clock-outline"
-										locked={locked.liability}
-										clearable
-										helper={liabilityId ? "This expense reduces what you still owe." : undefined}
-										emptyMessage="No active liabilities."
-									/>
-									{/* Bills are only linked when paying one from the Bills screen. */}
-									{locked.bill ? (
-										<SelectField
-											label="Bill"
-											value={billId}
-											options={billOptions}
-											onChange={setBillId}
-											icon="calendar-clock-outline"
-											locked
-										/>
-									) : null}
-								</>
+							{/* Bills and liabilities are only linked when the form is opened from their
+							    own screen; a liability here means a charge, which a bill can't be. */}
+							{type !== "Expense" ? null : locked.bill ? (
+								<SelectField
+									label="Bill"
+									value={billId}
+									options={billOptions}
+									onChange={setBillId}
+									icon="calendar-clock-outline"
+									locked
+								/>
+							) : locked.liability ? (
+								<SelectField
+									label="Charge on liability"
+									value={liabilityId}
+									options={liabilityOptions}
+									onChange={setLiabilityId}
+									icon="credit-card-clock-outline"
+									locked
+									helper="Interest, fees or penalties the lender adds — increases what you owe, pays nothing."
+								/>
 							) : null}
 						</View>
 					) : null}

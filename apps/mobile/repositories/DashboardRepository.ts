@@ -8,13 +8,14 @@ import type {
 import { addDays, format } from "date-fns";
 import { LOCAL_DAY_SQL } from "../utils/date";
 
-// Currency of a transaction: its account, else its asset, else its receivable.
-export const TX_CURRENCY_SQL = `COALESCE(fa.currency, ta.currency, ast.currency, rcv.currency)`;
+// Currency of a transaction: its account, else its asset, else its receivable, else its liability.
+export const TX_CURRENCY_SQL = `COALESCE(fa.currency, ta.currency, ast.currency, rcv.currency, lia.currency)`;
 export const TX_CURRENCY_JOINS = `
 	LEFT JOIN accounts fa ON fa.id = t.from_account_id
 	LEFT JOIN accounts ta ON ta.id = t.to_account_id
 	LEFT JOIN assets ast ON ast.id = t.asset_id
-	LEFT JOIN receivables rcv ON rcv.id = t.receivable_id`;
+	LEFT JOIN receivables rcv ON rcv.id = t.receivable_id
+	LEFT JOIN liabilities lia ON lia.id = t.liability_id`;
 
 export const DashboardRepository = {
 	// Get all top-level stats grouped by currency
@@ -42,7 +43,7 @@ export const DashboardRepository = {
 			`SELECT a.currency, SUM(t.amount) as totalIncome FROM transactions t JOIN accounts a ON t.to_account_id = a.id WHERE t.transaction_type_id = (SELECT id FROM transaction_types WHERE name = 'Income') GROUP BY a.currency`
 		);
 		const expenses = await db.getAllAsync(
-			`SELECT a.currency, SUM(t.amount) as totalExpenses FROM transactions t JOIN accounts a ON t.from_account_id = a.id WHERE t.transaction_type_id = (SELECT id FROM transaction_types WHERE name = 'Expense') GROUP BY a.currency`
+			`SELECT ${TX_CURRENCY_SQL} as currency, SUM(t.amount) as totalExpenses FROM transactions t ${TX_CURRENCY_JOINS} WHERE t.transaction_type_id = (SELECT id FROM transaction_types WHERE name = 'Expense') GROUP BY ${TX_CURRENCY_SQL}`
 		);
 
 		const unpaidBills = await db.getAllAsync(
@@ -150,7 +151,7 @@ export const DashboardRepository = {
 		const start = format(new Date(now.getFullYear(), now.getMonth(), 1), "yyyy-MM-dd");
 		const end = format(new Date(now.getFullYear(), now.getMonth() + 1, 0), "yyyy-MM-dd");
 		return await db.getAllAsync(
-			`SELECT c.name as category, SUM(t.amount) as total, a.currency FROM transactions t JOIN categories c ON t.category_id = c.id JOIN accounts a ON t.from_account_id = a.id WHERE t.transaction_type_id = (SELECT id FROM transaction_types WHERE name = 'Expense') AND a.currency = ? AND t.date >= ? AND t.date <= ? GROUP BY c.name, a.currency`,
+			`SELECT c.name as category, SUM(t.amount) as total, ${TX_CURRENCY_SQL} as currency FROM transactions t JOIN categories c ON t.category_id = c.id ${TX_CURRENCY_JOINS} WHERE t.transaction_type_id = (SELECT id FROM transaction_types WHERE name = 'Expense') AND ${TX_CURRENCY_SQL} = ? AND t.date >= ? AND t.date <= ? GROUP BY c.name, ${TX_CURRENCY_SQL}`,
 			[currency, start, end]
 		);
 	},
@@ -159,7 +160,7 @@ export const DashboardRepository = {
 		db: SQLiteDatabase
 	): Promise<CategoryTotal[]> {
 		return await db.getAllAsync(
-			`SELECT c.name as category, SUM(t.amount) as total, COALESCE(a.currency, ast.currency) as currency FROM transactions t JOIN categories c ON t.category_id = c.id LEFT JOIN accounts a ON t.from_account_id = a.id LEFT JOIN assets ast ON t.asset_id = ast.id WHERE t.transaction_type_id = (SELECT id FROM transaction_types WHERE name = 'Expense') GROUP BY c.name, COALESCE(a.currency, ast.currency) ORDER BY total DESC`
+			`SELECT c.name as category, SUM(t.amount) as total, ${TX_CURRENCY_SQL} as currency FROM transactions t JOIN categories c ON t.category_id = c.id ${TX_CURRENCY_JOINS} WHERE t.transaction_type_id = (SELECT id FROM transaction_types WHERE name = 'Expense') GROUP BY c.name, ${TX_CURRENCY_SQL} ORDER BY total DESC`
 		);
 	},
 	// Income by category (this month, per currency)

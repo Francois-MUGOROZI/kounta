@@ -18,6 +18,9 @@ import { useCreateLiability } from "../hooks/liability/useCreateLiability";
 import { useUpdateLiability } from "../hooks/liability/useUpdateLiability";
 import { useGetLiabilityTypes } from "../hooks/liabilityType/useGetLiabilityTypes";
 import { useGetEntities } from "../hooks/entity/useGetEntities";
+import { useGetAccounts } from "../hooks/account/useGetAccounts";
+import { useGetCategories } from "../hooks/category/useGetCategories";
+import { useGetTransactionTypes } from "../hooks/transactionType/useGetTransactionTypes";
 import { getLiabilityTypeIcon } from "../constants/typeIcons";
 import { Liability, RootStackParamList } from "../types";
 import { formatAmount, formatCompactAmount } from "../utils/currency";
@@ -101,6 +104,14 @@ const LiabilitiesScreen = () => {
 	const { liabilities, loading, error, refresh, refreshing, pullToRefresh } = useGetLiabilities();
 	const { liabilityTypes } = useGetLiabilityTypes();
 	const { entities } = useGetEntities();
+	const { accounts } = useGetAccounts();
+	const { categories } = useGetCategories();
+	const { transactionTypes } = useGetTransactionTypes();
+	const expenseTypeId = transactionTypes.find((t) => t.name === "Expense")?.id;
+	const expenseCategories = useMemo(
+		() => categories.filter((c) => c.transaction_type_id === expenseTypeId),
+		[categories, expenseTypeId]
+	);
 	const { createLiability } = useCreateLiability();
 	const { updateLiability } = useUpdateLiability();
 	const [formVisible, setFormVisible] = useState(false);
@@ -148,7 +159,13 @@ const LiabilitiesScreen = () => {
 			await updateLiability(editing.id, values);
 			toast.success("Liability updated");
 		} else {
-			await createLiability({ ...values, created_at: new Date().toISOString() });
+			const { account_id, cash_received, charge_category_id, ...liability } = values;
+			await createLiability(
+				{ ...liability, created_at: new Date().toISOString() },
+				account_id && cash_received
+					? { accountId: account_id, cashReceived: cash_received, chargeCategoryId: charge_category_id }
+					: undefined
+			);
 			toast.success(`${values.name} added`);
 		}
 		setFormVisible(false);
@@ -285,6 +302,8 @@ const LiabilitiesScreen = () => {
 				onDismiss={() => setFormVisible(false)}
 				liabilityTypes={liabilityTypes}
 				entities={entities}
+				accounts={accounts}
+				expenseCategories={expenseCategories}
 				liability={editing}
 				onSubmit={handleSubmit}
 			/>
