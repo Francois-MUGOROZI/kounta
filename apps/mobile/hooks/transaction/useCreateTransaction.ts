@@ -9,12 +9,13 @@ export const useCreateTransaction = () => {
 	const [error, setError] = useState<string | null>(null);
 
 	const createTransaction = async (
-		transaction: Omit<Transaction, "id">
+		transaction: Omit<Transaction, "id">,
+		tags: string[] = []
 	): Promise<void> => {
 		try {
 			setLoading(true);
 			setError(null);
-			await TransactionRepository.create(db, transaction);
+			await TransactionRepository.create(db, transaction, tags);
 		} catch (err: any) {
 			setError(err.message || "Failed to create transaction");
 			throw err;

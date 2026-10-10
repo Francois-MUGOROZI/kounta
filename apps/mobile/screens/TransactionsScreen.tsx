@@ -25,6 +25,7 @@ import type { IconName } from "../components/ui/icons";
 import { useGetTransactions } from "../hooks/transaction/useGetTransactions";
 import { useGetTransactionTypes } from "../hooks/transactionType/useGetTransactionTypes";
 import { useGetCategories } from "../hooks/category/useGetCategories";
+import { useGetTags } from "../hooks/tag/useGetTags";
 import { useTransactionComposer } from "../contexts/TransactionComposer";
 import { fontFamily, radius, spacing, useKTheme, tabularNums } from "../theme/theme";
 import { formatCompactAmount } from "../utils/currency";
@@ -119,15 +120,19 @@ const TransactionsScreen = () => {
 	const { transactionTypes } = useGetTransactionTypes();
 	const { accounts } = useGetAccounts();
 	const { categories } = useGetCategories();
+	const { tags } = useGetTags();
 
 	const [period, setPeriod] = useState<Period>({ mode: "month", anchor: new Date() });
 	const [kind, setKind] = useState<KindFilter>("all");
 	const [categoryId, setCategoryId] = useState<number | null>(null);
+	const [tagId, setTagId] = useState<number | null>(null);
 	const [query, setQuery] = useState("");
 	const [periodSheet, setPeriodSheet] = useState(false);
 	const [categorySheet, setCategorySheet] = useState(false);
+	const [tagSheet, setTagSheet] = useState(false);
 	const periodAnchor = useRef<View>(null);
 	const categoryAnchor = useRef<View>(null);
+	const tagAnchor = useRef<View>(null);
 	const [rangePicker, setRangePicker] = useState(false);
 	const [fabExtended, setFabExtended] = useState(true);
 
@@ -138,8 +143,9 @@ const TransactionsScreen = () => {
 			...periodRange(period),
 			transactionTypeId: typeId,
 			categoryId: categoryId ?? undefined,
+			tagId: tagId ?? undefined,
 		};
-	}, [period, kind, categoryId, transactionTypes]);
+	}, [period, kind, categoryId, tagId, transactionTypes]);
 
 	const { transactions, loading, error, refresh, refreshing, pullToRefresh } =
 		useGetTransactions(filter);
@@ -214,7 +220,18 @@ const TransactionsScreen = () => {
 	}, [categories, kind, transactionTypes]);
 
 	const selectedCategory = categories.find((c) => c.id === categoryId);
-	const hasFilters = kind !== "all" || !!categoryId || !!query;
+	const selectedTag = tags.find((t) => t.id === tagId);
+	const tagOptions = useMemo(
+		() =>
+			tags.map((t) => ({
+				value: t.id,
+				label: t.name,
+				trailing: String(t.usage),
+				icon: "tag-outline" as const,
+			})),
+		[tags]
+	);
+	const hasFilters = kind !== "all" || !!categoryId || !!tagId || !!query;
 
 	const header = (
 		<View>
@@ -352,6 +369,17 @@ const TransactionsScreen = () => {
 						/>
 					</View>
 				) : null}
+				{tags.length > 0 ? (
+					<View ref={tagAnchor} collapsable={false}>
+						<Chip
+							label={selectedTag ? selectedTag.name : "Tag"}
+							icon="tag-outline"
+							trailingIcon="chevron-down"
+							active={!!tagId}
+							onPress={() => setTagSheet(true)}
+						/>
+					</View>
+				) : null}
 			</ScrollView>
 		</View>
 	);
@@ -381,6 +409,7 @@ const TransactionsScreen = () => {
 					onAction={() => {
 						setKind("all");
 						setCategoryId(null);
+						setTagId(null);
 						setQuery("");
 					}}
 				/>
@@ -468,6 +497,20 @@ const TransactionsScreen = () => {
 				onSelect={(v) => {
 					setCategoryId(v);
 					setCategorySheet(false);
+				}}
+			/>
+
+			<Dropdown
+				visible={tagSheet}
+				onDismiss={() => setTagSheet(false)}
+				anchor={tagAnchor}
+				minWidth={220}
+				options={tagOptions}
+				selected={tagId}
+				clearable
+				onSelect={(v) => {
+					setTagId(v);
+					setTagSheet(false);
 				}}
 			/>
 

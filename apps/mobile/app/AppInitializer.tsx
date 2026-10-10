@@ -1,11 +1,12 @@
 import React, { useEffect } from "react";
 import { StyleSheet, View } from "react-native";
-import { ActivityIndicator, Text } from "react-native-paper";
+import { Text } from "react-native-paper";
 import * as SplashScreen from "expo-splash-screen";
 import { useDatabaseInitialization } from "../database";
 import AppNavigator from "@/navigation";
 import { useCheckOverdueBills } from "@/hooks/useDatabase";
 import EmptyState from "@/components/ui/EmptyState";
+import LaunchScreen from "@/components/LaunchScreen";
 import { spacing, useKTheme } from "@/theme/theme";
 import { TransactionComposerProvider } from "@/contexts/TransactionComposer";
 
@@ -21,23 +22,15 @@ const AppInitializer: React.FC = () => {
 		}
 	}, [isInitialized, checkOverdueBills]);
 
+	// Fallback for a start fast enough to skip the launch screen's layout.
 	useEffect(() => {
 		if (!isInitializing) {
 			SplashScreen.hideAsync().catch(() => {});
 		}
 	}, [isInitializing]);
 
-	// Normally hidden behind the native splash; shown if initialising runs long.
-	if (isInitializing) {
-		return (
-			<View style={[styles.center, styles.loading, { backgroundColor: theme.colors.background }]}>
-				<Text variant="headlineMedium" style={{ color: theme.colors.primary }}>
-					Kounta
-				</Text>
-				<ActivityIndicator color={theme.colors.primary} style={{ marginTop: spacing.lg }} />
-			</View>
-		);
-	}
+	// Takes over from the native splash, which it hides once on screen.
+	if (isInitializing) return <LaunchScreen />;
 
 	if (error || !isInitialized) {
 		return (
@@ -76,9 +69,6 @@ const styles = StyleSheet.create({
 		flex: 1,
 		justifyContent: "center",
 		padding: spacing.xxl,
-	},
-	loading: {
-		alignItems: "center",
 	},
 	footnote: {
 		textAlign: "center",

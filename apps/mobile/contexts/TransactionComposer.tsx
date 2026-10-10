@@ -36,9 +36,9 @@ export const TransactionComposerProvider: React.FC<{ children: React.ReactNode }
 				visible={visible}
 				preset={preset}
 				onDismiss={() => setVisible(false)}
-				onSubmit={async (tx, successMessage) => {
+				onSubmit={async (tx, successMessage, tags) => {
 					// Errors propagate to the form, which keeps the user's input.
-					await createTransaction(tx);
+					await createTransaction(tx, tags);
 					setVisible(false);
 					toast.success(successMessage);
 				}}

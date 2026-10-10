@@ -2,7 +2,7 @@
 	"expo": {
 		"name": "Kounta",
 		"slug": "kounta",
-		"version": "3.2.0",
+		"version": "3.3.0",
 		"orientation": "portrait",
 		"icon": "./assets/images/icon.png",
 		"scheme": "kounta",
@@ -29,13 +29,21 @@
 			"expo-router",
 			"expo-build-properties",
 			[
+				"./plugins/withSplashBranding",
+				{
+					"image": "./assets/images/splash-branding.png",
+					"darkImage": "./assets/images/splash-branding-dark.png"
+				}
+			],
+			[
 				"expo-splash-screen",
 				{
 					"image": "./assets/images/splash-icon.png",
 					"imageWidth": 200,
 					"resizeMode": "contain",
-					"backgroundColor": "#ffffff",
+					"backgroundColor": "#F4F7F5",
 					"dark": {
+						"image": "./assets/images/splash-icon-dark.png",
 						"backgroundColor": "#0B0B0D"
 					}
 				}
