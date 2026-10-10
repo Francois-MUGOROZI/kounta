@@ -14,12 +14,10 @@ import { AppTheme, radius, spacing, useKTheme } from "../theme/theme";
 /* ───────────── Shared receivable presentation helpers ───────────── */
 
 export const RECEIVABLE_TYPES: Option<ReceivableType>[] = [
-	{ value: "Personal-Loan", label: "Personal loan", icon: "account-cash-outline" },
-	{ value: "IOU", label: "IOU", icon: "handshake-outline" },
-	{ value: "Salary", label: "Salary", icon: "briefcase-outline" },
-	{ value: "Refund", label: "Refund", icon: "cash-refund" },
-	{ value: "Deposit", label: "Deposit", icon: "safe" },
-	{ value: "Interest", label: "Interest", icon: "percent-outline" },
+	{ value: "Loan", label: "Loan", description: "Money you lent", icon: "account-cash-outline" },
+	{ value: "Accrued-Income", label: "Accrued income", description: "Earned, not yet paid: salary, invoices, interest", icon: "briefcase-outline" },
+	{ value: "Refund", label: "Refund", description: "Money owed back to you", icon: "cash-refund" },
+	{ value: "Refundable-Deposit", label: "Refundable deposit", description: "Security deposit you'll get back: rent, utilities", icon: "safe" },
 ];
 
 export const receivableTypeLabel = (type: ReceivableType) =>

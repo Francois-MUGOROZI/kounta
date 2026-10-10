@@ -25,7 +25,7 @@ Receivables are "Asset Accounts" representing money owed to you. They are separa
 | id | UUID | Primary Key. |
 | entity\_id | FK | Links to the **Entity**. |
 | title | String | e.g., "January Salary", "Laptop Loan". |
-| type | Enum | SALARY, PERSONAL-LOAN, REFUND, DEPOSIT, IOU, INTEREST. |
+| type | Enum | LOAN, ACCRUED-INCOME, REFUND, REFUNDABLE-DEPOSIT. |
 | principal | Decimal | The original amount lent/earned. |
 | interest\_rate | Decimal  | Optional onetime(simple) interest rate on principle |
 | requires\_outflow | Boolean | True if activation requires an outbound transfer (e.g., loans). |

@@ -63,7 +63,7 @@ export const ReceivableRepository = {
 	): Promise<void> {
 		const entity_id = receivable.entity_id;
 		const title = receivable.title ?? "";
-		const type = receivable.type ?? "IOU";
+		const type = receivable.type ?? "Loan";
 		const currency = receivable.currency ?? "";
 		const principal =
 			typeof receivable.principal === "number" ? receivable.principal : 0;
