@@ -1004,7 +1004,7 @@ async function refileOwnerExpenses(db: any) {
 		await db.runAsync(
 			`INSERT INTO receivables (entity_id, title, type, currency, principal, interest_rate, current_balance, status, requires_outflow, created_at)
 			 VALUES (?, ?, 'Loan', ?, ?, 0, ?, 'Active', 1, ?)`,
-			[entityId, loan.description, loan.currency, loan.amount, loan.amount, now]
+			[entityId, loan.description, loan.currency, loan.amount, loan.amount, loan.date]
 		)
 	).lastInsertRowId;
 	await db.runAsync(
