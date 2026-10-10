@@ -1,6 +1,5 @@
 import { useSQLiteContext } from "expo-sqlite";
 import React from "react";
-import { runDataMigrations } from "./dataMigrations";
 import {
 	DEFAULT_ACCOUNT_TYPES,
 	DEFAULT_ASSET_TYPES,
@@ -217,9 +216,6 @@ export async function initDatabase(db: any) {
 
 	await seedTypeTables(db);
 	await seedCategories(db);
-
-	// Data migrations need the seeded types and categories
-	await runDataMigrations(db);
 }
 
 // Seed type tables on a fresh install. Account, asset and liability types are
