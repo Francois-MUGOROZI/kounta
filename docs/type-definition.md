@@ -33,9 +33,6 @@ export enum AccountType {
 	BankAccount = "Bank Account",
 	MobileMoney = "Mobile Money",
 	Cash = "Cash",
-	CreditCard = "Credit Card",
-	Investment = "Investment Account",
-	Other = "Other",
 }
 ```
 
@@ -48,10 +45,12 @@ export enum AccountType {
 export enum AssetType {
 	RealEstate = "Real Estate",
 	Vehicle = "Vehicle",
-	Stock = "Stock",
-	Bond = "Bond",
-	Crypto = "Cryptocurrency",
-	PhysicalGood = "Physical Good",
+	Investments = "Investments",
+	Crypto = "Crypto",
+	Business = "Business",
+	IntangibleAssets = "Intangible Assets",
+	Valuables = "Valuables",
+	Livestock = "Livestock",
 	Other = "Other",
 }
 ```
@@ -63,12 +62,9 @@ export enum AssetType {
  * Defines the types of liabilities a user can have.
  */
 export enum LiabilityType {
-	PersonalLoan = "Personal Loan",
-	CarLoan = "Car Loan",
-	Mortgage = "Mortgage",
-	CreditCardDebt = "Credit Card Debt",
-	StudentLoan = "Student Loan",
-	Other = "Other",
+	Loan = "Loan",
+	CreditCard = "Credit Card",
+	HeldForOthers = "Held for Others",
 }
 ```
 

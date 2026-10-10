@@ -1,6 +1,15 @@
 import { useSQLiteContext } from "expo-sqlite";
 import React from "react";
-import { CHARGES_CATEGORY } from "./repositories/LiabilityRepository";
+import { runDataMigrations } from "./dataMigrations";
+import {
+	DEFAULT_ACCOUNT_TYPES,
+	DEFAULT_ASSET_TYPES,
+	DEFAULT_LIABILITY_TYPES,
+} from "./constants/defaultTypes";
+import {
+	DEFAULT_EXPENSE_CATEGORIES,
+	DEFAULT_INCOME_CATEGORIES,
+} from "./constants/defaultCategories";
 
 // Database initialization and seeding
 export async function initDatabase(db: any) {
@@ -208,52 +217,25 @@ export async function initDatabase(db: any) {
 
 	await seedTypeTables(db);
 	await seedCategories(db);
+
+	// Data migrations need the seeded types and categories
+	await runDataMigrations(db);
 }
 
-// Seed type tables with enum values if empty
+// Seed type tables on a fresh install. Account, asset and liability types are
+// the user's to rename, so they are only seeded while their table is empty.
 export async function seedTypeTables(db: any) {
-	// Account Types
-	const accountTypes = [
-		"Bank Account",
-		"Mobile Money",
-		"Cash",
-		"Credit Card",
-		"Other",
+	const defaults: [string, string[]][] = [
+		["account_types", DEFAULT_ACCOUNT_TYPES],
+		["asset_types", DEFAULT_ASSET_TYPES],
+		["liability_types", DEFAULT_LIABILITY_TYPES],
 	];
-	for (const name of accountTypes) {
-		await db.runAsync("INSERT OR IGNORE INTO account_types (name) VALUES (?)", [
-			name,
-		]);
-	}
-	// Asset Types
-	const assetTypes = [
-		"Real Estate",
-		"Vehicle",
-		"Stock",
-		"Bond",
-		"Cryptocurrency",
-		"Physical Good",
-		"Other",
-	];
-	for (const name of assetTypes) {
-		await db.runAsync("INSERT OR IGNORE INTO asset_types (name) VALUES (?)", [
-			name,
-		]);
-	}
-	// Liability Types
-	const liabilityTypes = [
-		"Personal Loan",
-		"Car Loan",
-		"Mortgage",
-		"Credit Card Debt",
-		"Student Loan",
-		"Other",
-	];
-	for (const name of liabilityTypes) {
-		await db.runAsync(
-			"INSERT OR IGNORE INTO liability_types (name) VALUES (?)",
-			[name],
-		);
+	for (const [table, names] of defaults) {
+		const existing = await db.getFirstAsync(`SELECT COUNT(*) AS n FROM ${table}`);
+		if (existing?.n) continue;
+		for (const name of names) {
+			await db.runAsync(`INSERT OR IGNORE INTO ${table} (name) VALUES (?)`, [name]);
+		}
 	}
 	// Transaction Types
 	const transactionTypes = ["Income", "Expense", "Transfer"];
@@ -283,37 +265,15 @@ export async function seedCategories(db: any) {
 
 		if (incomeType && expenseType) {
 			const defaultCategories = [
-				// Income categories
-				{ name: "Salary", transaction_type_id: incomeType.id },
-				{ name: "Freelance", transaction_type_id: incomeType.id },
-				{ name: "Investment", transaction_type_id: incomeType.id },
-				{ name: "Business", transaction_type_id: incomeType.id },
-				{ name: "Assets", transaction_type_id: incomeType.id },
-				{ name: "Gifts", transaction_type_id: incomeType.id },
-				{ name: "Refunds", transaction_type_id: incomeType.id },
-				{ name: "Interest", transaction_type_id: incomeType.id },
-				{ name: "Dividends", transaction_type_id: incomeType.id },
-				{ name: "Other Earnings", transaction_type_id: incomeType.id },
+				...DEFAULT_INCOME_CATEGORIES.map((name) => ({
+					name,
+					transaction_type_id: incomeType.id,
+				})),
 
-				// Expense categories
-				{ name: "Food & Dining", transaction_type_id: expenseType.id },
-				{ name: "Transportation", transaction_type_id: expenseType.id },
-				{ name: "Housing", transaction_type_id: expenseType.id },
-				{ name: "Utilities", transaction_type_id: expenseType.id },
-				{ name: "Healthcare", transaction_type_id: expenseType.id },
-				{ name: "Entertainment", transaction_type_id: expenseType.id },
-				{ name: "Shopping", transaction_type_id: expenseType.id },
-				{ name: "Education", transaction_type_id: expenseType.id },
-				{ name: "Insurance", transaction_type_id: expenseType.id },
-				{ name: "Taxes", transaction_type_id: expenseType.id },
-				{ name: "Gifts", transaction_type_id: expenseType.id },
-				{ name: "Subscriptions", transaction_type_id: expenseType.id },
-				{ name: "Travel", transaction_type_id: expenseType.id },
-				{ name: "Repairs & Maintenance", transaction_type_id: expenseType.id },
-				{ name: "Personal Care", transaction_type_id: expenseType.id },
-				{ name: "Giveaways", transaction_type_id: expenseType.id },
-				{ name: "Miscellaneous", transaction_type_id: expenseType.id },
-				{ name: CHARGES_CATEGORY, transaction_type_id: expenseType.id },
+				...DEFAULT_EXPENSE_CATEGORIES.map((name) => ({
+					name,
+					transaction_type_id: expenseType.id,
+				})),
 			];
 
 			for (const category of defaultCategories) {

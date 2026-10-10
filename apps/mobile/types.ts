@@ -66,7 +66,7 @@ export interface Category {
 }
 
 /**
- * Represents a type of asset (e.g., "Real Estate", "Stocks", "Vehicles").
+ * Represents a type of asset (e.g., "Real Estate", "Investments", "Vehicle").
  * Corresponds to the 'asset_types' table/model.
  */
 export interface AssetType {
@@ -75,7 +75,7 @@ export interface AssetType {
 }
 
 /**
- * Represents a type of liability (e.g., "Personal Loan", "Mortgage", "Credit Card Debt").
+ * Represents a type of liability (e.g., "Loan", "Credit Card", "Held for Others").
  * Corresponds to the 'liability_types' table/model.
  */
 export interface LiabilityType {
@@ -87,12 +87,10 @@ export interface LiabilityType {
  * Receivable type enum — categorizes what kind of receivable this is.
  */
 export type ReceivableType =
-	| "Salary"
-	| "Personal-Loan"
+	| "Loan"
+	| "Accrued-Income"
 	| "Refund"
-	| "Deposit"
-	| "IOU"
-	| "Interest";
+	| "Refundable-Deposit";
 
 /**
  * Receivable status enum

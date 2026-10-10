@@ -38,9 +38,6 @@ interface ReceivableFormSheetProps {
 	onSubmit: (values: ReceivableFormValues) => Promise<void>;
 }
 
-// Lending-like types usually start Pending until money is transferred out.
-const LENDING_TYPES: ReceivableType[] = ["IOU", "Personal-Loan"];
-
 const Body: React.FC<Omit<ReceivableFormSheetProps, "visible">> = ({
 	onDismiss,
 	entities,
@@ -81,7 +78,8 @@ const Body: React.FC<Omit<ReceivableFormSheetProps, "visible">> = ({
 
 	const changeType = (next: ReceivableType | null) => {
 		setType(next);
-		if (!editing && next) setRequiresOutflow(LENDING_TYPES.includes(next));
+		// A loan usually starts Pending until money is transferred out.
+		if (!editing && next) setRequiresOutflow(next === "Loan");
 	};
 
 	const { submit, saving, error } = useSubmit(async () => {
