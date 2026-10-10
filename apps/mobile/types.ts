@@ -55,6 +55,16 @@ export interface AccountType {
 }
 
 /**
+ * A user-defined label on transactions (e.g. "online", "driving"). Optional,
+ * any number per transaction; unique by name regardless of case.
+ */
+export interface Tag {
+	id: number;
+	name: string;
+	created_at: string;
+}
+
+/**
  * Represents a category for classifying transactions.
  * Corresponds to the 'categories' table/model.
  */
@@ -284,6 +294,7 @@ export type TransactionFilter = {
 	billId?: number;
 	receivableId?: number;
 	entityId?: number;
+	tagId?: number;
 };
 
 // Bottom tabs inside the "Main" stack screen

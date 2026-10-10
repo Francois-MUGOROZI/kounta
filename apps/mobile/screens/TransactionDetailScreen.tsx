@@ -1,6 +1,7 @@
 import React from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
 import { Text } from "react-native-paper";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { SQLiteDatabase } from "expo-sqlite";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -12,7 +13,8 @@ import { Skeleton } from "../components/ui/Skeleton";
 import type { IconName } from "../components/ui/icons";
 import { useQuery } from "../hooks/useQuery";
 import { useTransactionPresenter } from "../hooks/transaction/useTransactionPresenter";
-import { RootStackParamList, Transaction } from "../types";
+import { RootStackParamList, Tag, Transaction } from "../types";
+import { TagRepository } from "../repositories/TagRepository";
 import { formatTransactionAmount } from "../utils/currency";
 import { formatLongDate } from "../utils/date";
 import { radius, spacing, tabularNums, useKTheme } from "../theme/theme";
@@ -30,6 +32,7 @@ interface Linked {
 	bill?: { id: number; name: string } | null;
 	receivable?: { id: number; name: string } | null;
 	entity?: { id: number; name: string } | null;
+	tags?: Tag[];
 }
 
 type Named = { id: number; name: string };
@@ -40,7 +43,7 @@ const loadTransaction = async (db: SQLiteDatabase, id: number): Promise<Linked> 
 	if (!transaction) return { transaction: null };
 	const one = (sql: string, ref?: number | null) =>
 		ref ? db.getFirstAsync<Named>(sql, [ref]) : Promise.resolve(null);
-	const [fromAccount, toAccount, asset, liability, envelope, bill, receivable, entity] = await Promise.all([
+	const [fromAccount, toAccount, asset, liability, envelope, bill, receivable, entity, tags] = await Promise.all([
 		one("SELECT id, name FROM accounts WHERE id = ?", transaction.from_account_id),
 		one("SELECT id, name FROM accounts WHERE id = ?", transaction.to_account_id),
 		one("SELECT id, name FROM assets WHERE id = ?", transaction.asset_id),
@@ -49,8 +52,9 @@ const loadTransaction = async (db: SQLiteDatabase, id: number): Promise<Linked> 
 		one("SELECT id, name FROM bills WHERE id = ?", transaction.bill_id),
 		one("SELECT id, title AS name FROM receivables WHERE id = ?", transaction.receivable_id),
 		one("SELECT id, name FROM entities WHERE id = ?", transaction.entity_id),
+		TagRepository.getByTransactionId(db, id),
 	]);
-	return { transaction, fromAccount, toAccount, asset, liability, envelope, bill, receivable, entity };
+	return { transaction, fromAccount, toAccount, asset, liability, envelope, bill, receivable, entity, tags };
 };
 
 const TransactionDetailScreen = () => {
@@ -192,6 +196,24 @@ const TransactionDetailScreen = () => {
 				</>
 			) : null}
 
+			{data.tags?.length ? (
+				<>
+					<Text variant="labelMedium" style={[styles.groupTitle, { color: theme.colors.onSurfaceVariant }]}>
+						TAGS
+					</Text>
+					<Card style={styles.tags}>
+						{data.tags.map((tag) => (
+							<View key={tag.id} style={[styles.tag, { backgroundColor: theme.colors.surfaceVariant }]}>
+								<MaterialCommunityIcons name="tag-outline" size={14} color={theme.colors.onSurfaceVariant} />
+								<Text variant="labelLarge" style={{ color: theme.colors.onSurfaceVariant }}>
+									{tag.name}
+								</Text>
+							</View>
+						))}
+					</Card>
+				</>
+			) : null}
+
 			<Text variant="bodySmall" style={[styles.footnote, { color: theme.colors.onSurfaceVariant }]}>
 				{"Transactions can't be edited once saved, so your balances always add up."}
 			</Text>
@@ -226,6 +248,19 @@ const styles = StyleSheet.create({
 		marginBottom: spacing.sm,
 		marginLeft: spacing.xs,
 		letterSpacing: 0.8,
+	},
+	tags: {
+		flexDirection: "row",
+		flexWrap: "wrap",
+		gap: spacing.sm,
+	},
+	tag: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: 4,
+		paddingHorizontal: spacing.md,
+		paddingVertical: 6,
+		borderRadius: radius.pill,
 	},
 	footnote: {
 		textAlign: "center",

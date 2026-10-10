@@ -39,6 +39,8 @@ interface TextFieldProps {
 	left?: IconName;
 	style?: StyleProp<ViewStyle>;
 	autoFocus?: boolean;
+	/** Called on the keyboard's return key; the field keeps focus. */
+	onSubmitEditing?: () => void;
 }
 
 export const TextField: React.FC<TextFieldProps> = ({
@@ -55,6 +57,7 @@ export const TextField: React.FC<TextFieldProps> = ({
 	left,
 	style,
 	autoFocus,
+	onSubmitEditing,
 }) => {
 	const theme = useKTheme();
 	const inSheet = useBottomSheetInternal(true) !== null;
@@ -72,6 +75,9 @@ export const TextField: React.FC<TextFieldProps> = ({
 				autoCapitalize={autoCapitalize}
 				maxLength={maxLength}
 				autoFocus={autoFocus}
+				onSubmitEditing={onSubmitEditing}
+				submitBehavior={onSubmitEditing ? "submit" : undefined}
+				returnKeyType={onSubmitEditing ? "done" : undefined}
 				left={left ? <TextInput.Icon icon={left} /> : undefined}
 				outlineColor={theme.colors.outlineVariant}
 				theme={{ roundness: INPUT_ROUNDNESS }}

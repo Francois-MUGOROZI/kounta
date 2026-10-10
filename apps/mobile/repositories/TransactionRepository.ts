@@ -2,6 +2,7 @@ import { SQLiteDatabase } from "expo-sqlite";
 import { Transaction, TransactionFilter } from "../types";
 import { emitEvent, EVENTS } from "../utils/events";
 import { BillsRepository } from "./BillsRepository";
+import { attachTags } from "./TagRepository";
 import { LOCAL_DAY_SQL, toLocalISODate, parseLocalDate } from "../utils/date";
 
 // Thousands separators for amounts quoted in validation messages.
@@ -511,6 +512,10 @@ export const TransactionRepository = {
 				where.push("entity_id = ?");
 				params.push(filter.entityId);
 			}
+			if (filter.tagId) {
+				where.push("id IN (SELECT transaction_id FROM transaction_tags WHERE tag_id = ?)");
+				params.push(filter.tagId);
+			}
 		}
 		if (where.length > 0) {
 			query += " WHERE " + where.join(" AND ");
@@ -591,13 +596,15 @@ export const TransactionRepository = {
 
 	async create(
 		db: SQLiteDatabase,
-		transaction: Omit<Transaction, "id">
+		transaction: Omit<Transaction, "id">,
+		tags: string[] = []
 	): Promise<number> {
 		let insertedId = 0;
 
 		await db.execAsync("BEGIN");
 		try {
 			insertedId = await insertTransaction(db, transaction);
+			await attachTags(db, insertedId, tags);
 			await db.execAsync("COMMIT");
 		} catch (e) {
 			await db.execAsync("ROLLBACK");

@@ -30,6 +30,8 @@ import { useGetEnvelopes } from "../../hooks/envelope/useGetEnvelope";
 import { useGetBills } from "../../hooks/bill/useGetBills";
 import { useGetReceivables } from "../../hooks/receivable/useGetReceivables";
 import { useGetEntities } from "../../hooks/entity/useGetEntities";
+import { useGetTags } from "../../hooks/tag/useGetTags";
+import TagField from "./TagField";
 
 export type TransactionKindName = "Expense" | "Income" | "Transfer";
 
@@ -77,7 +79,7 @@ interface FormBodyProps {
 	preset: TransactionPreset;
 	onCancel: () => void;
 	/** `successMessage` is a short confirmation for the toast, e.g. "Repayment recorded". */
-	onSubmit: (tx: Omit<Transaction, "id">, successMessage: string) => Promise<void>;
+	onSubmit: (tx: Omit<Transaction, "id">, successMessage: string, tags: string[]) => Promise<void>;
 }
 
 type Errors = Partial<
@@ -118,6 +120,7 @@ const FormBody: React.FC<FormBodyProps> = ({ preset, onCancel, onSubmit }) => {
 	const { bills } = useGetBills(undefined, true);
 	const { receivables } = useGetReceivables();
 	const { entities } = useGetEntities();
+	const { tags: existingTags } = useGetTags();
 
 	// Fields that came from the screen the sheet was opened on stay fixed —
 	// e.g. adding from an account's page always uses that account.
@@ -175,6 +178,7 @@ const FormBody: React.FC<FormBodyProps> = ({ preset, onCancel, onSubmit }) => {
 	const [billId, setBillId] = useState<number | null>(preset.billId ?? null);
 	const [entityId, setEntityId] = useState<number | null>(preset.entityId ?? null);
 	const [description, setDescription] = useState("");
+	const [tags, setTags] = useState<string[]>([]);
 	const [date, setDate] = useState(toLocalISODate());
 	const [showMore, setShowMore] = useState(
 		!!(preset.entityId || preset.liabilityId || preset.billId || (preset.assetId && preset.type !== "Transfer"))
@@ -283,6 +287,9 @@ const FormBody: React.FC<FormBodyProps> = ({ preset, onCancel, onSubmit }) => {
 			})),
 		[entities]
 	);
+
+	const tagSuggestions = useMemo(() => existingTags.map((t) => t.name), [existingTags]);
+	const categoryNames = useMemo(() => categories.map((c) => c.name), [categories]);
 
 	const isTransfer = type === "Transfer";
 	// An expense on a liability is a charge (interest, fee, penalty): it adds to the debt, no account pays it.
@@ -513,7 +520,8 @@ const FormBody: React.FC<FormBodyProps> = ({ preset, onCancel, onSubmit }) => {
 					bill_id: type === "Expense" ? toId(billId) : undefined,
 					entity_id: !isTransfer ? toId(entityId) : undefined,
 				},
-				successMessageFor(type, direction, preset.billId === billId && !!billId)
+				successMessageFor(type, direction, preset.billId === billId && !!billId),
+				tags
 			);
 			if (type === "Expense" && from) lastAccount.Expense = from;
 			if (type === "Income" && to) lastAccount.Income = to;
@@ -677,6 +685,8 @@ const FormBody: React.FC<FormBodyProps> = ({ preset, onCancel, onSubmit }) => {
 						: "Left blank, we'll name it after the category."
 				}
 			/>
+
+			<TagField value={tags} onChange={setTags} suggestions={tagSuggestions} reserved={categoryNames} />
 
 			<DateField label="Date" value={date} onChange={setDate} style={{ marginBottom: spacing.sm }} />
 			<View style={styles.chips}>

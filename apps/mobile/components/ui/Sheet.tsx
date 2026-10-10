@@ -8,6 +8,7 @@ import {
 	BottomSheetFooterProps,
 	BottomSheetModal,
 	BottomSheetScrollView,
+	BottomSheetScrollViewMethods,
 } from "@gorhom/bottom-sheet";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { KeyboardEvents } from "react-native-keyboard-controller";
@@ -28,6 +29,8 @@ interface SheetProps {
 }
 
 const FOOTER_HEIGHT = 80;
+// Room kept between a focused field and the keyboard (fits the field's helper text).
+const KEYBOARD_GAP = 64;
 
 /**
  * Modal bottom sheet used for every form and picker. Controlled with
@@ -72,9 +75,27 @@ const Sheet: React.FC<SheetProps> = ({
 	// keyboard-controller reports the final height as the keyboard *starts* moving,
 	// so the sheet animates alongside it rather than after it.
 	const [keyboardHeight, setKeyboardHeight] = useState(0);
+	const scrollRef = useRef<BottomSheetScrollViewMethods>(null);
+	const contentRef = useRef<View>(null);
+	const scrollY = useRef(0);
+	const viewportHeight = useRef(0);
 	useEffect(() => {
 		if (Platform.OS !== "android" || !visible) return;
 		const show = KeyboardEvents.addListener("keyboardWillShow", (e) => setKeyboardHeight(e.height));
+		// A tall form fills the screen, so rising doesn't uncover fields low in it:
+		// once the keyboard is up, scroll the focused field above it. Positions are
+		// measured inside the scroll content — the sheet itself moves on the UI
+		// thread, so window coordinates are unreliable.
+		const shown = KeyboardEvents.addListener("keyboardDidShow", (e) => {
+			const focused = TextInput.State.currentlyFocusedInput();
+			const content = contentRef.current;
+			if (!focused || !content) return;
+			focused.measureLayout(content, (_x, y, _w, h) => {
+				const visibleHeight = viewportHeight.current - e.height;
+				const hidden = y + h + KEYBOARD_GAP - (scrollY.current + visibleHeight);
+				if (hidden > 0) scrollRef.current?.scrollTo({ y: scrollY.current + hidden, animated: true });
+			});
+		});
 		const hide = KeyboardEvents.addListener("keyboardWillHide", () => {
 			setKeyboardHeight(0);
 			// Back-button dismissal doesn't blur the field; do it so focus state is accurate.
@@ -83,6 +104,7 @@ const Sheet: React.FC<SheetProps> = ({
 		});
 		return () => {
 			show.remove();
+			shown.remove();
 			hide.remove();
 			setKeyboardHeight(0);
 		};
@@ -184,14 +206,19 @@ const Sheet: React.FC<SheetProps> = ({
 		>
 			{scrollable ? (
 				<BottomSheetScrollView
+					ref={scrollRef}
+					onScroll={(e) => (scrollY.current = e.nativeEvent.contentOffset.y)}
+					onLayout={(e) => (viewportHeight.current = e.nativeEvent.layout.height)}
 					keyboardShouldPersistTaps="handled"
 					contentContainerStyle={[
 						styles.content,
 						{ paddingBottom: bottomSpace },
 					]}
 				>
-					{header}
-					{children}
+					<View ref={contentRef} collapsable={false}>
+						{header}
+						{children}
+					</View>
 				</BottomSheetScrollView>
 			) : (
 				<View style={[styles.flex, { paddingBottom: footer ? bottomSpace : 0 }]}>

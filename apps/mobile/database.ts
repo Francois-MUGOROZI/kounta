@@ -193,6 +193,26 @@ export async function initDatabase(db: any) {
 		);
 	`);
 
+	// Optional, user-defined labels on any transaction (no defaults are seeded:
+	// tags are personal). Names are unique regardless of case.
+	await db.execAsync(`
+		CREATE TABLE IF NOT EXISTS tags (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+			created_at TEXT NOT NULL
+		);
+	`);
+	await db.execAsync(`
+		CREATE TABLE IF NOT EXISTS transaction_tags (
+			transaction_id INTEGER NOT NULL,
+			tag_id INTEGER NOT NULL,
+			PRIMARY KEY (transaction_id, tag_id),
+			FOREIGN KEY (transaction_id) REFERENCES transactions(id),
+			FOREIGN KEY (tag_id) REFERENCES tags(id)
+		);
+		CREATE INDEX IF NOT EXISTS idx_transaction_tags_tag ON transaction_tags (tag_id);
+	`);
+
 	await db.execAsync(`
 		CREATE TABLE IF NOT EXISTS budgets (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -349,6 +369,8 @@ const APP_TABLES = new Set([
 	"receivables",
 	"bills",
 	"transactions",
+	"tags",
+	"transaction_tags",
 	"budgets",
 	"savings_goals",
 	"bill_rules", // legacy — may exist on older installs
