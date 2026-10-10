@@ -686,8 +686,6 @@ const FormBody: React.FC<FormBodyProps> = ({ preset, onCancel, onSubmit }) => {
 				}
 			/>
 
-			<TagField value={tags} onChange={setTags} suggestions={tagSuggestions} reserved={categoryNames} />
-
 			<DateField label="Date" value={date} onChange={setDate} style={{ marginBottom: spacing.sm }} />
 			<View style={styles.chips}>
 				{[
@@ -786,6 +784,9 @@ const FormBody: React.FC<FormBodyProps> = ({ preset, onCancel, onSubmit }) => {
 					) : null}
 				</>
 			) : null}
+
+			{/* Optional and rarely used, so last. */}
+			<TagField value={tags} onChange={setTags} suggestions={tagSuggestions} reserved={categoryNames} />
 
 			<FormError message={submitError} />
 

@@ -7,7 +7,7 @@ import type { IconName } from "../ui/icons";
 import { radius, spacing, useKTheme } from "../../theme/theme";
 import { normalizeTagName } from "../../repositories/TagRepository";
 
-const MAX_SUGGESTIONS = 6;
+const MAX_SUGGESTIONS = 5;
 const MAX_LENGTH = 30;
 
 const has = (list: string[], name: string) => list.some((n) => n.toLowerCase() === name.toLowerCase());
@@ -15,7 +15,7 @@ const has = (list: string[], name: string) => list.some((n) => n.toLowerCase() =
 interface TagFieldProps {
 	value: string[];
 	onChange: (tags: string[]) => void;
-	/** Existing tag names, most used first. */
+	/** Existing tag names, most used first; matches are suggested while typing. */
 	suggestions: string[];
 	/** Names a tag can't take, e.g. category names — tags add to a category, not repeat it. */
 	reserved: string[];
@@ -50,8 +50,8 @@ const TagChip: React.FC<{
 };
 
 /**
- * Optional tags: pick from ones already used or type new ones (return key or
- * comma adds). Suggestions sit above the input so the keyboard doesn't hide them.
+ * Optional tags: type a tag (return key or comma adds it); matching tags used
+ * before are suggested above the input, where the keyboard doesn't hide them.
  */
 const TagField: React.FC<TagFieldProps> = ({ value, onChange, suggestions, reserved }) => {
 	const [text, setText] = useState("");
@@ -89,10 +89,12 @@ const TagField: React.FC<TagFieldProps> = ({ value, onChange, suggestions, reser
 	};
 
 	const typed = normalizeTagName(text);
+	// Only while typing, so a long tag history never crowds the form.
 	const matches = useMemo(() => {
 		const q = typed.toLowerCase();
+		if (!q) return [];
 		return suggestions
-			.filter((n) => !has(value, n) && (!q || n.toLowerCase().includes(q)))
+			.filter((n) => !has(value, n) && n.toLowerCase().includes(q))
 			.slice(0, MAX_SUGGESTIONS);
 	}, [suggestions, value, typed]);
 	const canCreate = !!typed && !has(suggestions, typed) && !has(value, typed) && !has(reserved, typed);
