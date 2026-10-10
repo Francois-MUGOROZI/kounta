@@ -15,7 +15,7 @@ import { ConfirmProvider } from "../components/ui/Confirm";
 // Date pickers use British English labels and day-first dates.
 registerTranslation("en-GB", enGB);
 
-// Keep the native splash up until fonts and the database are ready.
+// Keep the native splash up until fonts load and the launch screen takes over.
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 const App = () => {

@@ -29,6 +29,13 @@
 			"expo-router",
 			"expo-build-properties",
 			[
+				"./plugins/withSplashBranding",
+				{
+					"image": "./assets/images/splash-branding.png",
+					"darkImage": "./assets/images/splash-branding-dark.png"
+				}
+			],
+			[
 				"expo-splash-screen",
 				{
 					"image": "./assets/images/splash-icon.png",
