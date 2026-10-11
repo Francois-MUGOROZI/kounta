@@ -19,6 +19,7 @@ import TransactionSectionList, { useDescribedTransactions } from "../components/
 import EntityFormSheet, { EntityFormValues } from "../components/EntityFormSheet";
 import { EntityAvatar } from "../components/EntityAvatar";
 import ReceivableFormSheet, { ReceivableFormValues } from "../components/ReceivableFormSheet";
+import LiabilityFormSheet, { LiabilityFormValues } from "../components/LiabilityFormSheet";
 import { ReceivableRow } from "../components/ReceivableRow";
 import { useQuery } from "../hooks/useQuery";
 import { useUpdateEntity } from "../hooks/entity/useUpdateEntity";
@@ -28,18 +29,25 @@ import { useGetReceivablesByEntityId } from "../hooks/receivable/useGetReceivabl
 import { useCreateReceivable } from "../hooks/receivable/useCreateReceivable";
 import { useUpdateReceivable } from "../hooks/receivable/useUpdateReceivable";
 import { useGetLiabilities } from "../hooks/liability/useGetLiabilities";
+import { useCreateLiability } from "../hooks/liability/useCreateLiability";
+import { useGetLiabilityTypes } from "../hooks/liabilityType/useGetLiabilityTypes";
+import { useGetAccounts } from "../hooks/account/useGetAccounts";
+import { useGetCategories } from "../hooks/category/useGetCategories";
+import { useGetTransactionTypes } from "../hooks/transactionType/useGetTransactionTypes";
 import { useGetTransactions } from "../hooks/transaction/useGetTransactions";
 import { useTransactionComposer } from "../contexts/TransactionComposer";
 import { EntityRepository } from "../repositories/EntityRepository";
 import { Entity, Receivable, RootStackParamList } from "../types";
 import { formatAmount } from "../utils/currency";
-import { formatShortDate } from "../utils/date";
+import { formatShortDate, toDayKey } from "../utils/date";
+import { Period, periodLabel, periodRange } from "../constants/periods";
+import PeriodPicker from "../components/PeriodPicker";
 import { radius, spacing, useKTheme } from "../theme/theme";
 
 type Route = RouteProp<RootStackParamList, "EntityDetail">;
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
-const EMPTY_SUMMARY = { income: 0, expenses: 0, receivable: 0, liabilityPaid: 0, liabilityTotal: 0 };
+const EMPTY_SUMMARY = { income: 0, expenses: 0, transactionCount: 0, receivable: 0, liabilityPaid: 0, liabilityTotal: 0 };
 
 const EntityDetailScreen = () => {
 	const theme = useKTheme();
@@ -53,7 +61,19 @@ const EntityDetailScreen = () => {
 	const { entities } = useGetEntities();
 	const { receivables } = useGetReceivablesByEntityId(entityId);
 	const { liabilities } = useGetLiabilities();
-	const { summaries, error: summaryError } = useEntityFinancialSummary(entityId);
+	const { createLiability } = useCreateLiability();
+	const { liabilityTypes } = useGetLiabilityTypes();
+	const { accounts } = useGetAccounts();
+	const { categories } = useGetCategories();
+	const { transactionTypes } = useGetTransactionTypes();
+	const expenseTypeId = transactionTypes.find((t) => t.name === "Expense")?.id;
+	const expenseCategories = useMemo(
+		() => categories.filter((c) => c.transaction_type_id === expenseTypeId),
+		[categories, expenseTypeId]
+	);
+	const [period, setPeriod] = useState<Period>("all");
+	const range = useMemo(() => periodRange(period), [period]);
+	const { summaries, error: summaryError } = useEntityFinancialSummary(entityId, range);
 	const filter = useMemo(() => ({ entityId }), [entityId]);
 	const { transactions, loading: loadingTx, refreshing, pullToRefresh } = useGetTransactions(filter);
 	const described = useDescribedTransactions(transactions);
@@ -66,6 +86,7 @@ const EntityDetailScreen = () => {
 	const [currency, setCurrency] = useState<string | null>(null);
 	const [currencySheet, setCurrencySheet] = useState(false);
 	const currencyAnchor = useRef<View>(null);
+	const [liabilityFormVisible, setLiabilityFormVisible] = useState(false);
 
 	const {
 		data: entity,
@@ -127,11 +148,50 @@ const EntityDetailScreen = () => {
 		currency ? items.filter((i) => i.currency === currency) : items;
 	const shownReceivables = inCurrency(receivables);
 	const shownLiabilities = inCurrency(entityLiabilities);
-	const shownRows = currency ? described.filter((r) => r.view.currency === currency) : described;
+	const shownRows = described.filter((r) => {
+		const day = toDayKey(r.tx.date);
+		return (!currency || r.view.currency === currency) && day >= range.startDate && day <= range.endDate;
+	});
 	const summary = currency ? summaries[currency] ?? EMPTY_SUMMARY : EMPTY_SUMMARY;
 	const owedToThem = summary.liabilityTotal - summary.liabilityPaid;
-	const net = summary.receivable - owedToThem;
 	const cur = currency ?? "RWF";
+	const shownPeriod = periodLabel(period);
+	const hasFlow = summary.income > 0 || summary.expenses > 0;
+
+	// Headline: an open balance either way is what needs acting on, so it leads;
+	// otherwise the money that moved between you in the chosen period.
+	let heroLabel: string;
+	let heroAmount: number;
+	let heroNote: string;
+	if (summary.receivable > 0 || owedToThem > 0) {
+		const net = summary.receivable - owedToThem;
+		heroLabel = net > 0 ? "They owe you" : net < 0 ? "You owe them" : "All square";
+		heroAmount = Math.abs(net);
+		const openReceivables = shownReceivables.filter((r) => r.status === "Active").length;
+		const openLiabilities = shownLiabilities.filter((l) => l.current_balance > 0).length;
+		heroNote =
+			summary.receivable > 0 && owedToThem > 0
+				? `${formatAmount(summary.receivable, cur)} owed to you · ${formatAmount(owedToThem, cur)} you owe`
+				: summary.receivable > 0
+				? `${openReceivables} ${openReceivables === 1 ? "receivable" : "receivables"} still open`
+				: `${openLiabilities} ${openLiabilities === 1 ? "liability" : "liabilities"} still open`;
+	} else if (hasFlow) {
+		const flow = summary.income - summary.expenses;
+		const both = summary.income > 0 && summary.expenses > 0;
+		heroLabel = both
+			? flow >= 0
+				? "Net received from them"
+				: "Net spent with them"
+			: summary.income > 0
+			? "Received from them"
+			: "Spent with them";
+		heroAmount = both ? Math.abs(flow) : summary.income || summary.expenses;
+		heroNote = `${summary.transactionCount} ${summary.transactionCount === 1 ? "transaction" : "transactions"} · ${shownPeriod}`;
+	} else {
+		heroLabel = period === "all" ? "No activity yet" : `No activity ${shownPeriod.toLowerCase()}`;
+		heroAmount = 0;
+		heroNote = "Expenses, income, receivables and liabilities with them show up here";
+	}
 
 	const handleEdit = async (values: EntityFormValues) => {
 		await updateEntity(entity.id, values);
@@ -157,6 +217,18 @@ const EntityDetailScreen = () => {
 		setReceivableForm({ visible: false, editing: null });
 	};
 
+	const handleLiability = async (values: LiabilityFormValues) => {
+		const { account_id, cash_received, charge_category_id, ...liability } = values;
+		await createLiability(
+			{ ...liability, created_at: new Date().toISOString() },
+			account_id && cash_received
+				? { accountId: account_id, cashReceived: cash_received, chargeCategoryId: charge_category_id }
+				: undefined
+		);
+		toast.success(`${values.name} added`);
+		setLiabilityFormVisible(false);
+	};
+
 	const header = (
 		<View>
 			<HeroCard>
@@ -167,7 +239,7 @@ const EntityDetailScreen = () => {
 							{entity.is_individual ? "Person" : "Organisation"}
 						</Text>
 						<Text variant="bodySmall" style={{ color: theme.custom.onHeroMuted }}>
-							{net > 0 ? "Owes you, on balance" : net < 0 ? "You owe, on balance" : "All square"}
+							{heroLabel}
 						</Text>
 					</View>
 					{currencies.length > 1 && currency ? (
@@ -186,9 +258,9 @@ const EntityDetailScreen = () => {
 						</Pressable>
 					) : null}
 				</View>
-				<AmountText amount={Math.abs(net)} currency={cur} tone="onHero" variant="displaySmall" style={{ marginTop: spacing.md }} />
+				<AmountText amount={heroAmount} currency={cur} tone="onHero" variant="displaySmall" style={{ marginTop: spacing.md }} />
 				<Text variant="bodySmall" style={{ color: theme.custom.onHeroMuted, marginTop: spacing.xs }}>
-					Net position: what they owe you minus what you still owe them
+					{heroNote}
 				</Text>
 			</HeroCard>
 
@@ -197,25 +269,7 @@ const EntityDetailScreen = () => {
 					{ label: "Expense", icon: "arrow-top-right", color: theme.custom.expense, background: theme.custom.expenseContainer, onPress: () => openComposer({ type: "Expense", entityId: entity.id }) },
 					{ label: "Income", icon: "arrow-bottom-left", color: theme.custom.income, background: theme.custom.incomeContainer, onPress: () => openComposer({ type: "Income", entityId: entity.id }) },
 					{ label: "Receivable", icon: "hand-coin-outline", color: theme.colors.onPrimaryContainer, background: theme.colors.primaryContainer, onPress: () => setReceivableForm({ visible: true, editing: null }) },
-				]}
-			/>
-
-			{summaryError ? (
-				<Text variant="bodySmall" style={{ color: theme.colors.error, marginTop: spacing.md }}>
-					{summaryError}
-				</Text>
-			) : null}
-			<StatGrid
-				items={[
-					{ label: "Received from them", value: formatAmount(summary.income, cur), tone: "income" },
-					{ label: "Paid to them", value: formatAmount(summary.expenses, cur) },
-					{ label: "They owe you", value: formatAmount(summary.receivable, cur), tone: summary.receivable > 0 ? "income" : "default" },
-					{
-						label: "You owe them",
-						value: formatAmount(owedToThem, cur),
-						tone: owedToThem > 0 ? "expense" : "default",
-						caption: summary.liabilityTotal > 0 ? `${formatAmount(summary.liabilityPaid, cur)} of ${formatAmount(summary.liabilityTotal, cur)} repaid` : undefined,
-					},
+					{ label: "Liability", icon: "credit-card-clock-outline", color: theme.custom.expense, background: theme.custom.expenseContainer, onPress: () => setLiabilityFormVisible(true) },
 				]}
 			/>
 
@@ -255,37 +309,33 @@ const EntityDetailScreen = () => {
 				</Card>
 			) : null}
 
-			<Text variant="titleMedium" style={[styles.section, { color: theme.colors.onSurface }]}>
-				Receivables
-			</Text>
-			{shownReceivables.length === 0 ? (
-				<Card style={styles.emptyCard}>
-					<Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
-						{receivables.length === 0 ? `${entity.name} doesn't owe you anything.` : `No receivables in ${currency}.`}
+			{shownReceivables.length > 0 ? (
+				<>
+					<Text variant="titleMedium" style={[styles.section, { color: theme.colors.onSurface }]}>
+						Receivables
 					</Text>
-				</Card>
-			) : (
-				<Card padded={false}>
-					{shownReceivables.map((r, i) => (
-						<ReceivableRow
-							key={r.id}
-							receivable={r}
-							divider={i > 0}
-							onPress={() => navigation.navigate("ReceivableDetail", { receivableId: r.id })}
-							onLongPress={
-								r.status === "Settled" || r.status === "Written-Off"
-									? undefined
-									: () => setReceivableForm({ visible: true, editing: r })
-							}
-						/>
-					))}
-				</Card>
-			)}
+					<Card padded={false}>
+						{shownReceivables.map((r, i) => (
+							<ReceivableRow
+								key={r.id}
+								receivable={r}
+								divider={i > 0}
+								onPress={() => navigation.navigate("ReceivableDetail", { receivableId: r.id })}
+								onLongPress={
+									r.status === "Settled" || r.status === "Written-Off"
+										? undefined
+										: () => setReceivableForm({ visible: true, editing: r })
+								}
+							/>
+						))}
+					</Card>
+				</>
+			) : null}
 
 			{shownLiabilities.length > 0 ? (
 				<>
 					<Text variant="titleMedium" style={[styles.section, { color: theme.colors.onSurface }]}>
-						Debts you owe them
+						Liabilities
 					</Text>
 					<Card padded={false}>
 						{shownLiabilities.map((l, i) => (
@@ -306,6 +356,27 @@ const EntityDetailScreen = () => {
 			<Text variant="bodySmall" style={[styles.created, { color: theme.colors.onSurfaceVariant }]}>
 				{`Added ${formatShortDate(entity.created_at)}`}
 			</Text>
+
+			<View style={[styles.activityHeader, styles.section]}>
+				<Text variant="titleMedium" style={{ color: theme.colors.onSurface, flex: 1 }}>
+					Activity
+				</Text>
+				<PeriodPicker value={period} onChange={setPeriod} />
+			</View>
+			{summaryError ? (
+				<Text variant="bodySmall" style={{ color: theme.colors.error }}>
+					{summaryError}
+				</Text>
+			) : null}
+			{hasFlow ? (
+				<StatGrid
+					style={{ marginTop: 0 }}
+					items={[
+						{ label: "Income", value: formatAmount(summary.income, cur), tone: "income" },
+						{ label: "Expenses", value: formatAmount(summary.expenses, cur) },
+					]}
+				/>
+			) : null}
 		</View>
 	);
 
@@ -314,7 +385,6 @@ const EntityDetailScreen = () => {
 			<TransactionSectionList
 				rows={shownRows}
 				header={header}
-				sectionTitle="Transactions"
 				refreshing={refreshing}
 				onRefresh={pullToRefresh}
 				empty={
@@ -324,7 +394,13 @@ const EntityDetailScreen = () => {
 						<EmptyState
 							compact
 							icon="receipt"
-							title={transactions.length === 0 ? "No transactions yet" : `No transactions in ${currency}`}
+							title={
+								transactions.length === 0
+									? "No transactions yet"
+									: period === "all"
+									? `No transactions in ${currency}`
+									: `No transactions ${shownPeriod.toLowerCase()}`
+							}
 							message={transactions.length === 0 ? `Link an expense or income to ${entity.name} and it'll show up here.` : undefined}
 						/>
 					)
@@ -339,6 +415,16 @@ const EntityDetailScreen = () => {
 				receivable={receivableForm.editing}
 				presetEntityId={entity.id}
 				onSubmit={handleReceivable}
+			/>
+			<LiabilityFormSheet
+				visible={liabilityFormVisible}
+				onDismiss={() => setLiabilityFormVisible(false)}
+				liabilityTypes={liabilityTypes}
+				entities={entities}
+				accounts={accounts}
+				expenseCategories={expenseCategories}
+				presetEntityId={entity.id}
+				onSubmit={handleLiability}
 			/>
 			<Dropdown
 				visible={currencySheet}
@@ -385,8 +471,9 @@ const styles = StyleSheet.create({
 		marginTop: spacing.xxl,
 		marginBottom: spacing.sm,
 	},
-	emptyCard: {
-		paddingVertical: spacing.lg,
+	activityHeader: {
+		flexDirection: "row",
+		alignItems: "center",
 	},
 	created: {
 		marginTop: spacing.md,

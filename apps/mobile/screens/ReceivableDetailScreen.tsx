@@ -15,6 +15,8 @@ import { SkeletonList } from "../components/ui/Skeleton";
 import { useToast } from "../components/ui/Toast";
 import { useConfirm } from "../components/ui/Confirm";
 import TransactionSectionList, { useDescribedTransactions } from "../components/TransactionSectionList";
+import PeriodPicker, { usePeriodRows } from "../components/PeriodPicker";
+import { periodLabel } from "../constants/periods";
 import ReceivableFormSheet, { ReceivableFormValues } from "../components/ReceivableFormSheet";
 import {
 	ReceivableStatusPill,
@@ -65,6 +67,7 @@ const ReceivableDetailScreen = () => {
 	const filter = useMemo(() => ({ receivableId }), [receivableId]);
 	const { transactions, loading: loadingTx, refreshing, pullToRefresh } = useGetTransactions(filter);
 	const rows = useDescribedTransactions(transactions);
+	const { period, setPeriod, periodRows } = usePeriodRows(rows);
 
 	// Settled and written-off receivables are final — no further edits.
 	const isOpen = !!receivable && (receivable.status === "Active" || receivable.status === "Pending");
@@ -266,14 +269,17 @@ const ReceivableDetailScreen = () => {
 	return (
 		<View style={[styles.fill, { backgroundColor: theme.colors.background }]}>
 			<TransactionSectionList
-				rows={rows}
+				rows={periodRows}
 				header={header}
 				sectionTitle="Payment history"
+				sectionAction={<PeriodPicker value={period} onChange={setPeriod} />}
 				refreshing={refreshing}
 				onRefresh={pullToRefresh}
 				empty={
 					loadingTx ? (
 						<SkeletonList rows={3} />
+					) : rows.length > 0 ? (
+						<EmptyState compact icon="calendar-blank-outline" title={`Nothing ${periodLabel(period).toLowerCase()}`} />
 					) : (
 						<EmptyState
 							compact

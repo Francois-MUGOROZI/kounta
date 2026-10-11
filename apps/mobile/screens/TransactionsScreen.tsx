@@ -448,6 +448,7 @@ const TransactionsScreen = () => {
 				refreshing={refreshing}
 				onRefresh={pullToRefresh}
 				onScroll={onScroll}
+				groupBy="day"
 			/>
 
 			<AnimatedFAB

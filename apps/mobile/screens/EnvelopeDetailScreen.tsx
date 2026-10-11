@@ -13,6 +13,8 @@ import Card from "../components/ui/Card";
 import { SkeletonList } from "../components/ui/Skeleton";
 import { useToast } from "../components/ui/Toast";
 import TransactionSectionList, { useDescribedTransactions } from "../components/TransactionSectionList";
+import PeriodPicker, { usePeriodRows } from "../components/PeriodPicker";
+import { periodLabel } from "../constants/periods";
 import EnvelopeFormSheet, { EnvelopeFormValues } from "../components/EnvelopeFormSheet";
 import EnvelopeTopUpSheet from "../components/EnvelopeTopUpSheet";
 import { useQuery } from "../hooks/useQuery";
@@ -49,6 +51,7 @@ const EnvelopeDetailScreen = () => {
 	const filter = useMemo(() => ({ envelopeId }), [envelopeId]);
 	const { transactions, loading: loadingTx, refreshing, pullToRefresh } = useGetTransactions(filter);
 	const rows = useDescribedTransactions(transactions);
+	const { period, setPeriod, periodRows } = usePeriodRows(rows);
 
 	useLayoutEffect(() => {
 		navigation.setOptions({
@@ -179,14 +182,17 @@ const EnvelopeDetailScreen = () => {
 	return (
 		<View style={[styles.fill, { backgroundColor: theme.colors.background }]}>
 			<TransactionSectionList
-				rows={rows}
+				rows={periodRows}
 				header={header}
 				sectionTitle="Spending"
+				sectionAction={<PeriodPicker value={period} onChange={setPeriod} />}
 				refreshing={refreshing}
 				onRefresh={pullToRefresh}
 				empty={
 					loadingTx ? (
 						<SkeletonList rows={4} />
+					) : rows.length > 0 ? (
+						<EmptyState compact icon="calendar-blank-outline" title={`Nothing ${periodLabel(period).toLowerCase()}`} />
 					) : (
 						<EmptyState
 							compact

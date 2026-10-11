@@ -17,7 +17,7 @@ import {
 } from "../hooks/transaction/useTransactionPresenter";
 import { radius, spacing, tabularNums, useKTheme } from "../theme/theme";
 import { formatAmount } from "../utils/currency";
-import { formatDayHeading, toDayKey } from "../utils/date";
+import { formatDayHeading, formatMonthYear, parseLocalDate, toDayKey } from "../utils/date";
 import type { RootStackParamList, Transaction } from "../types";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -49,15 +49,22 @@ interface TransactionSectionListProps {
 	onScroll?: (e: NativeSyntheticEvent<NativeScrollEvent>) => void;
 	/** Shown under the list header — e.g. a "Transactions" title. */
 	sectionTitle?: string;
+	/** Shown at the right of `sectionTitle` — e.g. a period picker. */
+	sectionAction?: React.ReactNode;
+	/** Group into month cards (default) or day cards, for busy histories like the main Transactions list. */
+	groupBy?: "day" | "month";
 }
 
-const buildSections = (rows: TransactionListRow[]): Section[] => {
+const buildSections = (rows: TransactionListRow[], groupBy: "day" | "month"): Section[] => {
 	const map = new Map<string, Section>();
 	rows.forEach((row) => {
-		const key = toDayKey(row.tx.date);
+		const dayKey = toDayKey(row.tx.date);
+		// "YYYY-MM" for months; rows arrive newest first, so sections do too.
+		const key = groupBy === "month" ? dayKey.slice(0, 7) : dayKey;
 		let section = map.get(key);
 		if (!section) {
-			section = { key, title: formatDayHeading(key), net: {}, data: [] };
+			const title = groupBy === "month" ? formatMonthYear(parseLocalDate(`${key}-01`)) : formatDayHeading(key);
+			section = { key, title, net: {}, data: [] };
 			map.set(key, section);
 		}
 		section.data.push(row);
@@ -70,7 +77,7 @@ const buildSections = (rows: TransactionListRow[]): Section[] => {
 	return Array.from(map.values());
 };
 
-/** Transactions grouped into day cards with a daily net, ready to drop into any screen. */
+/** Transactions grouped into month (or day) cards with a net per card, ready to drop into any screen. */
 const TransactionSectionList: React.FC<TransactionSectionListProps> = ({
 	rows,
 	header,
@@ -79,10 +86,12 @@ const TransactionSectionList: React.FC<TransactionSectionListProps> = ({
 	onRefresh,
 	onScroll,
 	sectionTitle,
+	sectionAction,
+	groupBy = "month",
 }) => {
 	const theme = useKTheme();
 	const navigation = useNavigation<Nav>();
-	const sections = useMemo(() => buildSections(rows), [rows]);
+	const sections = useMemo(() => buildSections(rows, groupBy), [rows, groupBy]);
 
 	const openTransaction = useCallback(
 		(tx: Transaction) => navigation.navigate("TransactionDetail", { transactionId: tx.id }),
@@ -93,9 +102,12 @@ const TransactionSectionList: React.FC<TransactionSectionListProps> = ({
 		<View>
 			{header}
 			{sectionTitle ? (
-				<Text variant="titleMedium" style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>
-					{sectionTitle}
-				</Text>
+				<View style={styles.sectionTitle}>
+					<Text variant="titleMedium" style={{ color: theme.colors.onSurface, flex: 1 }}>
+						{sectionTitle}
+					</Text>
+					{sectionAction}
+				</View>
 			) : null}
 		</View>
 	);
@@ -162,6 +174,8 @@ const styles = StyleSheet.create({
 		paddingBottom: 120,
 	},
 	sectionTitle: {
+		flexDirection: "row",
+		alignItems: "center",
 		marginTop: spacing.xxl,
 		marginBottom: -spacing.sm,
 	},

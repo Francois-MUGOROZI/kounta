@@ -38,6 +38,8 @@ interface LiabilityFormSheetProps {
 	expenseCategories?: Category[];
 	/** Present when editing. */
 	liability?: Liability | null;
+	/** Pre-selects who it's owed to for a new liability. */
+	presetEntityId?: number;
 	/** Persist the values; throw to keep the sheet open with the error shown. */
 	onSubmit: (values: LiabilityFormValues) => Promise<void>;
 }
@@ -49,6 +51,7 @@ const Body: React.FC<Omit<LiabilityFormSheetProps, "visible">> = ({
 	accounts = [],
 	expenseCategories = [],
 	liability,
+	presetEntityId,
 	onSubmit,
 }) => {
 	const theme = useKTheme();
@@ -60,7 +63,7 @@ const Body: React.FC<Omit<LiabilityFormSheetProps, "visible">> = ({
 	const [currency, setCurrency] = useState<string | null>(liability?.currency ?? "RWF");
 	const [total, setTotal] = useState(liability ? String(liability.total_amount) : "");
 	const [balance, setBalance] = useState(liability ? String(liability.current_balance) : "");
-	const [entityId, setEntityId] = useState<number | null>(liability?.entity_id ?? null);
+	const [entityId, setEntityId] = useState<number | null>(liability?.entity_id ?? presetEntityId ?? null);
 	const [notes, setNotes] = useState(liability?.notes ?? "");
 	const [accountId, setAccountId] = useState<number | null>(null);
 	const [cash, setCash] = useState("");

@@ -14,6 +14,8 @@ import { SkeletonList } from "../components/ui/Skeleton";
 import { useToast } from "../components/ui/Toast";
 import CurrencyPicker from "../components/CurrencyPicker";
 import TransactionSectionList, { useDescribedTransactions } from "../components/TransactionSectionList";
+import PeriodPicker, { usePeriodRows } from "../components/PeriodPicker";
+import { periodLabel } from "../constants/periods";
 import CategoryFormSheet, { CategoryFormValues } from "../components/CategoryFormSheet";
 import { useQuery } from "../hooks/useQuery";
 import { useGetTransactions } from "../hooks/transaction/useGetTransactions";
@@ -107,6 +109,7 @@ const CategoryDetailScreen = () => {
 		() => (currency ? rows.filter((r) => r.view.currency === currency) : rows),
 		[rows, currency]
 	);
+	const { period, setPeriod, periodRows } = usePeriodRows(visibleRows);
 
 	const typeName = transactionTypes.find((t) => t.id === category?.transaction_type_id)?.name ?? "";
 	const isIncome = typeName === "Income";
@@ -249,14 +252,17 @@ const CategoryDetailScreen = () => {
 	return (
 		<View style={[styles.fill, { backgroundColor: theme.colors.background }]}>
 			<TransactionSectionList
-				rows={visibleRows}
+				rows={periodRows}
 				header={header}
 				sectionTitle="Transactions"
+				sectionAction={<PeriodPicker value={period} onChange={setPeriod} />}
 				refreshing={refreshing}
 				onRefresh={pullToRefresh}
 				empty={
 					loadingTx ? (
 						<SkeletonList rows={4} />
+					) : visibleRows.length > 0 ? (
+						<EmptyState compact icon="calendar-blank-outline" title={`Nothing ${periodLabel(period).toLowerCase()}`} />
 					) : (
 						<EmptyState
 							compact

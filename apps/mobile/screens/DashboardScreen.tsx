@@ -20,7 +20,7 @@ import EmptyState from "../components/ui/EmptyState";
 import ListItem from "../components/ui/ListItem";
 import AmountText from "../components/ui/AmountText";
 import StatGrid from "../components/ui/StatGrid";
-import Dropdown, { Option } from "../components/ui/Dropdown";
+import Dropdown from "../components/ui/Dropdown";
 import { DashboardRepository } from "../repositories/DashboardRepository";
 import CurrencyPicker from "../components/CurrencyPicker";
 import { Skeleton } from "../components/ui/Skeleton";
@@ -37,34 +37,12 @@ import { useTransactionPresenter } from "../hooks/transaction/useTransactionPres
 import { useTransactionComposer } from "../contexts/TransactionComposer";
 import { chartPalette, radius, spacing, useKTheme, tabularNums } from "../theme/theme";
 import { formatAmount, formatCompactAmount } from "../utils/currency";
-import { addMonths, daysUntil, formatMonthYear, formatShortDate, greeting, monthRange } from "../utils/date";
+import { daysUntil, formatMonthYear, formatShortDate, greeting } from "../utils/date";
+import { Period, PERIOD_OPTIONS, periodLabel as labelForPeriod, periodRange } from "../constants/periods";
 import { getCategoryIcon } from "../constants/categoryIcons";
 import { CategoryTotal, RootStackParamList, Transaction } from "../types";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
-
-type BreakdownPeriod = "this-month" | "last-month" | "this-year" | "all";
-
-const BREAKDOWN_PERIODS: Option<BreakdownPeriod>[] = [
-	{ value: "this-month", label: "This month", icon: "calendar-today" },
-	{ value: "last-month", label: "Last month", icon: "calendar-arrow-left" },
-	{ value: "this-year", label: "This year", icon: "calendar-range" },
-	{ value: "all", label: "All time", icon: "infinity" },
-];
-
-const breakdownRange = (period: BreakdownPeriod) => {
-	const now = new Date();
-	switch (period) {
-		case "this-month":
-			return monthRange(now);
-		case "last-month":
-			return monthRange(addMonths(now, -1));
-		case "this-year":
-			return { startDate: `${now.getFullYear()}-01-01`, endDate: `${now.getFullYear()}-12-31` };
-		default:
-			return { startDate: "0000-01-01", endDate: "9999-12-31" };
-	}
-};
 
 const HeroStat: React.FC<{ label: string; value: string }> = ({ label, value }) => {
 	const theme = useKTheme();
@@ -104,12 +82,12 @@ const DashboardScreen: React.FC = () => {
 
 	const [currency, setCurrency] = useActiveCurrency(currencies);
 	const [showAllCategories, setShowAllCategories] = useState(false);
-	const [breakdownPeriod, setBreakdownPeriod] = useState<BreakdownPeriod>("this-month");
+	const [breakdownPeriod, setBreakdownPeriod] = useState<Period>("this-month");
 	const [periodOpen, setPeriodOpen] = useState(false);
 	const periodAnchor = useRef<View>(null);
 	const { data: breakdown } = useQuery<CategoryTotal[]>(
 		(db) => {
-			const { startDate, endDate } = breakdownRange(breakdownPeriod);
+			const { startDate, endDate } = periodRange(breakdownPeriod);
 			return DashboardRepository.getExpensesByCategoryInRange(db, startDate, endDate);
 		},
 		[breakdownPeriod],
@@ -199,7 +177,7 @@ const DashboardScreen: React.FC = () => {
 	const flowMax = Math.max(month.income, month.expenses, 1);
 
 	const categories = breakdown.filter((c) => c.currency === currency);
-	const periodLabel = BREAKDOWN_PERIODS.find((p) => p.value === breakdownPeriod)!.label;
+	const periodLabel = labelForPeriod(breakdownPeriod);
 	const topCategories = categories.slice(0, 5);
 	const otherTotal = categories.slice(5).reduce((s, c) => s + c.total, 0);
 	const categoryTotal = categories.reduce((s, c) => s + c.total, 0);
@@ -365,7 +343,7 @@ const DashboardScreen: React.FC = () => {
 					variant="menu"
 					alignRight
 					minWidth={190}
-					options={BREAKDOWN_PERIODS}
+					options={PERIOD_OPTIONS}
 					onSelect={(v) => {
 						setPeriodOpen(false);
 						if (v) setBreakdownPeriod(v);

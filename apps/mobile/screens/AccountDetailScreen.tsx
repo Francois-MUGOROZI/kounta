@@ -11,6 +11,8 @@ import { useToast } from "../components/ui/Toast";
 import ActionRow from "../components/ui/ActionRow";
 import StatGrid from "../components/ui/StatGrid";
 import TransactionSectionList, { useDescribedTransactions } from "../components/TransactionSectionList";
+import PeriodPicker, { usePeriodRows } from "../components/PeriodPicker";
+import { periodLabel } from "../constants/periods";
 import AccountFormSheet, { AccountFormValues } from "../components/AccountFormSheet";
 import { useQuery } from "../hooks/useQuery";
 import { useGetAccountTypes } from "../hooks/accountType/useGetAccountTypes";
@@ -21,7 +23,6 @@ import { AccountRepository } from "../repositories/AccountRepository";
 import { Account, RootStackParamList } from "../types";
 import { formatAmount } from "../utils/currency";
 import { maskAccountNumber } from "../utils/format";
-import { isSameMonth, parseLocalDate } from "../utils/date";
 import { getAccountTypeIcon } from "../constants/typeIcons";
 import { spacing, useKTheme } from "../theme/theme";
 import IconBadge from "../components/ui/IconBadge";
@@ -48,6 +49,7 @@ const AccountDetailScreen = () => {
 	const filter = useMemo(() => ({ accountId }), [accountId]);
 	const { transactions, loading: loadingTx, refreshing, pullToRefresh } = useGetTransactions(filter);
 	const rows = useDescribedTransactions(transactions);
+	const { period, setPeriod, periodRows } = usePeriodRows(rows, "this-month");
 
 	useLayoutEffect(() => {
 		navigation.setOptions({
@@ -59,17 +61,15 @@ const AccountDetailScreen = () => {
 		});
 	}, [navigation, account]);
 
-	const monthFlow = useMemo(() => {
-		const now = new Date();
+	const periodFlow = useMemo(() => {
 		let moneyIn = 0;
 		let moneyOut = 0;
-		transactions.forEach((tx) => {
-			if (!isSameMonth(parseLocalDate(tx.date), now)) return;
+		periodRows.forEach(({ tx }) => {
 			if (tx.to_account_id === accountId) moneyIn += tx.amount;
 			if (tx.from_account_id === accountId) moneyOut += tx.amount;
 		});
 		return { moneyIn, moneyOut };
-	}, [transactions, accountId]);
+	}, [periodRows, accountId]);
 
 	if (loading) {
 		return (
@@ -132,8 +132,8 @@ const AccountDetailScreen = () => {
 
 			<StatGrid
 				items={[
-					{ label: "In this month", value: formatAmount(monthFlow.moneyIn, account.currency), tone: "income" },
-					{ label: "Out this month", value: formatAmount(monthFlow.moneyOut, account.currency) },
+					{ label: "Money in", value: formatAmount(periodFlow.moneyIn, account.currency), tone: "income", caption: periodLabel(period) },
+					{ label: "Money out", value: formatAmount(periodFlow.moneyOut, account.currency), caption: periodLabel(period) },
 					{ label: "Opening balance", value: formatAmount(account.opening_balance, account.currency) },
 					{ label: "Currency", value: account.currency },
 				]}
@@ -149,14 +149,17 @@ const AccountDetailScreen = () => {
 	return (
 		<View style={[styles.fill, { backgroundColor: theme.colors.background }]}>
 			<TransactionSectionList
-				rows={rows}
+				rows={periodRows}
 				header={header}
 				sectionTitle="Transactions"
+				sectionAction={<PeriodPicker value={period} onChange={setPeriod} />}
 				refreshing={refreshing}
 				onRefresh={pullToRefresh}
 				empty={
 					loadingTx ? (
 						<SkeletonList rows={4} />
+					) : rows.length > 0 ? (
+						<EmptyState compact icon="calendar-blank-outline" title={`Nothing ${periodLabel(period).toLowerCase()}`} />
 					) : (
 						<EmptyState
 							compact
