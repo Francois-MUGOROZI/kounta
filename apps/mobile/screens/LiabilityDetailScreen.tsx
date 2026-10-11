@@ -15,6 +15,8 @@ import ProgressBar from "../components/ui/ProgressBar";
 import { SkeletonList } from "../components/ui/Skeleton";
 import { useToast } from "../components/ui/Toast";
 import TransactionSectionList, { useDescribedTransactions } from "../components/TransactionSectionList";
+import PeriodPicker, { usePeriodRows } from "../components/PeriodPicker";
+import { periodLabel } from "../constants/periods";
 import LiabilityFormSheet, { LiabilityFormValues } from "../components/LiabilityFormSheet";
 import { useQuery } from "../hooks/useQuery";
 import { useGetLiabilityTypes } from "../hooks/liabilityType/useGetLiabilityTypes";
@@ -59,6 +61,7 @@ const LiabilityDetailScreen = () => {
 	const filter = useMemo(() => ({ liabilityId }), [liabilityId]);
 	const { transactions, loading: loadingTx, refreshing, pullToRefresh } = useGetTransactions(filter);
 	const rows = useDescribedTransactions(transactions);
+	const { period, setPeriod, periodRows } = usePeriodRows(rows);
 	const { transactionTypes } = useGetTransactionTypes();
 	const breakdown = useMemo(
 		() =>
@@ -219,14 +222,17 @@ const LiabilityDetailScreen = () => {
 	return (
 		<View style={[styles.fill, { backgroundColor: theme.colors.background }]}>
 			<TransactionSectionList
-				rows={rows}
+				rows={periodRows}
 				header={header}
 				sectionTitle="History"
+				sectionAction={<PeriodPicker value={period} onChange={setPeriod} />}
 				refreshing={refreshing}
 				onRefresh={pullToRefresh}
 				empty={
 					loadingTx ? (
 						<SkeletonList rows={4} />
+					) : rows.length > 0 ? (
+						<EmptyState compact icon="calendar-blank-outline" title={`Nothing ${periodLabel(period).toLowerCase()}`} />
 					) : (
 						<EmptyState
 							compact

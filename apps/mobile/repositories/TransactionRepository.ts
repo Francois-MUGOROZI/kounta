@@ -550,42 +550,48 @@ export const TransactionRepository = {
 		);
 	},
 
-	// Income/Expense totals for one entity, grouped by currency — aggregated in SQL
+	// Income/Expense totals and count for one entity within an inclusive date range, grouped by currency — aggregated in SQL
 	async getEntityTotalsByCurrency(
 		db: SQLiteDatabase,
-		entityId: number
-	): Promise<{ currency: string; income: number; expenses: number }[]> {
+		entityId: number,
+		startDate: string,
+		endDate: string
+	): Promise<{ currency: string; income: number; expenses: number; count: number }[]> {
 		const rows = await db.getAllAsync<{
 			currency: string;
 			typeName: string;
 			total: number;
+			count: number;
 		}>(
 			`SELECT
 				COALESCE(a.currency, ast.currency, lia.currency, 'RWF') as currency,
 				tt.name as typeName,
-				SUM(t.amount) as total
+				SUM(t.amount) as total,
+				COUNT(*) as count
 			 FROM transactions t
 			 JOIN transaction_types tt ON t.transaction_type_id = tt.id
 			 LEFT JOIN accounts a ON a.id = COALESCE(t.from_account_id, t.to_account_id)
 			 LEFT JOIN assets ast ON ast.id = t.asset_id
 			 LEFT JOIN liabilities lia ON lia.id = t.liability_id
 			 WHERE t.entity_id = ? AND tt.name IN ('Income', 'Expense')
+			   AND ${LOCAL_DAY_SQL("t.date")} BETWEEN ? AND ?
 			 GROUP BY COALESCE(a.currency, ast.currency, lia.currency, 'RWF'), tt.name`,
-			[entityId]
+			[entityId, startDate, endDate]
 		);
 
 		const byCurrency: {
-			[currency: string]: { income: number; expenses: number };
+			[currency: string]: { income: number; expenses: number; count: number };
 		} = {};
 		rows.forEach((r) => {
 			if (!byCurrency[r.currency]) {
-				byCurrency[r.currency] = { income: 0, expenses: 0 };
+				byCurrency[r.currency] = { income: 0, expenses: 0, count: 0 };
 			}
 			if (r.typeName === "Income") {
 				byCurrency[r.currency].income += r.total;
 			} else {
 				byCurrency[r.currency].expenses += r.total;
 			}
+			byCurrency[r.currency].count += r.count;
 		});
 
 		return Object.entries(byCurrency).map(([currency, totals]) => ({

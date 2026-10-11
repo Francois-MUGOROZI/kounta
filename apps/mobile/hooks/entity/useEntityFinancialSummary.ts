@@ -6,24 +6,34 @@ import { useQuery } from "../useQuery";
 export type EntityCurrencySummary = {
 	income: number;
 	expenses: number;
+	/** Income and expense transactions counted in `income`/`expenses`. */
+	transactionCount: number;
 	receivable: number;
 	liabilityPaid: number;
 	liabilityTotal: number;
 };
 
 /**
- * Financial summary (income/expenses, liability paid/total, active receivable)
- * for one entity, grouped by currency. Each figure is aggregated in SQL —
+ * Financial summary (income/expenses within the given range, current liability
+ * paid/total and active receivable) for one entity, grouped by currency. Each figure is aggregated in SQL —
  * this never loads the entity's individual transactions/liabilities/receivables.
  */
-export const useEntityFinancialSummary = (entityId: number) => {
+export const useEntityFinancialSummary = (
+	entityId: number,
+	range: { startDate: string; endDate: string }
+) => {
 	const { data, loading, error, refresh } = useQuery<{
 		[currency: string]: EntityCurrencySummary;
 	}>(
 		async (db) => {
 			const [transactionTotals, liabilityTotals, receivableTotals] =
 				await Promise.all([
-					TransactionRepository.getEntityTotalsByCurrency(db, entityId),
+					TransactionRepository.getEntityTotalsByCurrency(
+						db,
+						entityId,
+						range.startDate,
+						range.endDate
+					),
 					LiabilityRepository.getTotalsByEntityAndCurrency(db, entityId),
 					ReceivableRepository.getActiveTotalsByEntityAndCurrency(
 						db,
@@ -37,6 +47,7 @@ export const useEntityFinancialSummary = (entityId: number) => {
 					result[currency] = {
 						income: 0,
 						expenses: 0,
+						transactionCount: 0,
 						receivable: 0,
 						liabilityPaid: 0,
 						liabilityTotal: 0,
@@ -49,6 +60,7 @@ export const useEntityFinancialSummary = (entityId: number) => {
 				const summary = ensure(t.currency);
 				summary.income = t.income;
 				summary.expenses = t.expenses;
+				summary.transactionCount = t.count;
 			});
 			liabilityTotals.forEach((l) => {
 				const summary = ensure(l.currency);
@@ -61,7 +73,7 @@ export const useEntityFinancialSummary = (entityId: number) => {
 
 			return result;
 		},
-		[entityId],
+		[entityId, range.startDate, range.endDate],
 		{},
 		"Failed to fetch entity financial summary"
 	);
