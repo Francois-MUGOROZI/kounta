@@ -4,6 +4,7 @@ import { emitEvent, EVENTS } from "../utils/events";
 import { BillsRepository } from "./BillsRepository";
 import { attachTags } from "./TagRepository";
 import { LOCAL_DAY_SQL, toLocalISODate, parseLocalDate } from "../utils/date";
+import { receivableCollection, receivableTypeDef } from "../constants/receivableTypes";
 
 // Thousands separators for amounts quoted in validation messages.
 const fmt = (n: number) => n.toLocaleString("en-US");
@@ -216,25 +217,55 @@ type ReceivableSnapshot = {
 	status: string;
 	requires_outflow: number;
 	principal: number;
+	type: string;
+	entity_id: number;
 };
+
+type ReceivableMovement = "lend" | "collect";
+
+// Classifies a receivable-linked transaction, rejecting shapes the model doesn't allow.
+// Collecting is a Transfer (money already yours coming back) or Income (earned
+// money arriving late), depending on the receivable's type.
+function receivableMovementFor(
+	typeName: string,
+	receivableType: string,
+	fromAccountId: number | null | undefined,
+	toAccountId: number | null | undefined
+): ReceivableMovement {
+	if (typeName === "Transfer" && fromAccountId && !toAccountId) return "lend";
+	if ((typeName === "Transfer" || typeName === "Income") && toAccountId && !fromAccountId) {
+		const expected = receivableCollection(receivableType) === "income" ? "Income" : "Transfer";
+		if (typeName !== expected) {
+			const label = receivableTypeDef(receivableType)?.label ?? receivableType;
+			throw new Error(
+				expected === "Income"
+					? `${label} is money you earned: record its collection as Income so it counts in your income`
+					: `${label} is your own money coming back: record its collection as a Transfer`
+			);
+		}
+		return "collect";
+	}
+	if (typeName === "Income") {
+		throw new Error("Income collected from a receivable needs the account it was received into");
+	}
+	throw new Error(`This ${typeName.toLowerCase()} can't be linked to a receivable`);
+}
 
 async function applyReceivableSideEffect(
 	db: SQLiteDatabase,
-	typeName: string,
+	movement: ReceivableMovement,
 	amount: number,
 	receivableId: number,
-	receivable: ReceivableSnapshot,
-	fromAccountId: number | null | undefined,
-	toAccountId: number | null | undefined
+	receivable: ReceivableSnapshot
 ): Promise<void> {
-	if (typeName === "Transfer" && fromAccountId && !toAccountId) {
+	if (movement === "lend") {
 		// Lending: Account → Receivable — activates the receivable at its principal
 		await db.runAsync(
 			"UPDATE receivables SET current_balance = ?, status = 'Active' WHERE id = ?",
 			[receivable.principal, receivableId]
 		);
-	} else if (typeName === "Transfer" && toAccountId && !fromAccountId) {
-		// Payment received: Receivable → Account
+	} else {
+		// Collection: Receivable → Account (Transfer or Income)
 		// amount has already been validated to not exceed current_balance
 		const newBalance = Math.max(0, receivable.current_balance - amount);
 		const newStatus = newBalance === 0 ? "Settled" : "Active";
@@ -288,8 +319,9 @@ export async function insertTransaction(
 		envelope_id = null,
 		bill_id = null,
 		receivable_id = null,
-		entity_id = null,
+		entity_id: requestedEntityId = null,
 	} = transaction;
+	let entity_id = requestedEntityId;
 
 	// ── Step 1: Resolve transaction type name ─────────────────────────────
 	const typeRow = await db.getFirstAsync<{ name: string }>(
@@ -317,17 +349,28 @@ export async function insertTransaction(
 
 	// ── Step 2: Pre-fetch and validate — ALL checks before any DB write ───
 	let receivable: ReceivableSnapshot | null = null;
+	let receivableMovement: ReceivableMovement | null = null;
 
 	if (receivable_id) {
 		receivable = await db.getFirstAsync<ReceivableSnapshot>(
-			"SELECT current_balance, status, requires_outflow, principal FROM receivables WHERE id = ?",
+			"SELECT current_balance, status, requires_outflow, principal, type, entity_id FROM receivables WHERE id = ?",
 			[receivable_id]
 		);
 		if (!receivable) {
 			throw new Error(`Receivable #${receivable_id} not found`);
 		}
 
-		if (typeName === "Transfer" && from_account_id && !to_account_id) {
+		receivableMovement = receivableMovementFor(typeName, receivable.type, from_account_id, to_account_id);
+		if (asset_id) {
+			throw new Error("A receivable transaction can't also be linked to an asset");
+		}
+		// Money to or from a receivable always involves whoever owes it.
+		if (entity_id && entity_id !== receivable.entity_id) {
+			throw new Error("This receivable belongs to someone else; pick the entity that owes it");
+		}
+		entity_id = receivable.entity_id;
+
+		if (receivableMovement === "lend") {
 			// Lending path: Account → Receivable
 			if (!receivable.requires_outflow) {
 				throw new Error(
@@ -344,11 +387,17 @@ export async function insertTransaction(
 					`Lending amount must equal the principal (${fmt(receivable.principal)})`
 				);
 			}
-		} else if (typeName === "Transfer" && to_account_id && !from_account_id) {
-			// Payment received: Receivable → Account
+		} else {
+			// Collection: Receivable → Account
 			if (receivable.status !== "Active") {
 				throw new Error(
 					`Cannot receive payment on a ${receivable.status} receivable`
+				);
+			}
+			if (amount > receivable.current_balance && typeName === "Income") {
+				throw new Error(
+					`Amount (${fmt(amount)}) exceeds what is still owed (${fmt(receivable.current_balance)}). ` +
+					`Record ${fmt(receivable.current_balance)} here, then add the extra as separate Income.`
 				);
 			}
 			if (amount > receivable.current_balance) {
@@ -447,11 +496,8 @@ export async function insertTransaction(
 		);
 	}
 
-	if (receivable_id && receivable) {
-		await applyReceivableSideEffect(
-			db, typeName, amount, receivable_id, receivable,
-			from_account_id, to_account_id
-		);
+	if (receivable_id && receivable && receivableMovement) {
+		await applyReceivableSideEffect(db, receivableMovement, amount, receivable_id, receivable);
 	}
 
 	return insertedId;

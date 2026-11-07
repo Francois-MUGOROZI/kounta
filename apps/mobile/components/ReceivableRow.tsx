@@ -7,24 +7,22 @@ import IconBadge from "./ui/IconBadge";
 import AmountText from "./ui/AmountText";
 import ProgressBar from "./ui/ProgressBar";
 import { Receivable, ReceivableStatus, ReceivableType } from "../types";
+import { RECEIVABLE_TYPE_DEFS, RECEIVABLE_TYPE_KEYS, receivableTypeDef } from "../constants/receivableTypes";
 import { formatAmount } from "../utils/currency";
 import { daysUntil } from "../utils/date";
 import { AppTheme, radius, spacing, useKTheme } from "../theme/theme";
 
 /* ───────────── Shared receivable presentation helpers ───────────── */
 
-export const RECEIVABLE_TYPES: Option<ReceivableType>[] = [
-	{ value: "Loan", label: "Loan", description: "Money you lent", icon: "account-cash-outline" },
-	{ value: "Accrued-Income", label: "Accrued income", description: "Earned, not yet paid: salary, invoices, interest", icon: "briefcase-outline" },
-	{ value: "Refund", label: "Refund", description: "Money owed back to you", icon: "cash-refund" },
-	{ value: "Refundable-Deposit", label: "Refundable deposit", description: "Security deposit you'll get back: rent, utilities", icon: "safe" },
-];
+export const RECEIVABLE_TYPES: Option<ReceivableType>[] = RECEIVABLE_TYPE_KEYS.map((value) => {
+	const { label, description, icon } = RECEIVABLE_TYPE_DEFS[value];
+	return { value, label, description, icon };
+});
 
-export const receivableTypeLabel = (type: ReceivableType) =>
-	RECEIVABLE_TYPES.find((t) => t.value === type)?.label ?? type;
+export const receivableTypeLabel = (type: ReceivableType) => receivableTypeDef(type)?.label ?? type;
 
 export const receivableTypeIcon = (type: ReceivableType): IconName =>
-	RECEIVABLE_TYPES.find((t) => t.value === type)?.icon ?? "hand-coin-outline";
+	receivableTypeDef(type)?.icon ?? "hand-coin-outline";
 
 export const receivableStatusLabel = (status: ReceivableStatus) =>
 	status === "Written-Off" ? "Written off" : status;

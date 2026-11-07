@@ -94,13 +94,10 @@ export interface LiabilityType {
 }
 
 /**
- * Receivable type enum — categorizes what kind of receivable this is.
+ * Receivable type — defined in constants/receivableTypes.ts.
  */
-export type ReceivableType =
-	| "Loan"
-	| "Accrued-Income"
-	| "Refund"
-	| "Refundable-Deposit";
+import type { ReceivableType } from "./constants/receivableTypes";
+export type { ReceivableType };
 
 /**
  * Receivable status enum

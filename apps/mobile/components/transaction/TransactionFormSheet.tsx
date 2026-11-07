@@ -32,6 +32,7 @@ import { useGetReceivables } from "../../hooks/receivable/useGetReceivables";
 import { useGetEntities } from "../../hooks/entity/useGetEntities";
 import { useGetTags } from "../../hooks/tag/useGetTags";
 import TagField from "./TagField";
+import { receivableCollection } from "../../constants/receivableTypes";
 
 export type TransactionKindName = "Expense" | "Income" | "Transfer";
 
@@ -135,8 +136,13 @@ const FormBody: React.FC<FormBodyProps> = ({ preset, onCancel, onSubmit }) => {
 		category: preset.categoryId != null,
 		direction: preset.transferDirection != null,
 	};
+	// Earned money that arrived late (e.g. a late salary) is collected as Income.
+	const presetReceivable = receivables.find((r) => r.id === preset.receivableId);
+	const collectsAsIncome = !!presetReceivable && receivableCollection(presetReceivable.type) === "income";
 	const allowedTypes: TransactionKindName[] =
-		locked.direction || locked.receivable
+		collectsAsIncome
+			? ["Income"]
+			: locked.direction || locked.receivable
 			? ["Transfer"]
 			: locked.envelope || locked.liability || locked.bill
 			? ["Expense"]
@@ -231,6 +237,8 @@ const FormBody: React.FC<FormBodyProps> = ({ preset, onCancel, onSubmit }) => {
 		const status = direction === "account-to-receivable" ? "Pending" : "Active";
 		return receivables
 			.filter((r) => r.status === status)
+			// Collections on earned-income receivables are recorded as Income, not here.
+			.filter((r) => status === "Pending" || r.id === preset.receivableId || receivableCollection(r.type) === "transfer")
 			.map((r) => ({
 				value: r.id,
 				label: r.title,
@@ -240,7 +248,7 @@ const FormBody: React.FC<FormBodyProps> = ({ preset, onCancel, onSubmit }) => {
 						: `Outstanding ${formatAmount(r.current_balance, r.currency)}`,
 				icon: "hand-coin-outline",
 			}));
-	}, [receivables, direction]);
+	}, [receivables, direction, preset.receivableId]);
 
 	const envelopeOptions = useMemo<Option<number>[]>(
 		() =>
@@ -306,8 +314,10 @@ const FormBody: React.FC<FormBodyProps> = ({ preset, onCancel, onSubmit }) => {
 	const showAssetForTransfer =
 		isTransfer &&
 		["account-to-asset", "asset-to-account", "reinvest-into-asset"].includes(direction);
+	const isReceivableIncome = type === "Income" && locked.receivable && !!receivableId;
 	const showReceivable =
-		isTransfer && ["account-to-receivable", "receivable-to-account"].includes(direction);
+		isReceivableIncome ||
+		(isTransfer && ["account-to-receivable", "receivable-to-account"].includes(direction));
 	const showLiabilityForTransfer = isTransfer && direction === "account-to-liability";
 
 	const currency = useMemo(() => {
@@ -342,6 +352,10 @@ const FormBody: React.FC<FormBodyProps> = ({ preset, onCancel, onSubmit }) => {
 	}, [direction, receivableId, receivables]);
 
 	const repaymentHint = useMemo(() => {
+		if (isReceivableIncome) {
+			const rcv = receivables.find((r) => r.id === receivableId);
+			return rcv ? `Outstanding: ${formatAmount(rcv.current_balance, rcv.currency)}` : undefined;
+		}
 		if (!isTransfer) return undefined;
 		if (direction === "account-to-liability") {
 			const lia = liabilities.find((l) => l.id === liabilityId);
@@ -350,7 +364,7 @@ const FormBody: React.FC<FormBodyProps> = ({ preset, onCancel, onSubmit }) => {
 		if (direction !== "receivable-to-account") return undefined;
 		const rcv = receivables.find((r) => r.id === receivableId);
 		return rcv ? `Outstanding: ${formatAmount(rcv.current_balance, rcv.currency)}` : undefined;
-	}, [direction, isTransfer, receivables, receivableId, liabilities, liabilityId]);
+	}, [direction, isTransfer, isReceivableIncome, receivables, receivableId, liabilities, liabilityId]);
 
 	const currencyMismatch = useMemo(() => {
 		if (!isTransfer || direction !== "account-to-account") return false;
@@ -496,7 +510,8 @@ const FormBody: React.FC<FormBodyProps> = ({ preset, onCancel, onSubmit }) => {
 			}
 		} else if (type === "Income") {
 			to = toId(toAccountId);
-			asset = toId(assetId);
+			if (isReceivableIncome) receivable = toId(receivableId);
+			else asset = toId(assetId);
 		} else {
 			from = isLiabilityCharge ? undefined : toId(fromAccountId);
 			asset = toId(assetId);
@@ -518,9 +533,12 @@ const FormBody: React.FC<FormBodyProps> = ({ preset, onCancel, onSubmit }) => {
 					liability_id: isLiabilityCharge || showLiabilityForTransfer ? toId(liabilityId) : undefined,
 					envelope_id: type === "Expense" && !isLiabilityCharge ? toId(envelopeId) : undefined,
 					bill_id: type === "Expense" ? toId(billId) : undefined,
-					entity_id: !isTransfer ? toId(entityId) : undefined,
+					// Receivable transactions always take the receivable's entity (set by the repository).
+					entity_id: !isTransfer && !isReceivableIncome ? toId(entityId) : undefined,
 				},
-				successMessageFor(type, direction, preset.billId === billId && !!billId),
+				isReceivableIncome
+					? "Collection recorded"
+					: successMessageFor(type, direction, preset.billId === billId && !!billId),
 				tags
 			);
 			if (type === "Expense" && from) lastAccount.Expense = from;
@@ -599,7 +617,13 @@ const FormBody: React.FC<FormBodyProps> = ({ preset, onCancel, onSubmit }) => {
 
 			{showReceivable ? (
 				<SelectField
-					label={direction === "account-to-receivable" ? "Lend to (receivable)" : "Repayment of"}
+					label={
+						isReceivableIncome
+							? "Collecting"
+							: direction === "account-to-receivable"
+							? "Lend to (receivable)"
+							: "Repayment of"
+					}
 					value={receivableId}
 					options={receivableOptions}
 					onChange={setReceivableId}
@@ -607,7 +631,9 @@ const FormBody: React.FC<FormBodyProps> = ({ preset, onCancel, onSubmit }) => {
 					locked={locked.receivable}
 					error={errors.receivable}
 					helper={
-						direction === "account-to-receivable"
+						isReceivableIncome
+							? "Counted as income when it arrives."
+							: direction === "account-to-receivable"
 							? "The amount must equal the receivable's principal."
 							: undefined
 					}
@@ -738,16 +764,18 @@ const FormBody: React.FC<FormBodyProps> = ({ preset, onCancel, onSubmit }) => {
 					</Pressable>
 					{showMore ? (
 						<View style={styles.moreBody}>
-							<SelectField
-								label="Asset"
-								value={assetId}
-								options={assetOptions}
-								onChange={setAssetId}
-								icon="diamond-stone"
-								locked={locked.asset}
-								clearable
-								emptyMessage="No assets yet."
-							/>
+							{isReceivableIncome ? null : (
+								<SelectField
+									label="Asset"
+									value={assetId}
+									options={assetOptions}
+									onChange={setAssetId}
+									icon="diamond-stone"
+									locked={locked.asset}
+									clearable
+									emptyMessage="No assets yet."
+								/>
+							)}
 							<SelectField
 								label="Entity"
 								value={entityId}

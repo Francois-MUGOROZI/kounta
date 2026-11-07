@@ -17,6 +17,7 @@ import { useConfirm } from "../components/ui/Confirm";
 import TransactionSectionList, { useDescribedTransactions } from "../components/TransactionSectionList";
 import PeriodPicker, { usePeriodRows } from "../components/PeriodPicker";
 import { periodLabel } from "../constants/periods";
+import { receivableCollection } from "../constants/receivableTypes";
 import ReceivableFormSheet, { ReceivableFormValues } from "../components/ReceivableFormSheet";
 import {
 	ReceivableStatusPill,
@@ -136,6 +137,8 @@ const ReceivableDetailScreen = () => {
 		}
 	};
 
+	// Late earnings (e.g. salary) count as income when collected; loans come back as transfers.
+	const collectsAsIncome = receivableCollection(receivable.type) === "income";
 	const actions: RowAction[] = [];
 	if (awaitingFunds) {
 		actions.push({
@@ -148,11 +151,16 @@ const ReceivableDetailScreen = () => {
 	}
 	if (receivable.status === "Active") {
 		actions.push({
-			label: "Record repayment",
+			label: collectsAsIncome ? "Record payment" : "Record repayment",
 			icon: "cash-check",
 			color: theme.custom.income,
 			background: theme.custom.incomeContainer,
-			onPress: () => openComposer({ type: "Transfer", transferDirection: "receivable-to-account", receivableId: receivable.id }),
+			onPress: () =>
+				openComposer(
+					collectsAsIncome
+						? { type: "Income", receivableId: receivable.id, entityId: receivable.entity_id }
+						: { type: "Transfer", transferDirection: "receivable-to-account", receivableId: receivable.id }
+				),
 		});
 	}
 	if (isOpen) {

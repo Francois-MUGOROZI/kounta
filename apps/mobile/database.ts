@@ -9,6 +9,7 @@ import {
 	DEFAULT_EXPENSE_CATEGORIES,
 	DEFAULT_INCOME_CATEGORIES,
 } from "./constants/defaultCategories";
+import { INCOME_COLLECTION_TYPES } from "./constants/receivableTypes";
 
 // Database initialization and seeding
 export async function initDatabase(db: any) {
@@ -236,6 +237,57 @@ export async function initDatabase(db: any) {
 
 	await seedTypeTables(db);
 	await seedCategories(db);
+	await migrateReceivableTransactions(db);
+}
+
+// Brings older receivable transactions in line with the current rules. Safe to
+// run on every launch: rows already migrated no longer match.
+//  1. Every receivable transaction carries the receivable's entity.
+//  2. Collections on earned-income receivables (e.g. a late salary) were saved
+//     as Transfers and never counted as income; they become Income. Account
+//     and receivable balances are unchanged (both types credit the account).
+export async function migrateReceivableTransactions(db: any) {
+	try {
+		await db.runAsync(
+			`UPDATE transactions
+			 SET entity_id = (SELECT r.entity_id FROM receivables r WHERE r.id = transactions.receivable_id)
+			 WHERE receivable_id IS NOT NULL AND entity_id IS NULL`
+		);
+
+		const income = await db.getFirstAsync(
+			"SELECT id FROM transaction_types WHERE name = 'Income'"
+		);
+		const transfer = await db.getFirstAsync(
+			"SELECT id FROM transaction_types WHERE name = 'Transfer'"
+		);
+		if (!income || !transfer || INCOME_COLLECTION_TYPES.length === 0) return;
+
+		const typePlaceholders = INCOME_COLLECTION_TYPES.map(() => "?").join(", ");
+		const categoryFor = (name: string) =>
+			`(SELECT c.id FROM categories c WHERE c.name = '${name}' AND c.transaction_type_id = ${Number(income.id)})`;
+		// Salaries go to "Salary & Wages"; anything else earned to "Other Income".
+		const resolvedCategory = `(SELECT CASE
+				WHEN LOWER(r.title || ' ' || COALESCE(r.notes, '')) LIKE '%salary%'
+					THEN COALESCE(${categoryFor("Salary & Wages")}, ${categoryFor("Other Income")})
+				ELSE ${categoryFor("Other Income")}
+			END FROM receivables r WHERE r.id = transactions.receivable_id)`;
+
+		await db.runAsync(
+			`UPDATE transactions
+			 SET transaction_type_id = ?,
+			     entity_id = COALESCE(entity_id, (SELECT r.entity_id FROM receivables r WHERE r.id = transactions.receivable_id)),
+			     category_id = COALESCE(category_id, ${resolvedCategory})
+			 WHERE transaction_type_id = ?
+			   AND to_account_id IS NOT NULL
+			   AND from_account_id IS NULL
+			   AND receivable_id IN (SELECT id FROM receivables WHERE type IN (${typePlaceholders}))
+			   AND COALESCE(category_id, ${resolvedCategory}) IS NOT NULL`,
+			[income.id, transfer.id, ...INCOME_COLLECTION_TYPES]
+		);
+	} catch (e) {
+		// Never block app start on a data fix-up; it retries next launch.
+		console.warn("Receivable transaction migration skipped", e);
+	}
 }
 
 // Seed type tables on a fresh install. Account, asset and liability types are

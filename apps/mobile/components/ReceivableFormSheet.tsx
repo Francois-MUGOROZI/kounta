@@ -6,6 +6,7 @@ import { AmountField, DateField, SelectField, TextField } from "./ui/fields";
 import { FormActions, useSheetSession, useSubmit } from "./ui/form";
 import type { Option } from "./ui/Dropdown";
 import { RECEIVABLE_TYPES } from "./ReceivableRow";
+import { RECEIVABLE_TYPE_DEFS } from "../constants/receivableTypes";
 import { getCurrencyPickerOptions } from "../constants/currencies";
 import { Entity, Receivable, ReceivableType } from "../types";
 import { formatAmount } from "../utils/currency";
@@ -79,7 +80,7 @@ const Body: React.FC<Omit<ReceivableFormSheetProps, "visible">> = ({
 	const changeType = (next: ReceivableType | null) => {
 		setType(next);
 		// A loan usually starts Pending until money is transferred out.
-		if (!editing && next) setRequiresOutflow(next === "Loan");
+		if (!editing && next) setRequiresOutflow(RECEIVABLE_TYPE_DEFS[next].requiresOutflowByDefault);
 	};
 
 	const { submit, saving, error } = useSubmit(async () => {
