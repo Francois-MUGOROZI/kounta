@@ -17,10 +17,13 @@ import PeriodPicker, { usePeriodRows } from "../components/PeriodPicker";
 import { periodLabel } from "../constants/periods";
 import EnvelopeFormSheet, { EnvelopeFormValues } from "../components/EnvelopeFormSheet";
 import EnvelopeTopUpSheet from "../components/EnvelopeTopUpSheet";
+import EnvelopeMoveSheet from "../components/EnvelopeMoveSheet";
 import { useQuery } from "../hooks/useQuery";
 import { useGetTransactions } from "../hooks/transaction/useGetTransactions";
 import { useUpdateEnvelope } from "../hooks/envelope/useUpdateEnvelope";
 import { useAddToEnvelope } from "../hooks/envelope/useAddToEnvelope";
+import { useGetEnvelopes } from "../hooks/envelope/useGetEnvelope";
+import { canMoveFrom, moveTargets, useMoveBetweenEnvelopes } from "../hooks/envelope/useMoveBetweenEnvelopes";
 import { useTransactionComposer } from "../contexts/TransactionComposer";
 import { EnvelopeRepository } from "../repositories/EnvelopeRepository";
 import { Envelope, RootStackParamList } from "../types";
@@ -41,6 +44,9 @@ const EnvelopeDetailScreen = () => {
 	const { addToEnvelope } = useAddToEnvelope();
 	const [editVisible, setEditVisible] = useState(false);
 	const [topUpVisible, setTopUpVisible] = useState(false);
+	const [moveVisible, setMoveVisible] = useState(false);
+	const { moveBetweenEnvelopes } = useMoveBetweenEnvelopes();
+	const { envelopes } = useGetEnvelopes();
 
 	const { data: envelope, loading, error, refresh } = useQuery<Envelope | null>(
 		(db) => EnvelopeRepository.getById(db, envelopeId),
@@ -90,6 +96,8 @@ const EnvelopeDetailScreen = () => {
 	const usage = envelope.total_amount > 0 ? spent / envelope.total_amount : 0;
 	const overspent = envelope.current_balance < 0;
 	const tone = envelopeTone(envelope);
+	const targets = moveTargets(envelope, envelopes);
+	const canMove = canMoveFrom(envelope, envelopes);
 
 	const header = (
 		<View>
@@ -132,11 +140,12 @@ const EnvelopeDetailScreen = () => {
 						onPress: () => setTopUpVisible(true),
 					},
 					{
-						label: "Edit",
-						icon: "pencil-outline",
-						color: theme.colors.onSurfaceVariant,
-						background: theme.colors.surfaceVariant,
-						onPress: () => setEditVisible(true),
+						label: "Move",
+						icon: "swap-horizontal",
+						color: theme.colors.onSecondaryContainer,
+						background: theme.colors.secondaryContainer,
+						onPress: () => setMoveVisible(true),
+						disabled: !canMove,
 					},
 				]}
 			/>
@@ -179,6 +188,12 @@ const EnvelopeDetailScreen = () => {
 		toast.success(`Added ${formatAmount(amount, env.currency)}`);
 	};
 
+	const handleMove = async (from: Envelope, to: Envelope, amount: number) => {
+		await moveBetweenEnvelopes(from.id, to.id, amount);
+		setMoveVisible(false);
+		toast.success(`Moved ${formatAmount(amount, from.currency)} to ${to.name}`);
+	};
+
 	return (
 		<View style={[styles.fill, { backgroundColor: theme.colors.background }]}>
 			<TransactionSectionList
@@ -207,6 +222,13 @@ const EnvelopeDetailScreen = () => {
 			/>
 			<EnvelopeFormSheet visible={editVisible} onDismiss={() => setEditVisible(false)} envelope={envelope} onSubmit={handleEdit} />
 			<EnvelopeTopUpSheet visible={topUpVisible} envelope={envelope} onDismiss={() => setTopUpVisible(false)} onSubmit={handleTopUp} />
+			<EnvelopeMoveSheet
+				visible={moveVisible}
+				envelope={envelope}
+				targets={targets}
+				onDismiss={() => setMoveVisible(false)}
+				onSubmit={handleMove}
+			/>
 		</View>
 	);
 };

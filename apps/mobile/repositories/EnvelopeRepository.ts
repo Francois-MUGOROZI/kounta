@@ -60,4 +60,46 @@ export const EnvelopeRepository = {
 		);
 		emitEvent(EVENTS.DATA_CHANGED);
 	},
+
+	/**
+	 * Rebalances allocation: shrinks the source's budget and balance by `amount`
+	 * and grows the target's by the same. What each envelope has spent, and the
+	 * per-currency totals, stay the same. Only available (unspent) money moves.
+	 */
+	async move(
+		db: SQLiteDatabase,
+		fromId: number,
+		toId: number,
+		amount: number
+	): Promise<void> {
+		if (!(amount > 0)) throw new Error("Enter an amount greater than zero");
+		if (fromId === toId) throw new Error("Choose a different envelope to move to");
+
+		await db.execAsync("BEGIN");
+		try {
+			const from = await db.getFirstAsync<Envelope>("SELECT * FROM envelopes WHERE id = ?", [fromId]);
+			const to = await db.getFirstAsync<Envelope>("SELECT * FROM envelopes WHERE id = ?", [toId]);
+			if (!from || !to) throw new Error("Envelope not found");
+			if (from.currency !== to.currency) {
+				throw new Error("Money can only move between envelopes in the same currency");
+			}
+			const taken = await db.runAsync(
+				`UPDATE envelopes SET total_amount = total_amount - ?, current_balance = current_balance - ?
+				 WHERE id = ? AND current_balance >= ?`,
+				[amount, amount, fromId, amount]
+			);
+			if (taken.changes !== 1) {
+				throw new Error(`${from.name} doesn't have that much available`);
+			}
+			await db.runAsync(
+				`UPDATE envelopes SET total_amount = total_amount + ?, current_balance = current_balance + ? WHERE id = ?`,
+				[amount, amount, toId]
+			);
+			await db.execAsync("COMMIT");
+		} catch (e) {
+			await db.execAsync("ROLLBACK");
+			throw e;
+		}
+		emitEvent(EVENTS.DATA_CHANGED);
+	},
 };
