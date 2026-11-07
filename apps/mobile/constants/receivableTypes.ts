@@ -53,7 +53,3 @@ export const receivableTypeDef = (type: string): ReceivableTypeDef | undefined =
 /** Unknown or legacy types fall back to "transfer", the historical behaviour. */
 export const receivableCollection = (type: string): ReceivableTypeDef["collection"] =>
 	receivableTypeDef(type)?.collection ?? "transfer";
-
-export const INCOME_COLLECTION_TYPES = RECEIVABLE_TYPE_KEYS.filter(
-	(t) => RECEIVABLE_TYPE_DEFS[t].collection === "income"
-);
